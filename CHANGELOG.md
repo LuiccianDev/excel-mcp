@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.3] - 2026-11-09
+
+### Fixed
+- **PyPI Provenance Publishing**: Integrated the official PyPA `pypa/gh-action-pypi-publish@release/v1` in `.github/workflows/publish-pypi.yml` to automatically generate Sigstore cryptographic digital attestations (PEP 740) and publish distributions to PyPI under Trusted Publishing (OIDC).
+
+---
+
 ## [2.1.2] - 2026-11-09
 
 ### Changed
