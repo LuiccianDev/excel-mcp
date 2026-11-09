@@ -47,15 +47,12 @@ jobs:
         with:
           subject-path: "dist/*"
 
-      - name: Generate PEP 740 Digital Attestations for PyPI (Sigstore)
-        uses: astral-sh/attest-action@v0
-        with:
-          paths: "dist/*"
-
-      - name: Publish to PyPI (Production via OIDC)
+      - name: Publish to PyPI (Production via OIDC + PEP 740 Attestations)
         if: ${{ (github.event.inputs.target_env || 'pypi') == 'pypi' }}
-        run: uv publish
+        uses: pypa/gh-action-pypi-publish@release/v1
 
       - name: Publish to TestPyPI
         if: ${{ github.event.inputs.target_env == 'testpypi' }}
-        run: uv publish --publish-url https://test.pypi.org/legacy/
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
