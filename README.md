@@ -10,7 +10,7 @@
   [![CodeQL](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml/badge.svg)](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml)
   [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
   [![Rules for AI](https://img.shields.io/badge/rules-AGENTS.md-blue.svg)](AGENTS.md)
-  [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+  [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
   [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-brightgreen)](https://modelcontextprotocol.io)
 
 </div>
@@ -187,4 +187,4 @@ uv run pytest
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [Apache License 2.0](LICENSE).
