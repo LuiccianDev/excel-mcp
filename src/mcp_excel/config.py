@@ -141,9 +141,9 @@ class MCPExcelConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=False,  # Cambiar a False para mayor compatibilidad
+        case_sensitive=False,  # Set to False for broader compatibility
         extra="ignore",
-        env_prefix="",  # Sin prefijo para las variables de entorno
+        env_prefix="",  # No prefix for environment variables
     )
 
     def __init__(self, **kwargs: Any) -> None:

@@ -1,92 +1,84 @@
+# Excel MCP Server - Docker Deployment Guide
 
-# MCP Excel Office
-
-This repository implements an MCP (Model Context Protocol) component designed to read, create, and modify Microsoft Excel files automatically.
-Below you will find the steps to build the Docker image and connect it with Claude Desktop as an MCP tool via `stdio`.
+This document describes how to containerize and run the `excel-mcp` (PyPI: `luiccian-excel-mcp`) Model Context Protocol server using Docker, enabling secure `stdio` communication with MCP clients such as Claude Desktop and Cursor.
 
 ---
 
-## 1. **Build the Docker Image**
+## 1. Build the Docker Image
 
-1. Open a terminal in the project root.
+1. Open a terminal in the project root directory.
 
-2. Run the following command to build the Docker image:
+2. Build the Docker container image:
 
    ```bash
-   docker build -t mcp-excel-server .
+   docker build -t excel-mcp .
    ```
 
-   This creates the image named `mcp-excel-server` with all requirements installed.
+   This builds the `excel-mcp` image with all required dependencies installed via Astral `uv`.
 
 ---
 
-## 2. **Run the MCP Excel Office Server with Docker**
+## 2. Run the Excel MCP Server with Docker
 
-To launch the container and allow communication via standard input/output (`stdio`):
+To launch the container interactively over standard input/output (`stdio`):
 
 ```bash
 docker run --rm -i \
-  -v /path/to/your/documents:/documents \
-  -e MCP_ALLOWED_DIRECTORIES="/documents" \
-  mcp-excel-server
+  -v /path/to/your/spreadsheets:/spreadsheets \
+  -e MCP_ALLOWED_DIRECTORIES="/spreadsheets" \
+  excel-mcp
 ```
 
-- `-i`: Allows the container to accept communication via stdio.
-- `-v`: Mounts the folder with Excel documents. **Change `/path/to/your/documents` to the path where your files are located**.
-- `-e MCP_ALLOWED_DIRECTORIES`: Restricts access to the mounted folder for greater security.
+- `-i`: Kept interactive so the container accepts JSON-RPC messages via `stdio`.
+- `-v`: Mounts the local directory containing spreadsheets. **Replace `/path/to/your/spreadsheets` with your local folder path**.
+- `-e MCP_ALLOWED_DIRECTORIES`: Restricts server file operations strictly to the mounted volume for defense-in-depth security.
 
 ---
 
-## 3. **Integration with Claude Desktop**
+## 3. Integration with Claude Desktop
 
-For Claude Desktop (or any MCP-compatible client via stdio) to automatically launch the MCP Word Office server and communicate via standard input/output, add the following configuration to the MCP tools file in Claude Desktop:
+Add the following block to your `claude_desktop_config.json`:
 
 ```json
 {
-  "mcp-excel": {
-    "command": "docker",
-    "args": [
-      "run", "--rm", "-i",
-      "-v", "/path/to/your/documents:/documents",
-      "--name", "mcp-excel",
-      "-e", "MCP_ALLOWED_DIRECTORIES=/documents",
-      "mcp-excel-server"
-    ],
-    "type": "stdio"
+  "mcpServers": {
+    "excel-mcp": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-v", "/path/to/your/spreadsheets:/spreadsheets",
+        "-e", "MCP_ALLOWED_DIRECTORIES=/spreadsheets",
+        "excel-mcp"
+      ]
+    }
   }
 }
 ```
 
-- **Adjust the path `/path/to/your/documents` according to your system.**
-- The type `"stdio"` indicates that communication will be via standard input/output, not over the network.
+> [!NOTE]
+> Adjust `/path/to/your/spreadsheets` according to your local operating system path.
 
 ---
 
-## 4. **Usage Flow**
+## 4. Usage Flow
 
-1. Start Claude Desktop.
-2. Claude runs the above Docker command to launch the MCP Excel Office server.
-3. All communication occurs via stdio (no need to open or configure ports).
-4. You can manipulate Excel (.xlsx) files directly from Claude Desktop using natural commands.
-
----
-
-## 5. **Recommendations and Security**
-
-- Use the environment variable `MCP_ALLOWED_DIRECTORIES` to restrict access only to the necessary folder.
-- Share only the required volumes.
-- Check the permissions of shared files.
-- There is no need to open firewall ports or configure networks.
+1. Launch Claude Desktop or any MCP-compliant client.
+2. The client spawns the Docker process using the configured arguments.
+3. Communication occurs over `stdio` without exposing network ports.
+4. You can create, read, batch-edit, format, and audit Excel (`.xlsx`) workbooks using natural language.
 
 ---
 
-## 6. **Resources**
+## 5. Security & Isolation
 
-- [MCP Protocol](https://modelcontextprotocol.io)
-- [Claude Desktop](https://www.anthropic.com/)
-- [MCP Word Office repository on GitHub](https://github.com/LuiccianDev/mcp_word_office)
+- **Directory Boundary:** Always specify `MCP_ALLOWED_DIRECTORIES` to confine file operations strictly to mounted directories.
+- **Symlink Protection:** The server resolves all paths and symlinks to prevent path traversal outside designated volumes.
+- **Least Privilege:** Mount volumes as read-only (`:ro`) if only inspection and analysis tools are required.
 
 ---
 
-Do you have questions or need practical examples of Word manipulation?
-Leave them in the Issues section of the repository.
+## 6. Resources
+
+- [Model Context Protocol Specification](https://modelcontextprotocol.io)
+- [excel-mcp GitHub Repository](https://github.com/LuiccianDev/excel-mcp)
+- [luiccian-excel-mcp on PyPI](https://pypi.org/project/luiccian-excel-mcp/)

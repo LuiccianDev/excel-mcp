@@ -1,10 +1,10 @@
 """
-Tests específicos de seguridad para validación de rutas y symlinks.
+Security-focused test suite for path validation and symlink security.
 
-Estos tests verifican que el sistema de validación de rutas:
-1. Resuelve symlinks antes de validar (evita symlink attacks)
-2. Bloquea path traversal attempts
-3. Valida correctamente rutas relativas y absolutas
+These tests verify that the path validation subsystem:
+1. Resolves symlinks prior to validation (prevents symlink attacks)
+2. Blocks path traversal attempts
+3. Correctly validates relative and absolute file paths
 """
 
 import os
@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 import pytest
 
-# Importar funciones a testear
+# Functions under test
 from excel_mcp.utils.file_utils import (
     _get_allowed_directories,
     _is_path_in_allowed_directories,
@@ -24,31 +24,31 @@ from excel_mcp.utils.file_utils import (
 
 
 class TestSymlinkSecurity:
-    """Tests para verificar protección contra symlink attacks."""
+    """Test suite to verify protection against symlink attacks."""
 
     def test_symlink_outside_allowed_directory_blocked(self):
-        """Test que symlinks apuntando fuera del directorio permitido son bloqueados."""
+        """Test that symlinks pointing outside allowed directories are blocked."""
         with tempfile.TemporaryDirectory() as allowed_dir:
             with tempfile.TemporaryDirectory() as outside_dir:
-                # Crear archivo fuera del directorio permitido
+                # Create sensitive file outside allowed directory
                 outside_file = os.path.join(outside_dir, "secret.txt")
                 with open(outside_file, "w") as f:
                     f.write("secret data")
 
-                # Crear symlink dentro del directorio permitido
+                # Create symlink inside allowed directory pointing outside
                 symlink_path = os.path.join(allowed_dir, "malicious_link")
 
-                # Crear symlink (solo en sistemas que lo soportan)
+                # Create symlink (only on supported platforms)
                 try:
                     os.symlink(outside_file, symlink_path)
                 except (OSError, NotImplementedError):
                     pytest.skip("Symlinks not supported on this platform")
 
-                # Simular que el directorio permitido es allowed_dir
+                # Mock allowed directory to allowed_dir
                 with patch(
                     "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
                 ):
-                    # Intentar validar el symlink - debería fallar
+                    # Attempt to validate symlink - must fail
                     is_allowed, error = _is_path_in_allowed_directories(symlink_path)
 
                     assert not is_allowed, (
@@ -60,14 +60,14 @@ class TestSymlinkSecurity:
                     )
 
     def test_symlink_inside_allowed_directory_allowed(self):
-        """Test que symlinks apuntando dentro del directorio permitido son permitidos."""
+        """Test that symlinks pointing within allowed directories are permitted."""
         with tempfile.TemporaryDirectory() as allowed_dir:
-            # Crear archivo dentro del directorio permitido
+            # Create legitimate file inside allowed directory
             inside_file = os.path.join(allowed_dir, "real_file.txt")
             with open(inside_file, "w") as f:
                 f.write("data")
 
-            # Crear symlink dentro del directorio permitido
+            # Create symlink inside allowed directory pointing inside
             symlink_path = os.path.join(allowed_dir, "link_to_file")
 
             try:
@@ -75,11 +75,11 @@ class TestSymlinkSecurity:
             except (OSError, NotImplementedError):
                 pytest.skip("Symlinks not supported on this platform")
 
-            # Simular que el directorio permitido es allowed_dir
+            # Mock allowed directory to allowed_dir
             with patch(
                 "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
             ):
-                # Validar el symlink - debería pasar
+                # Validate symlink - must pass
                 is_allowed, error = _is_path_in_allowed_directories(symlink_path)
 
                 assert is_allowed, (
@@ -88,12 +88,12 @@ class TestSymlinkSecurity:
 
 
 class TestPathTraversalSecurity:
-    """Tests para verificar protección contra path traversal attacks."""
+    """Test suite to verify protection against path traversal attacks."""
 
     def test_path_traversal_blocked(self):
-        """Test que los intentos de path traversal son bloqueados."""
+        """Test that path traversal attempts are blocked."""
         with tempfile.TemporaryDirectory() as allowed_dir:
-            # Crear archivo legítimo
+            # Create legitimate file
             legit_file = os.path.join(allowed_dir, "file.xlsx")
             with open(legit_file, "w") as f:
                 f.write("data")
@@ -101,7 +101,7 @@ class TestPathTraversalSecurity:
             with patch(
                 "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
             ):
-                # Intentar path traversal - debería fallar
+                # Attempt path traversal - must fail
                 malicious_path = os.path.join(allowed_dir, "..", "..", "etc", "passwd")
                 is_allowed, error = _is_path_in_allowed_directories(malicious_path)
 
@@ -110,20 +110,20 @@ class TestPathTraversalSecurity:
                 )
 
     def test_relative_path_with_dotdot_blocked(self):
-        """Test que rutas relativas con .. son bloqueadas."""
+        """Test that relative paths with parent directory navigation (..) are blocked."""
         with tempfile.TemporaryDirectory() as allowed_dir:
             with patch(
                 "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
             ):
-                # Intentar path traversal relativo
+                # Attempt relative path traversal
                 is_allowed, error = _is_path_in_allowed_directories(
                     "../../../etc/passwd"
                 )
 
-                assert not is_allowed, f"Relative path traversal should be blocked"
+                assert not is_allowed, "Relative path traversal should be blocked"
 
     def test_absolute_path_outside_blocked(self):
-        """Test que rutas absolutas fuera del directorio permitido son bloqueadas."""
+        """Test that absolute paths outside allowed directories are blocked."""
         with tempfile.TemporaryDirectory() as allowed_dir:
             with tempfile.TemporaryDirectory() as outside_dir:
                 outside_file = os.path.join(outside_dir, "file.xlsx")
@@ -131,19 +131,19 @@ class TestPathTraversalSecurity:
                 with patch(
                     "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
                 ):
-                    # Intentar acceder a archivo fuera del directorio permitido
+                    # Attempt to access file outside allowed directory
                     is_allowed, error = _is_path_in_allowed_directories(outside_file)
 
                     assert not is_allowed, (
-                        f"Absolute path outside allowed dir should be blocked"
+                        "Absolute path outside allowed dir should be blocked"
                     )
 
 
 class TestResolveSafePath:
-    """Tests para la función resolve_safe_path."""
+    """Test suite for resolve_safe_path function."""
 
     def test_resolve_safe_path_normalizes_relative_path(self):
-        """Test que rutas relativas son normalizadas al directorio permitido."""
+        """Test that relative paths are normalized into allowed directory."""
         with tempfile.TemporaryDirectory() as allowed_dir:
             with patch(
                 "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
@@ -153,7 +153,7 @@ class TestResolveSafePath:
                 assert str(result) == os.path.join(allowed_dir, "document.xlsx")
 
     def test_resolve_safe_path_blocks_absolute_outside(self):
-        """Test que rutas absolutas fuera del directorio son reescritas."""
+        """Test that absolute paths outside allowed directory are rewritten safely."""
         with tempfile.TemporaryDirectory() as allowed_dir:
             with tempfile.TemporaryDirectory() as outside_dir:
                 outside_file = os.path.join(outside_dir, "file.xlsx")
@@ -163,18 +163,18 @@ class TestResolveSafePath:
                 ):
                     result = resolve_safe_path(outside_file)
 
-                    # Debería reescribirse al directorio permitido
+                    # Should be safely rewritten to allowed directory
                     expected = os.path.join(allowed_dir, "file.xlsx")
                     assert str(result) == expected
 
 
 class TestAllowedDirectories:
-    """Tests para verificar la configuración de directorios permitidos."""
+    """Test suite to verify allowed directories configuration."""
 
     def test_get_allowed_directories_resolves_symlinks(self):
-        """Test que los directorios permitidos resuelven symlinks."""
+        """Test that allowed directories resolve symlinks cleanly."""
         with tempfile.TemporaryDirectory() as real_dir:
-            # Crear un symlink al directorio
+            # Create a symlink to the directory
             symlink_dir = real_dir + "_link"
 
             try:
@@ -187,7 +187,7 @@ class TestAllowedDirectories:
             ):
                 dirs = _get_allowed_directories()
 
-                # El directorio debería estar resuelto (sin symlink)
+                # Directory must be fully resolved (symlink-free)
                 assert len(dirs) == 1
                 assert Path(dirs[0]).resolve() == Path(real_dir).resolve()
 
