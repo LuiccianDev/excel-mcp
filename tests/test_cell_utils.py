@@ -1,8 +1,8 @@
-"""Tests for mcp_excel.utils.cell_utils module."""
+"""Tests for excel_mcp.utils.cell_utils module."""
 
 import pytest
 
-from mcp_excel.utils.cell_utils import parse_cell_range, validate_cell_reference
+from excel_mcp.utils.cell_utils import parse_cell_range, validate_cell_reference
 
 
 class TestParseCellRange:

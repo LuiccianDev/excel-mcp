@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from openpyxl import Workbook
 
-from mcp_excel.exceptions.exception_core import SheetNotFoundError
-from mcp_excel.core.workbook import (
+from excel_mcp.exceptions.exception_core import SheetNotFoundError
+from excel_mcp.core.workbook import (
     managed_workbook,
     managed_worksheet,
 )

@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_excel.core.calculations import (
+from excel_mcp.core.calculations import (
     apply_formula_secure,
     validate_formula_secure,
 )

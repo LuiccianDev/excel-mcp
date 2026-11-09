@@ -7,7 +7,13 @@ from __future__ import annotations
 
 import logging
 import sys
-from fastmcp import FastMCP
+try:
+    from fastmcp import FastMCP
+except ImportError:
+    try:
+        from mcp.server.fastmcp import FastMCP  # type: ignore
+    except ImportError:
+        FastMCP = Any  # type: ignore
 
 from excel_mcp.tools.register_tools import register_all_tools
 from excel_mcp.utils.security import get_allowed_directories

@@ -1,11 +1,11 @@
-"""Tests for mcp_excel.core.workbook module."""
+"""Tests for excel_mcp.core.workbook module."""
 
 from pathlib import Path
 
 import pytest
 from openpyxl import Workbook, load_workbook
 
-from mcp_excel.core.workbook import (
+from excel_mcp.core.workbook import (
     create_workbook,
     create_sheet,
     get_or_create_workbook,
@@ -18,7 +18,7 @@ from mcp_excel.core.workbook import (
     _validate_sheet_name,
     _get_worksheet_range,
 )
-from mcp_excel.exceptions.exception_core import (
+from excel_mcp.exceptions.exception_core import (
     SheetExistsError,
     SheetNotFoundError,
     ValidationError,

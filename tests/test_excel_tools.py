@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_excel.exceptions.exception_tools import ValidationError, WorkbookError
-from mcp_excel.tools import excel_tools
-from mcp_excel.config import ConfigurationManager
+from excel_mcp.exceptions.exception_tools import ValidationError, WorkbookError
+from excel_mcp.tools import excel_tools
+from excel_mcp.config import ConfigurationManager
 
 
 TEST_SHEET = "TestSheet"
@@ -20,7 +20,7 @@ async def test_create_excel_workbook_success(tmp_path) -> None:
 
     test_filename = str(tmp_path / "test_file.xlsx")
 
-    with patch("mcp_excel.tools.excel_tools.create_workbook") as mock_create:
+    with patch("excel_mcp.tools.excel_tools.create_workbook") as mock_create:
         mock_create.return_value = {"message": "created workbook"}
 
         result = await excel_tools.create_excel_workbook(test_filename)
@@ -38,7 +38,7 @@ async def test_create_excel_workbook_workbook_error(tmp_path) -> None:
 
     test_filename = str(tmp_path / "test_file.xlsx")
 
-    with patch("mcp_excel.tools.excel_tools.create_workbook") as mock_create:
+    with patch("excel_mcp.tools.excel_tools.create_workbook") as mock_create:
         mock_create.side_effect = WorkbookError("Permission denied")
 
         result = await excel_tools.create_excel_workbook(test_filename)
@@ -56,8 +56,8 @@ async def test_create_excel_worksheet_success(tmp_path) -> None:
     test_file = str(tmp_path / "test_file.xlsx")
 
     with (
-        patch("mcp_excel.tools.excel_tools.create_sheet") as mock_create_sheet,
-        patch("mcp_excel.utils.file_utils.validate_file_access", lambda x: lambda f: f),
+        patch("excel_mcp.tools.excel_tools.create_sheet") as mock_create_sheet,
+        patch("excel_mcp.utils.file_utils.validate_file_access", lambda x: lambda f: f),
     ):
         mock_create_sheet.return_value = {
             "status": "success",
@@ -80,8 +80,8 @@ async def test_create_excel_worksheet_validation_error(tmp_path) -> None:
     test_file = str(tmp_path / "test_file.xlsx")
 
     with (
-        patch("mcp_excel.tools.excel_tools.create_sheet") as mock_create_sheet,
-        patch("mcp_excel.utils.file_utils.validate_file_access", lambda x: lambda f: f),
+        patch("excel_mcp.tools.excel_tools.create_sheet") as mock_create_sheet,
+        patch("excel_mcp.utils.file_utils.validate_file_access", lambda x: lambda f: f),
     ):
         mock_create_sheet.side_effect = ValidationError("Invalid sheet name")
 
@@ -100,7 +100,7 @@ async def test_list_excel_documents_success() -> None:
     ]
 
     with patch(
-        "mcp_excel.tools.excel_tools.list_excel_files_in_directory"
+        "excel_mcp.tools.excel_tools.list_excel_files_in_directory"
     ) as mock_list:
         mock_list.return_value = test_files
 
@@ -115,7 +115,7 @@ async def test_list_excel_documents_success() -> None:
 async def test_list_excel_documents_error() -> None:
     """Test error handling when listing documents."""
     with patch(
-        "mcp_excel.tools.excel_tools.list_excel_files_in_directory"
+        "excel_mcp.tools.excel_tools.list_excel_files_in_directory"
     ) as mock_list:
         mock_list.side_effect = Exception("Access denied")
 

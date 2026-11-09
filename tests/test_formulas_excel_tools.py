@@ -5,10 +5,10 @@ import pytest
 
 from openpyxl import Workbook
 
-from mcp_excel.exceptions.exception_tools import ValidationError
-from mcp_excel.tools import formulas_excel_tools
-from mcp_excel.config import ConfigurationManager
-from mcp_excel.utils.validation_utils import validate_formula_in_cell_operation
+from excel_mcp.exceptions.exception_tools import ValidationError
+from excel_mcp.tools import formulas_excel_tools
+from excel_mcp.config import ConfigurationManager
+from excel_mcp.utils.validation_utils import validate_formula_in_cell_operation
 
 
 # Test data
@@ -136,7 +136,7 @@ async def test_validate_formula_syntax_invalid(tmp_path: Path) -> None:
 
 # Tests for apply_formula_excel
 @patch(
-    "mcp_excel.tools.formulas_excel_tools.validate_file_access",
+    "excel_mcp.tools.formulas_excel_tools.validate_file_access",
     lambda arg: (lambda f: f),
 )
 @pytest.mark.asyncio  # type: ignore[misc]
@@ -148,7 +148,7 @@ async def test_apply_formula_success(tmp_path: Path) -> None:
 
     test_file = create_test_workbook(tmp_path)
 
-    with patch("mcp_excel.tools.formulas_excel_tools.apply_formula") as mock_apply:
+    with patch("excel_mcp.tools.formulas_excel_tools.apply_formula") as mock_apply:
         # Simulate successful application
         mock_apply.return_value = {
             "status": "success",
@@ -176,7 +176,7 @@ async def test_apply_formula_success(tmp_path: Path) -> None:
 
 
 @patch(
-    "mcp_excel.tools.formulas_excel_tools.validate_file_access",
+    "excel_mcp.tools.formulas_excel_tools.validate_file_access",
     lambda arg: (lambda f: f),
 )
 @pytest.mark.asyncio  # type: ignore[misc]

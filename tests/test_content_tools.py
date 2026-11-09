@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_excel.exceptions.exception_tools import ValidationError
-from mcp_excel.tools import content_tools
-from mcp_excel.config import ConfigurationManager
+from excel_mcp.exceptions.exception_tools import ValidationError
+from excel_mcp.tools import content_tools
+from excel_mcp.config import ConfigurationManager
 
 
 # Test data
@@ -23,7 +23,7 @@ async def test_read_data_from_excel_success(tmp_path) -> None:
     # Create test file
     test_file = tmp_path / "test_file.xlsx"
 
-    with patch("mcp_excel.tools.content_tools.read_excel_range") as mock_read:
+    with patch("excel_mcp.tools.content_tools.read_excel_range") as mock_read:
         # Mock actual function
         mock_read.return_value = ["Row1", "Row2"]
 
@@ -44,7 +44,7 @@ async def test_read_data_from_excel_no_data(tmp_path) -> None:
     # Create test file
     test_file = tmp_path / "test_file.xlsx"
 
-    with patch("mcp_excel.tools.content_tools.read_excel_range") as mock_read:
+    with patch("excel_mcp.tools.content_tools.read_excel_range") as mock_read:
         # Mock actual function to return empty data
         mock_read.return_value = []
 
@@ -64,7 +64,7 @@ async def test_read_data_from_excel_error(tmp_path) -> None:
     # Create test file
     test_file = tmp_path / "test_file.xlsx"
 
-    with patch("mcp_excel.tools.content_tools.read_excel_range") as mock_read:
+    with patch("excel_mcp.tools.content_tools.read_excel_range") as mock_read:
         mock_read.side_effect = Exception("Read error")
 
         result = await content_tools.read_data_from_excel(str(test_file), TEST_SHEET)
@@ -83,7 +83,7 @@ async def test_write_data_to_excel_success(tmp_path) -> None:
     # Create test file
     test_file = tmp_path / "test_file.xlsx"
 
-    with patch("mcp_excel.core.data.write_data") as mock_write:
+    with patch("excel_mcp.core.data.write_data") as mock_write:
         mock_write.return_value = {"message": "Data written successfully"}
 
         result = await content_tools.write_data_to_excel(
@@ -107,7 +107,7 @@ async def test_write_data_to_excel_validation_error(tmp_path) -> None:
     # Create test file
     test_file = tmp_path / "test_file.xlsx"
 
-    with patch("mcp_excel.core.data.write_data") as mock_write:
+    with patch("excel_mcp.core.data.write_data") as mock_write:
         mock_write.side_effect = ValidationError("Invalid data")
 
         result = await content_tools.write_data_to_excel(
@@ -127,7 +127,7 @@ async def test_write_data_to_excel_general_error(tmp_path) -> None:
     # Create test file
     test_file = tmp_path / "test_file.xlsx"
 
-    with patch("mcp_excel.core.data.write_data") as mock_write:
+    with patch("excel_mcp.core.data.write_data") as mock_write:
         mock_write.side_effect = Exception("Write error")
 
         result = await content_tools.write_data_to_excel(

@@ -1,11 +1,11 @@
-"""Tests for mcp_excel.core.data module."""
+"""Tests for excel_mcp.core.data module."""
 
 from pathlib import Path
 
 import pytest
 from openpyxl import Workbook
 
-from mcp_excel.core.data import (
+from excel_mcp.core.data import (
     _get_used_range,
     _get_worksheet,
     _parse_cell_reference,
@@ -13,7 +13,7 @@ from mcp_excel.core.data import (
     read_excel_range,
     write_data,
 )
-from mcp_excel.exceptions.exception_core import (
+from excel_mcp.exceptions.exception_core import (
     DataError,
     InvalidCellReferenceError,
     InvalidDataError,

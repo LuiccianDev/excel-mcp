@@ -11,7 +11,7 @@ from typing import Generator
 import pytest
 import shutil
 
-from mcp_excel.config import ConfigurationManager
+from excel_mcp.config import ConfigurationManager
 
 
 @pytest.fixture

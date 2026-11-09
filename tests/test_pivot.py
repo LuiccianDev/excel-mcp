@@ -1,4 +1,4 @@
-"""Tests for mcp_excel.core.pivot module."""
+"""Tests for excel_mcp.core.pivot module."""
 
 from pathlib import Path
 from typing import Any
@@ -6,14 +6,14 @@ from typing import Any
 import pytest
 from openpyxl import Workbook, load_workbook
 
-from mcp_excel.core.pivot import (
+from excel_mcp.core.pivot import (
     _convert_sheetdata_to_dicts,
     _get_combinations,
     _filter_data,
     _aggregate_values,
     create_pivot_table,
 )
-from mcp_excel.exceptions.exception_core import PivotError, ValidationError
+from excel_mcp.exceptions.exception_core import PivotError, ValidationError
 
 
 class TestConvertSheetDataToDicts:

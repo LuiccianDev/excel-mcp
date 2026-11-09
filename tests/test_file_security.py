@@ -16,7 +16,7 @@ from unittest.mock import patch
 import pytest
 
 # Importar funciones a testear
-from mcp_excel.utils.file_utils import (
+from excel_mcp.utils.file_utils import (
     _get_allowed_directories,
     _is_path_in_allowed_directories,
     resolve_safe_path,
@@ -46,7 +46,7 @@ class TestSymlinkSecurity:
 
                 # Simular que el directorio permitido es allowed_dir
                 with patch(
-                    "mcp_excel.utils.file_utils.get_directory", return_value=allowed_dir
+                    "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
                 ):
                     # Intentar validar el symlink - debería fallar
                     is_allowed, error = _is_path_in_allowed_directories(symlink_path)
@@ -77,7 +77,7 @@ class TestSymlinkSecurity:
 
             # Simular que el directorio permitido es allowed_dir
             with patch(
-                "mcp_excel.utils.file_utils.get_directory", return_value=allowed_dir
+                "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
             ):
                 # Validar el symlink - debería pasar
                 is_allowed, error = _is_path_in_allowed_directories(symlink_path)
@@ -99,7 +99,7 @@ class TestPathTraversalSecurity:
                 f.write("data")
 
             with patch(
-                "mcp_excel.utils.file_utils.get_directory", return_value=allowed_dir
+                "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
             ):
                 # Intentar path traversal - debería fallar
                 malicious_path = os.path.join(allowed_dir, "..", "..", "etc", "passwd")
@@ -113,7 +113,7 @@ class TestPathTraversalSecurity:
         """Test que rutas relativas con .. son bloqueadas."""
         with tempfile.TemporaryDirectory() as allowed_dir:
             with patch(
-                "mcp_excel.utils.file_utils.get_directory", return_value=allowed_dir
+                "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
             ):
                 # Intentar path traversal relativo
                 is_allowed, error = _is_path_in_allowed_directories(
@@ -129,7 +129,7 @@ class TestPathTraversalSecurity:
                 outside_file = os.path.join(outside_dir, "file.xlsx")
 
                 with patch(
-                    "mcp_excel.utils.file_utils.get_directory", return_value=allowed_dir
+                    "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
                 ):
                     # Intentar acceder a archivo fuera del directorio permitido
                     is_allowed, error = _is_path_in_allowed_directories(outside_file)
@@ -146,7 +146,7 @@ class TestResolveSafePath:
         """Test que rutas relativas son normalizadas al directorio permitido."""
         with tempfile.TemporaryDirectory() as allowed_dir:
             with patch(
-                "mcp_excel.utils.file_utils.get_directory", return_value=allowed_dir
+                "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
             ):
                 result = resolve_safe_path("document.xlsx")
 
@@ -159,7 +159,7 @@ class TestResolveSafePath:
                 outside_file = os.path.join(outside_dir, "file.xlsx")
 
                 with patch(
-                    "mcp_excel.utils.file_utils.get_directory", return_value=allowed_dir
+                    "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
                 ):
                     result = resolve_safe_path(outside_file)
 
@@ -183,7 +183,7 @@ class TestAllowedDirectories:
                 pytest.skip("Symlinks not supported on this platform")
 
             with patch(
-                "mcp_excel.utils.file_utils.get_directory", return_value=symlink_dir
+                "excel_mcp.utils.file_utils.get_directory", return_value=symlink_dir
             ):
                 dirs = _get_allowed_directories()
 

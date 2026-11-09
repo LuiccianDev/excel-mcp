@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from mcp_excel.exceptions.exception_tools import ValidationError
-from mcp_excel.tools import format_tools
+from excel_mcp.exceptions.exception_tools import ValidationError
+from excel_mcp.tools import format_tools
 
 
 # Test data
@@ -21,7 +21,7 @@ TEST_RANGE_END = "B2"
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_format_range_success() -> None:
     """Test successful cell formatting."""
-    with patch("mcp_excel.tools.format_tools.format_range_excel") as mock_format:
+    with patch("excel_mcp.tools.format_tools.format_range_excel") as mock_format:
         mock_format.return_value = {"status": "success", "message": "Format applied"}
 
         result = await format_tools.format_range_excel(
@@ -40,7 +40,7 @@ async def test_format_range_success() -> None:
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_format_range_validation_error() -> None:
     """Test formatting with invalid input."""
-    with patch("mcp_excel.tools.format_tools.format_range") as mock_format:
+    with patch("excel_mcp.tools.format_tools.format_range") as mock_format:
         mock_format.side_effect = ValidationError("Invalid cell reference")
 
         result = await format_tools.format_range_excel(
@@ -59,7 +59,7 @@ async def test_format_range_validation_error() -> None:
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_copy_worksheet_success() -> None:
     """Test successful worksheet copy."""
-    with patch("mcp_excel.tools.format_tools.copy_sheet") as mock_copy:
+    with patch("excel_mcp.tools.format_tools.copy_sheet") as mock_copy:
         mock_copy.return_value = {"status": "success", "new_sheet": TEST_NEW_SHEET}
 
         result = await format_tools.copy_worksheet(
@@ -75,7 +75,7 @@ async def test_copy_worksheet_success() -> None:
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_delete_worksheet_success() -> None:
     """Test successful worksheet deletion."""
-    with patch("mcp_excel.tools.format_tools.delete_sheet") as mock_delete:
+    with patch("excel_mcp.tools.format_tools.delete_sheet") as mock_delete:
         mock_delete.return_value = {"status": "success", "deleted_sheet": TEST_SHEET}
 
         result = await format_tools.delete_worksheet(TEST_FILENAME, TEST_SHEET)
@@ -88,7 +88,7 @@ async def test_delete_worksheet_success() -> None:
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_rename_worksheet_success() -> None:
     """Test successful worksheet renaming."""
-    with patch("mcp_excel.tools.format_tools.rename_sheet") as mock_rename:
+    with patch("excel_mcp.tools.format_tools.rename_sheet") as mock_rename:
         mock_rename.return_value = {
             "status": "success",
             "old_name": TEST_SHEET,
@@ -114,7 +114,7 @@ async def test_get_workbook_metadata_success() -> None:
         "active_sheet": "Sheet1",
     }
 
-    with patch("mcp_excel.tools.format_tools.get_workbook_info") as mock_info:
+    with patch("excel_mcp.tools.format_tools.get_workbook_info") as mock_info:
         mock_info.return_value = test_metadata
 
         result = await format_tools.get_workbook_metadata(TEST_FILENAME)
@@ -127,7 +127,7 @@ async def test_get_workbook_metadata_success() -> None:
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_merge_cells_success() -> None:
     """Test successful cell merging."""
-    with patch("mcp_excel.tools.format_tools.merge_range") as mock_merge:
+    with patch("excel_mcp.tools.format_tools.merge_range") as mock_merge:
         mock_merge.return_value = {
             "status": "success",
             "merged_range": f"{TEST_RANGE_START}:{TEST_RANGE_END}",
@@ -145,7 +145,7 @@ async def test_merge_cells_success() -> None:
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_unmerge_cells_success() -> None:
     """Test successful cell unmerging."""
-    with patch("mcp_excel.tools.format_tools.unmerge_range") as mock_unmerge:
+    with patch("excel_mcp.tools.format_tools.unmerge_range") as mock_unmerge:
         mock_unmerge.return_value = {
             "status": "success",
             "unmerged_range": f"{TEST_RANGE_START}:{TEST_RANGE_END}",
@@ -163,7 +163,7 @@ async def test_unmerge_cells_success() -> None:
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_copy_range_success() -> None:
     """Test successful range copying."""
-    with patch("mcp_excel.tools.format_tools.copy_range") as mock_copy_range:
+    with patch("excel_mcp.tools.format_tools.copy_range") as mock_copy_range:
         mock_copy_range.return_value = {
             "status": "success",
             "copied_from": "A1:B2",
@@ -187,7 +187,7 @@ async def test_copy_range_success() -> None:
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_delete_range_success() -> None:
     """Test successful range deletion."""
-    with patch("mcp_excel.tools.format_tools.delete_range_operation") as mock_delete:
+    with patch("excel_mcp.tools.format_tools.delete_range_operation") as mock_delete:
         mock_delete.return_value = {
             "status": "success",
             "deleted_range": f"{TEST_RANGE_START}:{TEST_RANGE_END}",
@@ -205,7 +205,7 @@ async def test_delete_range_success() -> None:
 @pytest.mark.asyncio  # type: ignore[misc]
 async def test_validate_excel_range_success() -> None:
     """Test successful range validation."""
-    with patch("mcp_excel.tools.format_tools.validate_excel_range") as mock_validate:
+    with patch("excel_mcp.tools.format_tools.validate_excel_range") as mock_validate:
         mock_validate.return_value = {
             "is_valid": True,
             "range": f"{TEST_RANGE_START}:{TEST_RANGE_END}",
