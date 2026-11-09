@@ -1,6 +1,6 @@
 ---
 name: excel-spreadsheet-editor
-description: "Edit, update, format, and enhance existing Excel spreadsheets (.xlsx) efficiently. Performs lightweight outline inspection, batch matrix writes, formula additions, range formatting, and pivot table generation."
+description: "Edit, update, format, and enhance existing Excel spreadsheets (.xlsx) efficiently. Performs lightweight outline inspection, batch matrix writes, row appending, dimension management, table styling, and in-place sorting."
 argument-hint: "Target workbook path, worksheet name, edit operation, and data/ranges to update"
 user-invocable: true
 disable-model-invocation: false
@@ -16,67 +16,96 @@ Use this skill to modify, format, and enhance existing Microsoft Excel workbooks
 
 1. **Always Inspect Outline Before Modifying:**
    - Always call `excel_get_workbook_outline(filename)` first. It returns dimensions (e.g., `A1:F50`), detected column headers, and sheet names without loading full cell grids into context.
-2. **Prefer Atomic Batch Writes:**
-   - Use `excel_batch_write_data` to update tables, append rows, or insert matrices in a single call instead of issuing repetitive cell-by-cell write operations.
-3. **Validate Complex Formulas First:**
-   - For custom formulas or conditional expressions, verify validity with `excel_validate_formula_syntax` before inserting into worksheets.
+2. **Prefer Atomic Batch Operations:**
+   - Use `excel_append_rows` to add new records below existing content automatically without manually tracking row indices.
+   - Use `excel_batch_write_data` to update existing matrices in a single atomic pass.
+3. **Format Sheets Holistically:**
+   - Use `excel_format_sheet` to freeze headers, enable autofilters, and set column widths in one call.
+   - Use `excel_create_table` to convert ranges into native Excel tables with banded styling and filter drop-downs.
 
 ---
 
 ## Canonical Editing Protocols
 
-### Protocol 1: Inspecting & Appending Batch Data
+### Protocol 1: Appending Rows Automatically
+
+Append new records below existing table data in one call:
 
 ```json
-// Step 1: Inspect structure
-{
-  "filename": "/path/to/inventory.xlsx"
-}
-// Tool: excel_get_workbook_outline
-// Response indicates sheet "Stock" spans A1:E40. New rows should start at A41.
-
-// Step 2: Write batch rows starting at A41
 {
   "filename": "/path/to/inventory.xlsx",
   "sheet_name": "Stock",
-  "start_cell": "A41",
-  "data_matrix": [
+  "rows": [
     ["SKU-9021", "USB-C Docking Station", "Hardware", 120, 89.50],
     ["SKU-9022", "Mechanical Keyboard", "Hardware", 85, 115.00],
     ["SKU-9023", "27-inch 4K Monitor", "Hardware", 40, 320.00]
   ]
 }
-// Tool: excel_batch_write_data
 ```
+**Tool:** `excel_append_rows`
 
 ---
 
-### Protocol 2: Formatting & Auto-Fitting Columns
+### Protocol 2: Native Excel Table Conversion
 
-Apply professional currency styling to column `E` and auto-fit column widths:
+Turn a raw tabular range into a professional Excel Table:
 
 ```json
-// Format currency range
 {
   "filename": "/path/to/inventory.xlsx",
   "sheet_name": "Stock",
-  "start_cell": "E2",
-  "end_cell": "E43",
-  "number_format": "$#,##0.00"
+  "range_string": "A1:E43",
+  "table_name": "InventoryTable",
+  "style_name": "TableStyleMedium9"
 }
-// Tool: excel_format_range_excel
-
-// Auto-fit all columns in the sheet
-{
-  "filename": "/path/to/inventory.xlsx",
-  "sheet_name": "Stock"
-}
-// Tool: excel_auto_fit_columns
 ```
+**Tool:** `excel_create_table`
 
 ---
 
-### Protocol 3: Generating Analytical Pivot Tables
+### Protocol 3: Sheet-Level Layout & Display Formatting
+
+Freeze top rows and set custom column widths in a single call:
+
+```json
+{
+  "filename": "/path/to/inventory.xlsx",
+  "sheet_name": "Stock",
+  "freeze_panes": "A2",
+  "auto_filter": true,
+  "show_grid_lines": true,
+  "column_widths": {
+    "A": 15.0,
+    "B": 30.0,
+    "C": 18.0,
+    "D": 12.0,
+    "E": 14.0
+  }
+}
+```
+**Tool:** `excel_format_sheet`
+
+---
+
+### Protocol 4: In-Place Range Sorting
+
+Sort tabular rows by key column while preserving header rows:
+
+```json
+{
+  "filename": "/path/to/inventory.xlsx",
+  "sheet_name": "Stock",
+  "range_string": "A1:E43",
+  "key_column": "Unit Price",
+  "ascending": false,
+  "has_header": true
+}
+```
+**Tool:** `excel_sort_range`
+
+---
+
+### Protocol 5: Generating Analytical Pivot Tables
 
 Summarize large data sheets using native pivot tables:
 
@@ -92,15 +121,5 @@ Summarize large data sheets using native pivot tables:
   "values": ["Revenue"],
   "aggfunc": "sum"
 }
-// Tool: excel_create_pivot_table
 ```
-
-*Valid `aggfunc` options:* `"sum"`, `"mean"`, `"count"`, `"min"`, `"max"`, `"std"`.
-
----
-
-### Protocol 4: Worksheet Management
-
-- **Duplicate template sheet:** `excel_copy_sheet(filename, "Template", "Q1_Report")`
-- **Rename sheet:** `excel_rename_sheet(filename, "Sheet1", "Dashboard")`
-- **Delete obsolete sheet:** `excel_delete_sheet(filename, "Old_Draft")`
+**Tool:** `excel_create_pivot_table`

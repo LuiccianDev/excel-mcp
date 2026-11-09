@@ -1,6 +1,6 @@
 ---
 name: excel-spreadsheet-analyzer
-description: "Inspect, audit, and extract insights from Excel workbooks (.xlsx) without exhausting model context. Uses lightweight structural outlines, targeted range sampling, formula verification, and metadata extraction."
+description: "Inspect, audit, and extract insights from Excel workbooks (.xlsx) without exhausting model context. Uses lightweight structural outlines, column statistical profiling, targeted cell search, and metadata extraction."
 argument-hint: "Target workbook path, worksheet to analyze, and audit objective"
 user-invocable: true
 disable-model-invocation: false
@@ -8,19 +8,19 @@ disable-model-invocation: false
 
 # Excel Spreadsheet Analyzer
 
-Use this skill to extract structural insights, audit formulas, and sample data from Microsoft Excel workbooks without consuming excessive tokens.
+Use this skill to extract structural insights, audit formulas, profile data columns, and search cells across Microsoft Excel workbooks without consuming excessive tokens.
 
 ---
 
 ## Core Rules
 
 1. **Strict Context Preservation (Never Read Unbounded Sheets):**
-   - Do NOT issue unbounded queries like `read_data_from_excel(start_cell="A1")` on unknown workbooks.
+   - Do NOT issue unbounded queries like `excel_read_data(start_cell="A1")` on unknown workbooks.
    - Always call `excel_get_workbook_outline(filename)` first to determine dimensions (e.g. `A1:M1500`), sheet names, and detected column headers.
-2. **Sample Slices Rather Than Full Matrices:**
-   - Once dimensions are known, read a representative sample (e.g., first 10 rows: `A1:M10`) to understand column data types and patterns.
-3. **Use Native Calculators for Summary Metrics:**
-   - Instead of extracting 1,000 numbers into context to compute sums or averages, use `excel_calculate_range_sum` or `excel_calculate_range_average`.
+2. **Profile Columns Statistically:**
+   - Use `excel_profile_sheet` to inspect data types (`integer`, `float`, `string`, `datetime`, `boolean`), null counts, min/max for numerics, and distinct sample values without dumping row matrices into context.
+3. **Targeted Cell Discovery:**
+   - Use `excel_find_cells` to locate specific text, numbers, formulas, or regular expression patterns across sheets.
 
 ---
 
@@ -39,34 +39,45 @@ Use this skill to extract structural insights, audit formulas, and sample data f
 - Total sheet count and sheet names.
 - Populated bounds per sheet (e.g., `Sheet1: A1:H250`, `Summary: A1:D15`).
 - Column header integrity (check for blank or missing headers).
-- Formula density: Count of formula cells vs raw value cells.
+- Formula presence: Outline summary detects whether formula cells are present.
 
 ---
 
-### Phase 2: Targeted Range Sampling
+### Phase 2: Column Profiling & Statistical Health Check
 
-Extract only the schema and sample rows:
+Extract column-level data types, min/max values, null counts, and distinct samples in one lightweight pass:
 
 ```json
 {
   "filename": "/path/to/enterprise_financials.xlsx",
   "sheet_name": "Revenue",
-  "start_cell": "A1",
-  "end_cell": "H10"
+  "sample_rows": 100
 }
 ```
-**Tool:** `excel_read_data_from_excel`
+**Tool:** `excel_profile_sheet`
 
 **Data Health Checklist:**
 - Are numbers stored as numeric types rather than strings?
-- Are currency columns formatted consistently?
-- Are date columns standardized to ISO (`yyyy-mm-dd`)?
+- Are there unexpected null values in required columns?
+- Do min and max bounds fall within plausible financial or operational thresholds?
 
 ---
 
-### Phase 3: Formula & Calculation Integrity Verification
+### Phase 3: Targeted Search & Formula Verification
 
-1. **Syntax Validation:**
+1. **Locate Specific Values or Anomalies:**
+   Find cells containing specific text or formula keywords:
+   ```json
+   {
+     "filename": "/path/to/enterprise_financials.xlsx",
+     "query": "Error",
+     "match_case": false
+   }
+   ```
+   **Tool:** `excel_find_cells`
+
+2. **Validate Formula Syntax:**
+   Verify formula syntax before applying modifications:
    ```json
    {
      "formula": "=SUM(C4:C25)"
@@ -74,23 +85,12 @@ Extract only the schema and sample rows:
    ```
    **Tool:** `excel_validate_formula_syntax`
 
-2. **Metric Verification:**
-   Verify whether reported totals match the underlying cells:
-   ```json
-   {
-     "filename": "/path/to/enterprise_financials.xlsx",
-     "sheet_name": "Revenue",
-     "start_cell": "C4",
-     "end_cell": "C25"
-   }
-   ```
-   **Tool:** `excel_calculate_range_sum`
-
 ---
 
 ## Summary Deliverable Format
 
 When reporting analysis findings to the user:
 - **Structural Bounds:** Present sheet names, row/column dimensions, and populated ranges in a table.
-- **Data Quality:** Highlight any anomalies (missing headers, formula errors like `#REF!` or `#VALUE!`).
-- **Recommendations:** Suggest formatting improvements, pivot summaries, or chart visual additions.
+- **Column Health:** Report column data types, completeness (non-null counts), and min/max ranges.
+- **Data Quality:** Highlight any anomalies (formula errors like `#REF!`, missing values).
+- **Recommendations:** Suggest formatting improvements, native tables, or chart visual additions.
