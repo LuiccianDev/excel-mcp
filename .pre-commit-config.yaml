@@ -14,7 +14,7 @@ repos:
     rev: v1.17.1
     hooks:
       - id: mypy
-        additional_dependencies: ["types-openpyxl", "types-requests", "types-psycopg2"]
+        additional_dependencies: ["types-openpyxl"]
         language_version: python3.11
         files: ^src/.*\.py$
 

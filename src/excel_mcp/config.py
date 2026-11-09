@@ -14,8 +14,17 @@ import re
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import BaseModel, Field
+
+try:
+    from pydantic import field_validator
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+except ImportError:
+    from pydantic import BaseSettings  # type: ignore
+    from pydantic import validator as field_validator  # type: ignore
+
+    def SettingsConfigDict(**kwargs: Any) -> Any:  # type: ignore
+        return type("Config", (), kwargs)
 
 
 # Load .env file automatically if available, but don't override existing env vars

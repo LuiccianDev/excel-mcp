@@ -7,20 +7,14 @@ multiple tabular rows in a single pass, saving >90% tokens.
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, cast
 
 from excel_mcp.core.batch import (
     batch_write_matrix,
-    build_single_pass_sheet,
     build_single_pass_workbook,
     inspect_workbook_outline,
 )
-from excel_mcp.exceptions.exception_tools import ExceptionTool
-from excel_mcp.models.response_models import (
-    BatchWriteResult,
-    BuildWorkbookResult,
-    WorkbookOutline,
-)
+from excel_mcp.utils.guards import tool_guard
 from excel_mcp.utils.security import is_path_in_allowed_directories
 
 
@@ -59,12 +53,15 @@ def _resolve_and_check_path(
 def _dump(model: Any) -> dict[str, Any]:
     """Dump Pydantic model supporting both v1 and v2."""
     if hasattr(model, "model_dump"):
-        return model.model_dump()
+        return cast(dict[str, Any], model.model_dump())
     if hasattr(model, "dict"):
-        return model.dict()
-    return model
+        return cast(dict[str, Any], model.dict())
+    if isinstance(model, dict):
+        return cast(dict[str, Any], model)
+    return {"data": model}
 
 
+@tool_guard()
 def build_workbook(
     filename: str | None = None,
     file_path: str | None = None,
@@ -99,18 +96,16 @@ def build_workbook(
     if not sheets:
         sheets = [{"name": "Sheet1", "headers": ["Column 1"], "rows": [["No data provided"]]}]
 
-    try:
-        result = build_single_pass_workbook(
-            filename=target,
-            sheets=sheets,
-            preset=preset,
-            auto_fit=auto_fit,
-        )
-        return {"status": "success", "data": _dump(result)}
-    except Exception as e:
-        return ExceptionTool.handle_error(e, filename=target, operation="build_workbook")
+    result = build_single_pass_workbook(
+        filename=target,
+        sheets=sheets,
+        preset=preset,
+        auto_fit=auto_fit,
+    )
+    return {"status": "success", "data": _dump(result)}
 
 
+@tool_guard()
 def get_workbook_outline(
     filename: str | None = None,
     file_path: str | None = None,
@@ -130,13 +125,11 @@ def get_workbook_outline(
         return err
     assert target is not None
 
-    try:
-        outline = inspect_workbook_outline(target)
-        return {"status": "success", "data": _dump(outline)}
-    except Exception as e:
-        return ExceptionTool.handle_error(e, filename=target, operation="get_workbook_outline")
+    outline = inspect_workbook_outline(target)
+    return {"status": "success", "data": _dump(outline)}
 
 
+@tool_guard()
 def batch_write_data(
     filename: str | None = None,
     file_path: str | None = None,
@@ -164,13 +157,10 @@ def batch_write_data(
     if not data_matrix:
         return {"status": "error", "message": "data_matrix cannot be empty."}
 
-    try:
-        result = batch_write_matrix(
-            filename=target,
-            sheet_name=sheet_name,
-            start_cell=start_cell,
-            data_matrix=data_matrix,
-        )
-        return {"status": "success", "data": _dump(result)}
-    except Exception as e:
-        return ExceptionTool.handle_error(e, filename=target, operation="batch_write_data")
+    result = batch_write_matrix(
+        filename=target,
+        sheet_name=sheet_name,
+        start_cell=start_cell,
+        data_matrix=data_matrix,
+    )
+    return {"status": "success", "data": _dump(result)}
