@@ -1,4 +1,4 @@
-name: Automated Version Bump & PyPI Release
+name: Automated Version Bump & Release Preparation
 
 on:
   workflow_dispatch:
@@ -18,31 +18,23 @@ on:
         required: false
         default: ''
         type: string
-      target_env:
-        description: 'Target repository'
+      create_pr:
+        description: 'Create a Pull Request instead of direct tag release'
         required: true
-        default: 'pypi'
-        type: choice
-        options:
-          - pypi
-          - testpypi
+        default: true
+        type: boolean
 
 concurrency:
   group: release-${{ github.workflow }}
   cancel-in-progress: false
 
 jobs:
-  bump-tag-publish:
-    name: Bump, Build, Release & Publish to PyPI
+  bump:
+    name: Bump Version & Prepare Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write        # Mandatory for Trusted Publishing (OIDC)
-      attestations: write    # Mandatory for PEP 740 Cryptographic Attestation
-
-    environment:
-      name: ${{ github.event.inputs.target_env || 'pypi' }}
-      url: ${{ (github.event.inputs.target_env == 'testpypi') && 'https://test.pypi.org/p/luiccian-excel-mcp' || 'https://pypi.org/p/luiccian-excel-mcp' }}
+      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -71,42 +63,31 @@ jobs:
           echo ">>> New Version: $VERSION"
           echo ">>> New Tag: $TAG"
 
-      - name: Commit and Push Version Bump
+      - name: Extract Release Notes from CHANGELOG
+        run: |
+          python3 scripts/extract-release-notes.py --tag "${{ steps.bump.outputs.tag }}" --output pr_body.md
+
+      - name: Create Pull Request (Recommended Mode)
+        if: ${{ github.event.inputs.create_pr == true || github.event.inputs.create_pr == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_NAME="release/${{ steps.bump.outputs.tag }}"
+          git checkout -b "$BRANCH_NAME"
+          git add pyproject.toml CHANGELOG.md
+          git commit -m "chore(release): bump version to ${{ steps.bump.outputs.tag }} [skip ci]"
+          git push origin "$BRANCH_NAME" --force
+          gh pr create \
+            --head "$BRANCH_NAME" \
+            --base master \
+            --title "chore(release): prepare release ${{ steps.bump.outputs.tag }}" \
+            --body-file pr_body.md || echo "Pull request already exists or created"
+
+      - name: Direct Commit & Tag on master (Alternative Mode)
+        if: ${{ github.event.inputs.create_pr == false || github.event.inputs.create_pr == 'false' }}
         run: |
           git add pyproject.toml CHANGELOG.md
           git commit -m "chore(release): bump version to ${{ steps.bump.outputs.tag }} [skip ci]"
           git tag -a "${{ steps.bump.outputs.tag }}" -m "Release ${{ steps.bump.outputs.tag }}"
           CURRENT_BRANCH=$(git branch --show-current || echo "master")
           git push origin "$CURRENT_BRANCH" --tags
-
-      - name: Build Python Package (Wheel & Sdist)
-        run: uv build
-
-      - name: Generate Artifact Attestation (PEP 740)
-        uses: actions/attest-build-provenance@v2
-        with:
-          subject-path: "dist/*"
-
-      - name: Extract Release Notes from CHANGELOG
-        run: |
-          python3 scripts/extract-release-notes.py --tag "${{ steps.bump.outputs.tag }}" --output release_body.md
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.bump.outputs.tag }}
-          name: Release ${{ steps.bump.outputs.tag }}
-          body_path: release_body.md
-          files: |
-            dist/*.whl
-            dist/*.tar.gz
-          generate_release_notes: true
-          make_latest: true
-
-      - name: Publish to PyPI (Production via OIDC)
-        if: ${{ (github.event.inputs.target_env || 'pypi') == 'pypi' }}
-        run: uv publish
-
-      - name: Publish to TestPyPI
-        if: ${{ github.event.inputs.target_env == 'testpypi' }}
-        run: uv publish --publish-url https://test.pypi.org/legacy/
