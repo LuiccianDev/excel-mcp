@@ -9,8 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.1.1] - 2026-11-09
+
 ### Removed
 - **Legacy Module Directory (`src/mcp_excel`)**: Removed the legacy compatibility directory and associated shim files, establishing `src/excel_mcp` as the exclusive, canonical Python package source module and minimizing PyPI distribution payload.
+
+### Changed
+- **PyPI Distribution Payload Optimization**: Configured Hatchling wheel and sdist targets to bundle exclusively `src/excel_mcp` and required root metadata, explicitly excluding test suites, skills, automation scripts, and workflow configurations.
+- **Documentation & Standards Alignment**: Synchronized `AGENTS.md` and module docstrings to adhere strictly to technical English and the canonical `excel_mcp` architecture.
 
 ---
 
