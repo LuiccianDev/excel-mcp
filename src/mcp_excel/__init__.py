@@ -1,28 +1,15 @@
-"""
-MCP Excel Office Server
+"""Backward compatibility shim for mcp_excel.
 
-A Model Context Protocol (MCP) server providing comprehensive Excel (.xlsx) manipulation
-capabilities for AI assistants and applications. This package offers programmatic access
-to Excel operations including data management, formatting, formulas, and charts
-through a clean, well-documented API.
-
-Core Features:
-- File Operations: Create, read, modify Excel workbooks and worksheets
-- Data Management: Read/write data with flexible cell range support
-- Formatting: Apply styles, fonts, colors, borders, and cell formatting
-- Formulas: Apply and validate Excel formulas programmatically
-- Visualizations: Create charts and pivot tables
-- Security: File path validation, formula security, and robust error handling
+Redirects to excel_mcp to maintain compatibility with existing installations.
 """
 
-__version__ = "1.0.0"
-__author__ = "LuiccianDev"
-__description__ = (
-    "MCP Excel Office Server - Excel manipulation through Model Context Protocol"
+from excel_mcp import (
+    __author__,
+    __description__,
+    __title__,
+    __version__,
 )
-__title__ = "mcp_excel"
 
-# Package metadata
 __all__ = [
     "__version__",
     "__author__",

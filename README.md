@@ -1,416 +1,180 @@
 <div align="center">
-  <h1>MCP Excel Office Server</h1>
+  <h1>Excel MCP Server</h1>
   <p>
-    <em>Powerful MCP server for programmatic Excel (.xlsx) manipulation and automation</em>
+    <em>High-performance Model Context Protocol (MCP) server for programmatic Excel (.xlsx) spreadsheet generation and manipulation</em>
   </p>
 
-  [![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
-  [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-  [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+  [![PyPI Version](https://img.shields.io/pypi/v/luiccian-excel-mcp.svg)](https://pypi.org/project/luiccian-excel-mcp/)
+  [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+  [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+  [![CodeQL](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml/badge.svg)](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml)
+  [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
+  [![Rules for AI](https://img.shields.io/badge/rules-AGENTS.md-blue.svg)](AGENTS.md)
+  [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
   [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-brightgreen)](https://modelcontextprotocol.io)
-  [![Type Checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](https://mypy-lang.org/)
+
 </div>
 
-## Table of Contents
+**Excel MCP Server** (`excel-mcp`, PyPI: [`luiccian-excel-mcp`](https://pypi.org/project/luiccian-excel-mcp/)) is a high-performance Python server implementing the Model Context Protocol (MCP) to provide advanced, token-optimized Excel spreadsheet (`.xlsx`) creation, batch synthesis, formula automation, and inspection capabilities for AI assistants (Claude, Cursor, Copilot, Cline).
 
-- [Key Features](#key-features)
-- [Installation](#installation)
-- [Deployment Modes](#deployment-modes)
-- [Configuration](#configuration)
-- [Available Tools](#available-tools)
-- [Project Structure](#project-structure)
-- [Testing](#testing)
-- [Development](#development)
-- [Contributing](#contributing)
-- [License](#license)
+Designed from the ground up for maximum token efficiency, it replaces chatty micro-iterations with single-pass workbook construction—saving over 90% of model tokens and conversational turns.
 
-## Key Features
+---
 
-- **Comprehensive Excel Operations**: Create, read, modify workbooks and worksheets with full data manipulation support
-- **Advanced Formatting**: Apply styles, fonts, colors, borders, and cell formatting with precision
-- **Data Visualization**: Generate charts and pivot tables programmatically
-- **Formula Support**: Apply and validate Excel formulas with error handling
-- **Security First**: File path validation, access control, and robust error handling
-- **Multiple Deployment Modes**: DXT package, traditional MCP server, or standalone CLI
-- **AI-Ready**: Optimized for AI assistant integration via Model Context Protocol
+## Key Architectural Highlights
 
-## Installation
+- **Single-Pass Workbook Builder**: Create complete, multi-sheet, publication-ready workbooks (title banners, table headers, alternating row colors, accounting borders, auto-calculated totals, currency formatting, and native charts) in **one single MCP call** (`excel_build_workbook`).
+- **Visual Design Presets**: Built-in typography and visual standards (`corporate`, `financial`, `modern`, `compact`).
+- **Lightweight Outline Inspection**: Extract sheet names, populated dimensions (`A1:H50`), column headers, and formula summaries without dumping massive cell grids (`excel_get_workbook_outline`), saving thousands of context tokens.
+- **Batch Data Ingestion**: Append or overwrite 2D matrices of values into existing sheets in a single atomic operation (`excel_batch_write_data`).
+- **Formula & Analytics Engine**: Apply validated formulas (`SUM`, `AVERAGE`, `VLOOKUP`), generate native bar/line/pie charts, and build analytical pivot tables.
+- **Zero-Install Execution**: Instant launch with `uvx luiccian-excel-mcp`.
 
-### Prerequisites
+---
 
-- **Python 3.11+**: Modern Python with type hints support
-- **UV Package Manager**: [Install UV](https://docs.astral.sh/uv/getting-started/installation/) (recommended)
-- **Git**: For cloning the repository
-- **Desktop Extensions (DXT)**: For creating .dxt packages for Claude Desktop [Install DXT](https://github.com/anthropics/dxt)
+## Quick Start with `uvx` (Recommended)
 
-### Clone the Repository
+No manual clone or virtual environment management required. You can run the server directly using [`uv`](https://docs.astral.sh/uv/):
 
 ```bash
-git clone https://github.com/LuiccianDev/mcp_excel_office.git
-cd mcp_excel_office
+# Run with stdio transport (default for AI IDEs)
+uvx luiccian-excel-mcp
 ```
 
-### Installation with UV (Recommended)
+---
 
-```bash
-# Install production dependencies
-uv sync
+## MCP Client Configuration
 
-# Install with development dependencies
-uv sync --dev
+### 1. Claude Desktop
 
-# Install all dependency groups (dev + test)
-uv sync --all-groups
-```
-
-### Alternative: Installation with pip
-
-```bash
-# Install the package
-pip install .
-
-# Development installation (editable)
-pip install -e ".[dev,test]"
-```
-
-### Build and Package
-
-```bash
-# Build distributable package
-uv build
-
-# Install from built package
-uv pip install dist/mcp_excel-*.whl
-```
-
-## Deployment Modes
-
-The MCP Excel Office Server supports three deployment modes:
-
-### DXT Package Deployment
-
-Best for: Integrated DXT ecosystem users who want seamless configuration management.
-
-1. **Package the project**:
-
-   ```bash
-   dxt pack
-   ```
-
-2. **Configuration**: The DXT package automatically handles dependencies and provides user-friendly configuration through the manifest.json:
-   - `directory`: Base directory for file operations
-
-3. **Usage**: Once packaged, the tool integrates directly with DXT-compatible clients with automatic user configuration variable substitution.
-
-4. **Server Configuration**: This project includes [manifest.json](./manifest.json) for building .dxt packages.
-
-For more details see [DXT Package Documentation](https://github.com/anthropics/dxt).
-
-### Traditional MCP Server
-
-Best for: Standard MCP server deployments with existing MCP infrastructure.
-
-Add to your MCP configuration file (e.g., Claude Desktop's `mcp_config.json`):
+Add this configuration to your `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "mcp_excel": {
-      "command": "uv",
-      "args": ["run", "mcp_excel"],
+    "excel-mcp": {
+      "command": "uvx",
+      "args": ["luiccian-excel-mcp"],
       "env": {
-        "DIRECTORY": "/path/to/your/files"
+        "MCP_ALLOWED_DIRECTORIES": "/path/to/your/spreadsheets"
       }
     }
   }
 }
 ```
 
-**Alternative with CLI arguments:**
+> [!TIP]
+> **Local checkout:** If running from a local git repository:
+> ```json
+> {
+>   "mcpServers": {
+>     "excel-mcp": {
+>       "command": "uv",
+>       "args": ["run", "--directory", "/path/to/excel-mcp", "excel-mcp"],
+>       "env": {
+>         "MCP_ALLOWED_DIRECTORIES": "/path/to/your/spreadsheets"
+>       }
+>     }
+>   }
+> }
+> ```
+
+### 2. Cursor (`.cursor/mcp.json`)
 
 ```json
 {
   "mcpServers": {
-    "mcp_excel": {
-      "command": "uv",
-      "args": [
-        "run", "-m", "mcp_excel",
-        "--directory", "/path/to/files"
-      ]
+    "excel-mcp": {
+      "command": "uvx",
+      "args": ["luiccian-excel-mcp"],
+      "env": {
+        "MCP_ALLOWED_DIRECTORIES": "${workspaceFolder}"
+      }
     }
   }
 }
 ```
 
-### Standalone CLI
-
-Best for: Direct command-line usage, scripting, and automation without MCP protocol overhead.
-
-```bash
-# Run with environment variables
-export DIRECTORY="/path/to/your/files"
-python -m mcp_excel
-
-# Or run with command-line arguments
-python -m mcp_excel --directory "/path/to/files"
-
-# Using UV
-uv run mcp_excel --help
-```
-
-### Docker Deployment
-
-You can install and run the MCP Excel Office Server using Docker for an isolated and reproducible environment.
-
-See [Docker.md](./Docker.md) for details and advanced configuration options.
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DIRECTORY` | Base directory for file operations | Yes |
-| `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) | No (default: INFO) |
-
-### Configuration Validation
-
-The server validates all configuration on startup and provides clear error messages for:
-
-- Missing required environment variables
-- Invalid directory paths
-- File access permissions
-
-### Configuration Sources
-
-Configuration is loaded with the following precedence (highest to lowest):
-
-1. Command-line arguments
-2. Environment variables
-3. User config variables (`${user_config.*}`)
-4. Default values
-
-## Available Tools
-
-The MCP Excel Office Server provides **19 tools** organized into 5 categories:
-
-### Content Tools (2)
-
-- `read_data_from_excel` - Read data from Excel worksheets
-- `write_data_to_excel` - Write data to Excel worksheets
-
-### Excel Tools (5)
-
-- `create_excel_workbook` - Create new Excel workbooks
-- `create_excel_worksheet` - Add worksheets to workbooks
-- `list_excel_documents` - List Excel files in directory
-- `copy_worksheet` - Copy worksheets within workbooks
-- `delete_worksheet` - Delete worksheets from workbooks
-- `rename_worksheet` - Rename worksheets
-- `get_workbook_metadata` - Get workbook information
-
-### Format Tools (6)
-
-- `format_range_excel` - Apply comprehensive cell formatting
-- `merge_cells` - Merge cell ranges
-- `unmerge_cells` - Unmerge cell ranges
-- `copy_range` - Copy cell ranges
-- `delete_range` - Delete cell ranges
-- `validate_excel_range` - Validate range references
-
-### Formula Tools (2)
-
-- `apply_formula_excel` - Apply Excel formulas
-- `validate_formula_syntax` - Validate formula syntax
-
-### Graphics Tools (2)
-
-- `create_chart` - Create charts
-- `create_pivot_table` - Create pivot tables
-
-For detailed documentation of all tools, see [TOOLS.md](./TOOLS.md).
-
-## Project Structure
-
-```
-mcp_excel_office/
-├── src/mcp_excel/              # Main package
-│   ├── __init__.py            # Package initialization
-│   ├── __main__.py            # CLI entry point
-│   ├── server.py              # MCP server implementation
-│   ├── config.py              # Configuration management
-│   ├── tools/                 # MCP tool implementations
-│   │   ├── excel_tools.py     # Workbook/worksheet operations (7 tools)
-│   │   ├── content_tools.py   # Data read/write operations (2 tools)
-│   │   ├── format_tools.py    # Cell formatting (6 tools)
-│   │   ├── formulas_excel_tools.py  # Formula operations (2 tools)
-│   │   ├── graphics_tools.py  # Charts/pivot tables (2 tools)
-│   │   └── register_tools.py  # Tool registration
-│   ├── core/                  # Core functionality
-│   │   ├── workbook.py        # Workbook operations
-│   │   ├── formatting.py      # Cell formatting logic
-│   │   ├── data.py            # Data read/write logic
-│   │   ├── calculations.py    # Formula calculations
-│   │   ├── chart.py           # Chart creation
-│   │   └── pivot.py           # Pivot table creation
-│   ├── utils/                 # Utility functions
-│   │   ├── file_utils.py      # File validation and operations
-│   │   ├── sheet_utils.py     # Sheet operations
-│   │   ├── cell_utils.py      # Cell utilities
-│   │   └── validation_utils.py # Validation utilities
-│   └── exceptions/            # Custom exceptions
-│       ├── exception_core.py  # Core exceptions
-│       └── exception_tools.py # Tool-specific exceptions
-├── tests/                     # Test suite
-│   ├── conftest.py            # Pytest configuration and fixtures
-│   ├── test_excel_tools.py    # Excel tools tests
-│   ├── test_content_tools.py  # Content tools tests
-│   ├── test_format_tools.py   # Format tools tests
-│   ├── test_formulas_excel_tools.py  # Formula tools tests
-│   ├── test_graphics_tools.py # Graphics tools tests
-│   ├── test_workbook.py       # Workbook core tests
-│   ├── test_data.py           # Data core tests
-│   ├── test_file_utils.py     # File utilities tests
-│   ├── test_file_security.py  # Security tests
-│   └── ...                    # Additional test files
-├── pyproject.toml             # Project configuration
-├── manifest.json              # DXT package configuration
-├── ruff.toml                  # Ruff configuration
-├── mypy.ini                   # MyPy configuration
-├── pytest.ini                 # Pytest configuration
-├── .pre-commit-config.yaml    # Pre-commit hooks
-├── TOOLS.md                   # Detailed tool documentation
-├── README.md                  # This file
-├── AGENTS.md                  # Development guidelines for AI agents
-└── Docker.md                  # Docker deployment guide
-```
-
-## Testing
-
-### Run All Tests
-
-```bash
-uv run pytest
-```
-
-### Run Specific Test File
-
-```bash
-uv run pytest tests/test_excel_tools.py
-```
-
-### Run Tests Matching Pattern
-
-```bash
-uv run pytest -k "test_name"
-```
-
-### List Tests Without Running
-
-```bash
-uv run pytest --co
-```
-
-### Verbose Output
-
-```bash
-uv run pytest -v --tb=short
-```
-
-### Test Coverage
-
-The test suite includes coverage reporting. Coverage reports are generated in:
-
-- `htmlcov/` - HTML coverage report
-- `coverage.xml` - XML coverage report
-
-## Development
-
-### Development Setup
-
-```bash
-# Install development dependencies
-uv sync --dev
-
-# Install pre-commit hooks
-uv run pre-commit install
-
-# Run quality checks
-uv run pre-commit run --all-files
-```
-
-### Code Quality Standards
-
-```bash
-# Format code with Ruff
-uv run ruff format
-
-# Check code style
-uv run ruff check
-
-# Auto-fix issues
-uv run ruff check --fix
-
-# Type checking with MyPy
-uv run mypy src/
-
-# Run all quality checks
-uv run pre-commit run --all-files
-```
-
-### Development Commands Summary
-
-| Command | Description |
-|---------|-------------|
-| `uv sync --dev` | Install development dependencies |
-| `uv run ruff check` | Code style and quality checks |
-| `uv run ruff format` | Format code |
-| `uv run mypy src/` | Type checking (strict) |
-| `uv run pytest` | Run test suite with coverage |
-| `uv build` | Build distributable package |
-| `dxt pack` | Create DXT package |
-
-### Code Style Guidelines
-
-- **Python Version**: 3.11+
-- **Type Hints**: Strict (mypy with `disallow_untyped_defs`)
-- **Line Length**: 88 characters
-- **Formatting**: Ruff/Black-compatible
-- **Imports**: Organized with Ruff's isort
-- **Documentation**: Google-style docstrings
-
-See [AGENTS.md](./AGENTS.md) for detailed development guidelines.
-
-## Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-1. Fork the repository
-2. Create a feature branch
-3. Install development dependencies with `uv sync --dev`
-4. Run code quality checks: `uv run ruff check && uv run mypy src/`
-5. Ensure tests pass: `uv run pytest`
-6. Submit a pull request
-
-## Issues and Support
-
-- **Bug Reports**: [Open an issue](https://github.com/LuiccianDev/mcp_excel_office/issues) with detailed reproduction steps
-- **Feature Requests**: Describe your use case and proposed solution
-- **Questions**: Check existing issues or start a discussion
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+---
+
+## Visual Design Presets
+
+| Preset | Header Fill | Header Text | Zebra Row Fill | Typography | Borders / Totals | Best For |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `corporate` (Default) | Navy Blue (`#1F4E79`) | White | Ice Blue (`#EDF2F8`) | Calibri 11pt | Thin gray, soft blue total | Business proposals, management reports, executive summaries |
+| `financial` | Forest Green (`#1E4620`) | White | Pale Mint (`#F0F6F1`) | Calibri 11pt, currency format | Double bottom line on totals | Balance sheets, P&L statements, budgeting, cash flow |
+| `modern` | Slate / Charcoal (`#2F3542`) | White | Cool Gray (`#F8F9FA`) | Segoe UI 10.5pt | Minimalist soft borders | SaaS metrics, tech product analytics, modern dashboards |
+| `compact` | Steel Gray (`#4A6572`) | White | Off-White (`#F5F5F5`) | Arial 9.5pt | Dense grid, high data density | Inventory lists, master catalogs, high-volume exports |
 
 ---
 
-<div align="center">
-  <p><strong>MCP Excel Office Server</strong></p>
-  <p>Empowering AI assistants with comprehensive Excel manipulation capabilities</p>
-  <p>
-    <a href="https://github.com/LuiccianDev/mcp_excel_office">GitHub</a> |
-    <a href="https://modelcontextprotocol.io">MCP Protocol</a> |
-    <a href="https://github.com/LuiccianDev/mcp_excel_office/blob/main/TOOLS.md">Tool Documentation</a>
-  </p>
-  <p><em>Created by LuiccianDev</em></p>
-</div>
+## Modular Agent Skills
+
+The repository includes pre-built agent skills under `skills/`:
+
+- **`excel-spreadsheet-creator`**: Direct single-pass synthesis for reports, budgets, and financial statements.
+- **`excel-spreadsheet-editor`**: Lightweight structural inspection, atomic batch matrix writes, formatting, and pivot tables.
+- **`excel-spreadsheet-analyzer`**: Context-efficient sampling, formula verification, and structural auditing.
+
+---
+
+## Tool Taxonomy
+
+All tools support both canonical `excel_` prefixes and legacy names for 100% backward compatibility:
+
+| Category | Primary Tool | Description |
+| :--- | :--- | :--- |
+| **Batch / Single-Pass** | `excel_build_workbook` | Build full multi-sheet workbooks with styles, formulas, and charts in 1 call |
+| | `excel_get_workbook_outline` | Lightweight outline inspection without loading entire cell matrices |
+| | `excel_batch_write_data` | Write 2D matrix of values or formulas into a sheet range atomically |
+| **Workbook Operations** | `excel_create_excel_workbook` | Create a new Excel workbook file |
+| | `excel_create_excel_worksheet` | Add a new worksheet to a workbook |
+| | `excel_list_excel_documents` | List available Excel files in allowed directories |
+| | `excel_copy_worksheet` | Duplicate a worksheet within a workbook |
+| | `excel_delete_worksheet` | Delete a worksheet |
+| | `excel_rename_worksheet` | Rename an existing worksheet |
+| | `excel_get_workbook_metadata` | Retrieve sheet names, active sheet, and file size |
+| **Content & Ranges** | `excel_read_data_from_excel` | Read specific cell range data |
+| | `excel_write_data_to_excel` | Write individual cell values |
+| | `excel_copy_range` | Copy cells, formats, and formulas across ranges |
+| | `excel_delete_range` | Delete range of cells |
+| | `excel_merge_cells` | Merge cell ranges |
+| | `excel_unmerge_cells` | Unmerge cell ranges |
+| **Formatting** | `excel_format_range_excel` | Apply custom fonts, fills, borders, alignments, and number formats |
+| **Formulas** | `excel_apply_formula_excel` | Apply calculation formulas to cells |
+| | `excel_validate_formula_syntax`| Validate formula syntax before applying |
+| **Graphics & Analytics** | `excel_create_chart` | Generate native bar, line, or pie charts from data |
+| | `excel_create_pivot_table` | Create analytical pivot tables |
+
+---
+
+## Security
+
+- **Restricted Directories**: Access is strictly limited to paths listed in `MCP_ALLOWED_DIRECTORIES` (or `DIRECTORY`).
+- **Formula Sanitization**: Formula inputs are validated to avoid dangerous injection patterns.
+- **Trusted Publishing**: Automated PyPI releases use GitHub Actions OIDC and PEP 740 artifact attestation.
+
+---
+
+## Development
+
+```bash
+# Clone the repository
+git clone https://github.com/LuiccianDev/excel-mcp.git
+cd excel-mcp
+
+# Install dependencies with Astral uv
+uv sync --all-groups
+
+# Run linting
+uv run ruff check src
+
+# Run test suite
+uv run pytest
+```
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

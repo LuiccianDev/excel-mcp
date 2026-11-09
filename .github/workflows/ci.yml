@@ -1,0 +1,75 @@
+name: CI - Build & Test
+
+on:
+  push:
+    branches: [ master, main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'skills/**'
+      - 'examples/**'
+      - '.gitignore'
+      - '.gitattributes'
+      - '.pre-commit-config.yaml'
+      - '.mcpbignore'
+      - '.dockerignore'
+      - 'Dockerfile'
+      - '.vscode/**'
+      - '.python-version'
+      - '.env.example'
+      - 'LICENSE'
+  pull_request:
+    branches: [ master, main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'skills/**'
+      - 'examples/**'
+      - '.gitignore'
+      - '.gitattributes'
+      - '.pre-commit-config.yaml'
+      - '.mcpbignore'
+      - '.dockerignore'
+      - 'Dockerfile'
+      - '.vscode/**'
+      - '.python-version'
+      - '.env.example'
+      - 'LICENSE'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test & Lint (Python 3.11, 3.12, 3.13)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run linter (ruff)
+        run: uv run ruff check src
+        continue-on-error: true
+
+      - name: Run type checker (mypy)
+        run: uv run mypy src
+        continue-on-error: true
+
+      - name: Run test suite (pytest)
+        run: uv run pytest

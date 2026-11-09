@@ -1,0 +1,176 @@
+"""Batch and composite document building tools for Excel MCP Server.
+
+Provides high-efficiency tools to build full workbooks, worksheets, or insert
+multiple tabular rows in a single pass, saving >90% tokens.
+"""
+
+from __future__ import annotations
+
+import os
+from typing import Any
+
+from excel_mcp.core.batch import (
+    batch_write_matrix,
+    build_single_pass_sheet,
+    build_single_pass_workbook,
+    inspect_workbook_outline,
+)
+from excel_mcp.exceptions.exception_tools import ExceptionTool
+from excel_mcp.models.response_models import (
+    BatchWriteResult,
+    BuildWorkbookResult,
+    WorkbookOutline,
+)
+from excel_mcp.utils.security import is_path_in_allowed_directories
+
+
+def _resolve_and_check_path(
+    filename: str | None,
+    file_path: str | None = None,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Resolve target path and check security permissions."""
+    target = filename or file_path
+    if not target:
+        return None, {
+            "status": "error",
+            "message": "Missing required parameter 'filename' (or 'file_path').",
+        }
+
+    is_allowed, error_msg = is_path_in_allowed_directories(target)
+    if not is_allowed:
+        return None, {
+            "status": "error",
+            "message": f"Security restriction: {error_msg}",
+        }
+
+    directory = os.path.dirname(os.path.abspath(target))
+    if directory and not os.path.exists(directory):
+        try:
+            os.makedirs(directory, exist_ok=True)
+        except OSError as e:
+            return None, {
+                "status": "error",
+                "message": f"Cannot create directory '{directory}': {e}",
+            }
+
+    return target, None
+
+
+def _dump(model: Any) -> dict[str, Any]:
+    """Dump Pydantic model supporting both v1 and v2."""
+    if hasattr(model, "model_dump"):
+        return model.model_dump()
+    if hasattr(model, "dict"):
+        return model.dict()
+    return model
+
+
+def build_workbook(
+    filename: str | None = None,
+    file_path: str | None = None,
+    sheets: list[dict[str, Any]] | None = None,
+    preset: str = "corporate",
+    auto_fit: bool = True,
+) -> dict[str, Any]:
+    """Build a complete Excel workbook with typography, zebra striping, currency/date formats, formulas, and charts in a single pass.
+
+    Args:
+        filename: Path to the .xlsx file to create or overwrite.
+        file_path: Alternative alias for filename.
+        sheets: List of sheet definitions. Each sheet dict contains:
+            - 'name': Sheet title (str).
+            - 'title': Optional banner title header (str).
+            - 'headers': List of column header names (list[str]).
+            - 'rows': 2D array of data values (list[list[Any]]).
+            - 'auto_totals': bool or list of 0-based column indices to calculate SUM.
+            - 'currency_columns': list of column names or 0-based indices for currency formatting ($#,##0.00).
+            - 'chart': Optional chart definition {'type': 'bar'|'line'|'pie', 'title': '...', 'data_column': 2, 'label_column': 1}.
+        preset: Visual styling preset ('corporate', 'financial', 'modern', 'compact').
+        auto_fit: If True, calculates optimal column widths automatically.
+
+    Returns:
+        Structured result summary including sheets created and total rows.
+    """
+    target, err = _resolve_and_check_path(filename, file_path)
+    if err:
+        return err
+    assert target is not None
+
+    if not sheets:
+        sheets = [{"name": "Sheet1", "headers": ["Column 1"], "rows": [["No data provided"]]}]
+
+    try:
+        result = build_single_pass_workbook(
+            filename=target,
+            sheets=sheets,
+            preset=preset,
+            auto_fit=auto_fit,
+        )
+        return {"status": "success", "data": _dump(result)}
+    except Exception as e:
+        return ExceptionTool.handle_error(e, filename=target, operation="build_workbook")
+
+
+def get_workbook_outline(
+    filename: str | None = None,
+    file_path: str | None = None,
+) -> dict[str, Any]:
+    """Inspect structural outline of an Excel workbook without dumping massive cell grids into LLM context.
+
+    Args:
+        filename: Path to the target .xlsx file.
+        file_path: Alternative alias for filename.
+
+    Returns:
+        Lightweight outline containing sheet names, dimensions (e.g. A1:H45),
+        detected header titles, and formula presence.
+    """
+    target, err = _resolve_and_check_path(filename, file_path)
+    if err:
+        return err
+    assert target is not None
+
+    try:
+        outline = inspect_workbook_outline(target)
+        return {"status": "success", "data": _dump(outline)}
+    except Exception as e:
+        return ExceptionTool.handle_error(e, filename=target, operation="get_workbook_outline")
+
+
+def batch_write_data(
+    filename: str | None = None,
+    file_path: str | None = None,
+    sheet_name: str | None = None,
+    start_cell: str = "A1",
+    data_matrix: list[list[Any]] | None = None,
+) -> dict[str, Any]:
+    """Write a 2D matrix of values or formulas into a worksheet starting from a specific cell in one atomic operation.
+
+    Args:
+        filename: Path to the target .xlsx file.
+        file_path: Alternative alias for filename.
+        sheet_name: Worksheet name (defaults to active sheet if omitted).
+        start_cell: Top-left coordinate (e.g., 'A1', 'B5').
+        data_matrix: 2D array of values or formula strings to write.
+
+    Returns:
+        Summary of updated cell range and row/column counts.
+    """
+    target, err = _resolve_and_check_path(filename, file_path)
+    if err:
+        return err
+    assert target is not None
+
+    if not data_matrix:
+        return {"status": "error", "message": "data_matrix cannot be empty."}
+
+    try:
+        result = batch_write_matrix(
+            filename=target,
+            sheet_name=sheet_name,
+            start_cell=start_cell,
+            data_matrix=data_matrix,
+        )
+        return {"status": "success", "data": _dump(result)}
+    except Exception as e:
+        return ExceptionTool.handle_error(e, filename=target, operation="batch_write_data")

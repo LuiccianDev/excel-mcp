@@ -1,0 +1,76 @@
+name: Release - Build & Publish Artifacts
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag (leave empty to auto-detect from pyproject.toml, e.g. v2.0.0)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  publish-release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Release Tag and Version
+        id: tag_info
+        run: |
+          TAG="${{ github.event.inputs.tag_name }}"
+          if [ -z "$TAG" ]; then
+            if [ "${{ github.ref_type }}" = "tag" ]; then
+              TAG="${{ github.ref_name }}"
+            else
+              RAW_VER=$(grep -m1 '^version = ' pyproject.toml | cut -d '"' -f2)
+              TAG="v$RAW_VER"
+            fi
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo ">>> Resolved Release Tag: $TAG"
+          echo ">>> Resolved Version: $VERSION"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Build Python Package (Wheel & Sdist)
+        run: uv build
+
+      - name: Extract Release Notes from CHANGELOG
+        run: |
+          python3 scripts/extract-release-notes.py --tag "${{ steps.tag_info.outputs.tag }}" --output release_body.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_info.outputs.tag }}
+          name: Release ${{ steps.tag_info.outputs.tag }}
+          body_path: release_body.md
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          generate_release_notes: true
+          make_latest: true
+
+      - name: Trigger PyPI Publication Workflow
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo ">>> Triggering PyPI publication workflow..."
+          gh workflow run publish-pypi.yml --ref master -f target_env=pypi || echo "Note: Workflow run dispatched if permissions permit."

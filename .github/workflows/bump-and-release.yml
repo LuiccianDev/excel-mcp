@@ -1,0 +1,112 @@
+name: Automated Version Bump & PyPI Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Semantic Version Bump Type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - custom
+      custom_version:
+        description: 'Custom version if "custom" selected (e.g. 2.1.0)'
+        required: false
+        default: ''
+        type: string
+      target_env:
+        description: 'Target repository'
+        required: true
+        default: 'pypi'
+        type: choice
+        options:
+          - pypi
+          - testpypi
+
+concurrency:
+  group: release-${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  bump-tag-publish:
+    name: Bump, Build, Release & Publish to PyPI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write        # Mandatory for Trusted Publishing (OIDC)
+      attestations: write    # Mandatory for PEP 740 Cryptographic Attestation
+
+    environment:
+      name: ${{ github.event.inputs.target_env || 'pypi' }}
+      url: ${{ (github.event.inputs.target_env == 'testpypi') && 'https://test.pypi.org/p/luiccian-excel-mcp' || 'https://pypi.org/p/luiccian-excel-mcp' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Configure Git Identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump Version in pyproject.toml & CHANGELOG.md
+        id: bump
+        run: |
+          python3 scripts/bump-version.py --type "${{ github.event.inputs.bump_type }}" --custom "${{ github.event.inputs.custom_version }}"
+          VERSION=$(grep -m1 '^version = ' pyproject.toml | cut -d '"' -f2)
+          TAG="v$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo ">>> New Version: $VERSION"
+          echo ">>> New Tag: $TAG"
+
+      - name: Commit and Push Version Bump
+        run: |
+          git add pyproject.toml CHANGELOG.md
+          git commit -m "chore(release): bump version to ${{ steps.bump.outputs.tag }} [skip ci]"
+          git tag -a "${{ steps.bump.outputs.tag }}" -m "Release ${{ steps.bump.outputs.tag }}"
+          CURRENT_BRANCH=$(git branch --show-current || echo "master")
+          git push origin "$CURRENT_BRANCH" --tags
+
+      - name: Build Python Package (Wheel & Sdist)
+        run: uv build
+
+      - name: Generate Artifact Attestation (PEP 740)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "dist/*"
+
+      - name: Extract Release Notes from CHANGELOG
+        run: |
+          python3 scripts/extract-release-notes.py --tag "${{ steps.bump.outputs.tag }}" --output release_body.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bump.outputs.tag }}
+          name: Release ${{ steps.bump.outputs.tag }}
+          body_path: release_body.md
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          generate_release_notes: true
+          make_latest: true
+
+      - name: Publish to PyPI (Production via OIDC)
+        if: ${{ (github.event.inputs.target_env || 'pypi') == 'pypi' }}
+        run: uv publish
+
+      - name: Publish to TestPyPI
+        if: ${{ github.event.inputs.target_env == 'testpypi' }}
+        run: uv publish --publish-url https://test.pypi.org/legacy/
