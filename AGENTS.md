@@ -52,7 +52,7 @@ When assisting users or configuring clients (Claude Desktop, Cursor, Cline, Copi
 
 The distribution boundary between the PyPI package and the repository is strictly defined:
 
-- **PyPI Package (`luiccian-excel-mcp`):** Bundles **exclusively** the runtime code located in `src/excel_mcp/` and `src/mcp_excel/`, accompanied by `README.md`, `LICENSE`, and `pyproject.toml`.
+- **PyPI Package (`luiccian-excel-mcp`):** Bundles **exclusively** the runtime code located in `src/excel_mcp/`, accompanied by `README.md`, `LICENSE`, and `pyproject.toml`.
 - **Repository Scope:** Test suites (`tests/`), automation scripts (`scripts/`), agent skills (`skills/`), documentation manuals (`docs/`), and GitHub Actions workflows (`.github/`) belong solely to repository infrastructure and are explicitly excluded from the PyPI wheel and sdist distributions via Hatchling build targets.
 
 ---
@@ -62,9 +62,9 @@ The distribution boundary between the PyPI package and the repository is strictl
 To guarantee consistency, cleanliness, and maintainability across the project:
 
 ### 1. Root & Module Hierarchy
-- **Source Module:** Python source resides strictly in `src/excel_mcp/` (with `src/mcp_excel/` as a backward-compatibility shim).
+- **Source Module:** Python source resides strictly in `src/excel_mcp/`.
 - **Package Name on PyPI:** `luiccian-excel-mcp`.
-- **Command-line Scripts:** `excel-mcp`, `excel_mcp`, `mcp-excel` registered in `pyproject.toml` pointing to `excel_mcp.__main__:main`.
+- **Command-line Scripts:** `excel-mcp`, `excel_mcp`, `mcp-excel`, `mcp_excel` registered in `pyproject.toml` pointing to `excel_mcp.__main__:main`.
 - **Support Folders (Lowercase):**
   - `docs/` (technical documentation and tool specifications)
   - `scripts/` (release, versioning, and build automation)

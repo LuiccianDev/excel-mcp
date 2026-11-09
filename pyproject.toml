@@ -46,19 +46,18 @@ dev = [
 excel-mcp = "excel_mcp.__main__:main"
 excel_mcp = "excel_mcp.__main__:main"
 mcp-excel = "excel_mcp.__main__:main"
-mcp_excel = "mcp_excel.__main__:main"
+mcp_excel = "excel_mcp.__main__:main"
 
 [project.entry-points."mcp.servers"]
 excel-mcp = "excel_mcp.__main__:main"
 excel_mcp = "excel_mcp.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/excel_mcp", "src/mcp_excel"]
+packages = ["src/excel_mcp"]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "/src/excel_mcp",
-    "/src/mcp_excel",
     "/README.md",
     "/LICENSE",
     "/pyproject.toml",
@@ -108,7 +107,7 @@ ignore = [
 "tests/*" = ["E", "W", "F"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["excel_mcp", "mcp_excel"]
+known-first-party = ["excel_mcp"]
 combine-as-imports = true
 order-by-type = true
 case-sensitive = false

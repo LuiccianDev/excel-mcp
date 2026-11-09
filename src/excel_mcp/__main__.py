@@ -1,14 +1,14 @@
 """
-Entry point for running mcp_excel as a module.
+Entry point for running excel_mcp as a module.
 
-This module provides the command-line interface for the MCP Excel Office server,
+This module provides the command-line interface for the Excel MCP server,
 supporting both MCP server mode and standalone CLI operations. It handles
 environment variable configuration, command-line argument parsing, and provides
 clear error messages for configuration issues.
 
 The module supports multiple execution modes:
-- MCP Server: `python -m mcp_excel server` or `uv run mcp_excel_office`
-- File listing: `python -m mcp_excel list`
+- MCP Server: `python -m excel_mcp server` or `uv run excel-mcp`
+- File listing: `python -m excel_mcp list`
 - Default behavior: Start MCP server when no command is specified
 """
 
@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 
 app = typer.Typer(
-    name="mcp_excel",
-    help="MCP Excel Office Server - Excel manipulation through Model Context Protocol",
+    name="excel_mcp",
+    help="Excel MCP Server - Excel manipulation through Model Context Protocol",
     no_args_is_help=True,
 )
 
@@ -103,8 +103,8 @@ def run_mcp_server(
         DIRECTORY: Base directory for file operations (defaults to ./documents)
 
     Examples:
-        python -m mcp_excel server
-        python -m mcp_excel server --path "/path/to/excel/files"
+        python -m excel_mcp server
+        python -m excel_mcp server --path "/path/to/excel/files"
     """
     try:
         logger.info("Initializing MCP Excel Office Server...")
@@ -208,16 +208,16 @@ def list_excel_files(
 
 def main() -> None:
     """
-    Main entry point for the mcp_excel module.
+    Main entry point for the excel_mcp module.
 
     This function serves as the primary entry point when the module is executed
-    with `python -m mcp_excel` or through the `mcp_excel_office` script.
+    with `python -m excel_mcp` or through the `excel-mcp` CLI script.
 
     It supports multiple execution patterns:
-    - `python -m mcp_excel` (defaults to server mode)
-    - `python -m mcp_excel server` (explicit server mode)
-    - `python -m mcp_excel list` (list Excel files)
-    - `uv run mcp_excel_office` (entry point script)
+    - `python -m excel_mcp` (defaults to server mode)
+    - `python -m excel_mcp server` (explicit server mode)
+    - `python -m excel_mcp list` (list Excel files)
+    - `uv run excel-mcp` (entry point script)
 
     The function provides proper error handling and logging for all execution modes.
     """
