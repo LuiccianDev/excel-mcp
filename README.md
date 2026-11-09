@@ -112,39 +112,49 @@ Add this configuration to your `claude_desktop_config.json`:
 
 The repository includes pre-built agent skills under `skills/`:
 
-- **`excel-spreadsheet-creator`**: Direct single-pass synthesis for reports, budgets, and financial statements.
-- **`excel-spreadsheet-editor`**: Lightweight structural inspection, atomic batch matrix writes, formatting, and pivot tables.
-- **`excel-spreadsheet-analyzer`**: Context-efficient sampling, formula verification, and structural auditing.
+- **`excel-tools-reference`**: Authoritative encyclopedia and decision matrix covering all 30 canonical tools, types, signatures, and safety rules.
+- **`excel-spreadsheet-creator`**: Direct single-pass synthesis for reports, budgets, and financial statements (`excel_build_workbook`).
+- **`excel-spreadsheet-editor`**: Lightweight structural inspection, atomic batch matrix writes, row appending, table formatting, and in-place sorting.
+- **`excel-spreadsheet-analyzer`**: Context-efficient sampling, statistical column profiling (`excel_profile_sheet`), and cell discovery (`excel_find_cells`).
 
 ---
 
 ## Tool Taxonomy
 
-All tools support both canonical `excel_` prefixes and legacy names for 100% backward compatibility:
+All tools use the standard `excel_*` canonical prefix. Legacy unprefixed aliases can optionally be enabled via `EXCEL_MCP_LEGACY_ALIASES=1`. For complete signatures and parameter schemas, see [docs/TOOLS.md](docs/TOOLS.md).
 
-| Category | Primary Tool | Description |
-| :--- | :--- | :--- |
-| **Batch / Single-Pass** | `excel_build_workbook` | Build full multi-sheet workbooks with styles, formulas, and charts in 1 call |
-| | `excel_get_workbook_outline` | Lightweight outline inspection without loading entire cell matrices |
-| | `excel_batch_write_data` | Write 2D matrix of values or formulas into a sheet range atomically |
-| **Workbook Operations** | `excel_create_excel_workbook` | Create a new Excel workbook file |
-| | `excel_create_excel_worksheet` | Add a new worksheet to a workbook |
-| | `excel_list_excel_documents` | List available Excel files in allowed directories |
-| | `excel_copy_worksheet` | Duplicate a worksheet within a workbook |
-| | `excel_delete_worksheet` | Delete a worksheet |
-| | `excel_rename_worksheet` | Rename an existing worksheet |
-| | `excel_get_workbook_metadata` | Retrieve sheet names, active sheet, and file size |
-| **Content & Ranges** | `excel_read_data_from_excel` | Read specific cell range data |
-| | `excel_write_data_to_excel` | Write individual cell values |
-| | `excel_copy_range` | Copy cells, formats, and formulas across ranges |
-| | `excel_delete_range` | Delete range of cells |
-| | `excel_merge_cells` | Merge cell ranges |
-| | `excel_unmerge_cells` | Unmerge cell ranges |
-| **Formatting** | `excel_format_range_excel` | Apply custom fonts, fills, borders, alignments, and number formats |
-| **Formulas** | `excel_apply_formula_excel` | Apply calculation formulas to cells |
-| | `excel_validate_formula_syntax`| Validate formula syntax before applying |
-| **Graphics & Analytics** | `excel_create_chart` | Generate native bar, line, or pie charts from data |
-| | `excel_create_pivot_table` | Create analytical pivot tables |
+| Category | Canonical Tool Name | Type | Description |
+| :--- | :--- | :--- | :--- |
+| **Batch & Single-Pass** | `excel_build_workbook` | `Write` | Build full multi-sheet workbooks with styles, formulas, and charts in 1 call |
+| | `excel_get_workbook_outline` | `Read-Only` | Lightweight outline inspection without loading entire cell matrices |
+| | `excel_batch_write_data` | `Write` | Write 2D matrix of values or formulas into a sheet range atomically |
+| | `excel_append_rows` | `Write` | Append batch rows below existing data automatically detecting last row |
+| **Search & Profiling** | `excel_profile_sheet` | `Read-Only` | Column data types, null counts, min/max, and distinct samples |
+| | `excel_find_cells` | `Read-Only` | Search cells by text, exact match, or regex without full grid dump |
+| **Formatting & Tables** | `excel_create_table` | `Write` | Convert cell range into native Excel Table with filter drop-downs |
+| | `excel_format_sheet` | `Write` | Configure freeze panes, autofilter, gridlines, and custom column widths |
+| | `excel_sort_range` | `Write` | Sort 2D cell range in-place by key column with header preservation |
+| | `excel_format_range` | `Write` | Apply fonts, fills, borders, alignments, and number formats |
+| | `excel_merge_cells` | `Write` | Merge rectangular cell range |
+| | `excel_unmerge_cells` | `Write` | Unmerge cell range |
+| | `excel_copy_range` | `Write` | Copy cells, formats, and formulas across ranges |
+| | `excel_delete_range` | `Destructive` | Delete range of cells with optional cell shifting |
+| | `excel_validate_range` | `Read-Only` | Validate range coordinate syntax |
+| **Worksheet Management**| `excel_create_workbook` | `Write` | Create a new Excel workbook file |
+| | `excel_create_worksheet` | `Write` | Add a new worksheet to a workbook |
+| | `excel_copy_worksheet` | `Write` | Duplicate a worksheet within a workbook |
+| | `excel_delete_worksheet` | `Destructive` | Permanently delete a worksheet |
+| | `excel_rename_worksheet` | `Write` | Rename an existing worksheet |
+| | `excel_insert_rows_columns` | `Write` | Insert empty rows or columns at 1-based index |
+| | `excel_delete_rows_columns` | `Destructive` | Delete rows or columns starting at 1-based index |
+| | `excel_list_documents` | `Read-Only` | List available Excel files in allowed directories |
+| | `excel_get_workbook_metadata` | `Read-Only` | Retrieve sheet names, dimensions, and named ranges |
+| **Formulas & Analytics**| `excel_validate_formula_syntax`| `Read-Only` | Validate formula syntax before applying |
+| | `excel_apply_formula` | `Write` | Apply calculation formulas to specific cells |
+| | `excel_create_chart` | `Write` | Generate native bar, line, or pie charts from data |
+| | `excel_create_pivot_table` | `Write` | Create analytical pivot tables from ranges |
+| **Content I/O** | `excel_read_data` | `Read-Only` | Read tabular data from worksheet range |
+| | `excel_write_data` | `Write` | Write data starting at target cell |
 
 ---
 
