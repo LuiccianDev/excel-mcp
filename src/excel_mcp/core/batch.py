@@ -13,12 +13,15 @@ import openpyxl
 from openpyxl.chart import BarChart, LineChart, PieChart, Reference
 from openpyxl.utils import get_column_letter
 
+from excel_mcp.core._io import atomic_save
+from excel_mcp.core.calculations import FormulaSecurityError, validate_formula_secure
 from excel_mcp.core.presets import (
     apply_data_cell_style,
     apply_header_style,
     auto_fit_column_widths,
     get_preset,
 )
+from excel_mcp.exceptions.exception_core import SheetNotFoundError
 from excel_mcp.models.response_models import (
     BatchWriteResult,
     BuildWorkbookResult,
@@ -67,6 +70,7 @@ def build_single_pass_sheet(
     sheet_data: dict[str, Any],
     preset_name: str = "corporate",
     auto_fit: bool = True,
+    warnings: list[str] | None = None,
 ) -> int:
     """Build a complete formatted sheet from structured data."""
     headers = sheet_data.get("headers", [])
@@ -114,6 +118,12 @@ def build_single_pass_sheet(
     for r_idx, row_values in enumerate(rows, start=1):
         ws.row_dimensions[current_row].height = 20
         for col_idx, val in enumerate(row_values, start=1):
+            if isinstance(val, str) and val.startswith("="):
+                is_valid, msg = validate_formula_secure(val)
+                if not is_valid:
+                    raise FormulaSecurityError(
+                        f"Formula security validation failed in sheet '{ws.title}' row {current_row} col {col_idx}: {msg}"
+                    )
             cell = ws.cell(row=current_row, column=col_idx, value=val)
             is_curr = (col_idx - 1 in currency_cols) or (headers and col_idx - 1 < len(headers) and headers[col_idx - 1] in currency_cols)
             is_num = is_curr or (col_idx - 1 in numeric_cols) or isinstance(val, (int, float))
@@ -167,8 +177,9 @@ def build_single_pass_sheet(
                 num_cols=num_cols,
             )
         except Exception as e:
-            # Non-fatal chart rendering fallback
-            ws.cell(row=current_row + 1, column=2, value=f"[Chart generation error: {e}]")
+            # Record warning without corrupting sheet cell contents
+            if warnings is not None:
+                warnings.append(f"Sheet '{ws.title}' chart generation warning: {e}")
 
     # 6. Auto-fit column widths
     if auto_fit:
@@ -191,6 +202,7 @@ def build_single_pass_workbook(
     sheets_created: list[str] = []
     total_rows = 0
     charts_count = 0
+    warnings: list[str] = []
 
     for i, s_data in enumerate(sheets):
         sheet_name = s_data.get("name", f"Sheet{i+1}")
@@ -206,12 +218,13 @@ def build_single_pass_workbook(
             sheet_data=s_data,
             preset_name=preset,
             auto_fit=auto_fit,
+            warnings=warnings,
         )
         total_rows += rows_inserted
         if s_data.get("chart"):
             charts_count += 1
 
-    wb.save(filename)
+    atomic_save(wb, filename)
 
     return BuildWorkbookResult(
         filename=filename,
@@ -219,6 +232,7 @@ def build_single_pass_workbook(
         total_rows_inserted=total_rows,
         preset_applied=preset,
         charts_created=charts_count,
+        warnings=warnings,
         message=f"Successfully built workbook with {len(sheets_created)} sheets and {total_rows} rows.",
     )
 
@@ -228,51 +242,80 @@ def inspect_workbook_outline(filename: str) -> WorkbookOutline:
     if not os.path.exists(filename):
         raise FileNotFoundError(f"Workbook not found at {filename}")
 
-    wb = openpyxl.load_workbook(filename, data_only=False)
+    wb = openpyxl.load_workbook(filename, read_only=True, data_only=False)
     sheet_outlines: list[SheetOutline] = []
     total_cells = 0
 
-    for name in wb.sheetnames:
-        ws = wb[name]
-        max_r = ws.max_row or 0
-        max_c = ws.max_column or 0
-        dim = ws.dimensions or f"A1:{get_column_letter(max(max_c, 1))}{max(max_r, 1)}"
+    try:
+        for name in wb.sheetnames:
+            ws = wb[name]
+            max_r = ws.max_row or 0
+            max_c = ws.max_column or 0
+            dim = getattr(ws, "dimensions", None) or f"A1:{get_column_letter(max(max_c, 1))}{max(max_r, 1)}"
 
-        # Sample top row for headers
-        headers: list[str] = []
-        formula_count = 0
-        has_formulas = False
+            headers: list[str] = []
+            header_row_idx = 1
+            formula_count = 0
+            has_formulas = False
+            sheet_populated = 0
+            sheet_warnings: list[str] = []
 
-        if max_r > 0 and max_c > 0:
-            for col_idx in range(1, min(max_c + 1, 30)):
-                val = ws.cell(row=1, column=col_idx).value
-                if val is not None:
-                    headers.append(str(val))
+            if max_r > 0 and max_c > 0:
+                # Find the most likely header row among the first 5 rows
+                # (skipping single-cell title banners or leading empty rows)
+                best_headers: list[str] = []
+                best_row = 1
+                for r_idx, row in enumerate(
+                    ws.iter_rows(min_row=1, max_row=min(max_r, 5), max_col=min(max_c, 50), values_only=True),
+                    start=1,
+                ):
+                    row_vals = [str(v).strip() for v in row if v is not None and str(v).strip()]
+                    if len(row_vals) > len(best_headers):
+                        best_headers = row_vals
+                        best_row = r_idx
+                    if len(best_headers) >= 2:
+                        break
 
-            # Inspect sample range for formulas
-            for r in range(1, min(max_r + 1, 100)):
-                for c in range(1, min(max_c + 1, 30)):
-                    cval = ws.cell(row=r, column=c).value
-                    if isinstance(cval, str) and cval.startswith("="):
-                        has_formulas = True
-                        formula_count += 1
+                headers = best_headers
+                header_row_idx = best_row
 
-        cells_populated = max_r * max_c
-        total_cells += cells_populated
+                # Count formulas and populated cells within a reasonable inspection window (first 500 rows, 50 cols)
+                for row_cells in ws.iter_rows(
+                    min_row=1,
+                    max_row=min(max_r, 500),
+                    max_col=min(max_c, 50),
+                    values_only=False,
+                ):
+                    for cell in row_cells:
+                        val = cell.value
+                        if val is not None:
+                            sheet_populated += 1
+                            if isinstance(val, str) and val.startswith("="):
+                                has_formulas = True
+                                formula_count += 1
 
-        sheet_outlines.append(
-            SheetOutline(
-                name=name,
-                max_row=max_r,
-                max_column=max_c,
-                dimension=dim,
-                headers=headers,
-                has_formulas=has_formulas,
-                formula_count=formula_count,
+                if max_r > 500 or max_c > 50:
+                    sheet_warnings.append(
+                        f"Inspection capped at 500 rows and 50 cols (sheet dimensions: {max_r}x{max_c})"
+                    )
+
+            total_cells += sheet_populated
+
+            sheet_outlines.append(
+                SheetOutline(
+                    name=name,
+                    max_row=max_r,
+                    max_column=max_c,
+                    dimension=dim,
+                    headers=headers,
+                    header_row=header_row_idx,
+                    has_formulas=has_formulas,
+                    formula_count=formula_count,
+                    warnings=sheet_warnings,
+                )
             )
-        )
-
-    wb.close()
+    finally:
+        wb.close()
 
     return WorkbookOutline(
         filename=filename,
@@ -293,31 +336,47 @@ def batch_write_matrix(
         raise FileNotFoundError(f"Workbook not found at {filename}")
 
     wb = openpyxl.load_workbook(filename)
-    ws = wb[sheet_name] if sheet_name and sheet_name in wb.sheetnames else wb.active
+    try:
+        if sheet_name:
+            if sheet_name not in wb.sheetnames:
+                raise SheetNotFoundError(
+                    f"Sheet '{sheet_name}' not found in workbook '{filename}'. Available sheets: {wb.sheetnames}"
+                )
+            ws = wb[sheet_name]
+        else:
+            ws = wb.active
 
-    # Parse start cell coordinate (e.g., 'B3')
-    from openpyxl.utils.cell import coordinate_to_tuple
-    start_row, start_col = coordinate_to_tuple(start_cell)
+        # Parse start cell coordinate (e.g., 'B3')
+        from openpyxl.utils.cell import coordinate_to_tuple
+        start_row, start_col = coordinate_to_tuple(start_cell)
 
-    rows_affected = len(data_matrix)
-    cols_affected = max(len(r) for r in data_matrix) if data_matrix else 0
-    total_cells = 0
+        rows_affected = len(data_matrix)
+        cols_affected = max(len(r) for r in data_matrix) if data_matrix else 0
+        total_cells = 0
 
-    for r_offset, row in enumerate(data_matrix):
-        for c_offset, val in enumerate(row):
-            ws.cell(row=start_row + r_offset, column=start_col + c_offset, value=val)
-            total_cells += 1
+        for r_offset, row in enumerate(data_matrix):
+            for c_offset, val in enumerate(row):
+                if isinstance(val, str) and val.startswith("="):
+                    is_valid, msg = validate_formula_secure(val)
+                    if not is_valid:
+                        raise FormulaSecurityError(
+                            f"Formula security validation failed at row offset {r_offset}, col offset {c_offset}: {msg}"
+                        )
+                ws.cell(row=start_row + r_offset, column=start_col + c_offset, value=val)
+                total_cells += 1
 
-    end_cell = f"{get_column_letter(start_col + cols_affected - 1)}{start_row + rows_affected - 1}"
-    range_written = f"{start_cell}:{end_cell}"
+        end_cell = f"{get_column_letter(start_col + max(cols_affected - 1, 0))}{start_row + max(rows_affected - 1, 0)}"
+        range_written = f"{start_cell}:{end_cell}"
 
-    wb.save(filename)
+        atomic_save(wb, filename)
 
-    return BatchWriteResult(
-        filename=filename,
-        sheet_name=ws.title,
-        range_written=range_written,
-        rows_affected=rows_affected,
-        columns_affected=cols_affected,
-        cells_updated=total_cells,
-    )
+        return BatchWriteResult(
+            filename=filename,
+            sheet_name=ws.title,
+            range_written=range_written,
+            rows_affected=rows_affected,
+            columns_affected=cols_affected,
+            cells_updated=total_cells,
+        )
+    finally:
+        wb.close()

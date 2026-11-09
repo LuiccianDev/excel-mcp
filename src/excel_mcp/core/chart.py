@@ -15,6 +15,7 @@ from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.legend import Legend
 from openpyxl.worksheet.worksheet import Worksheet
 
+from excel_mcp.core._io import atomic_save
 from excel_mcp.utils.cell_utils import parse_cell_range
 
 
@@ -188,7 +189,7 @@ def create_chart_in_sheet(
                 "message": f"Failed to create chart drawing: {str(e)}",
             }
         try:
-            wb.save(filename)
+            atomic_save(wb, filename)
         except Exception as e:
             return {
                 "status": "error",

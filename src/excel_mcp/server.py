@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import logging
 import sys
+from typing import Any
+
 try:
     from fastmcp import FastMCP
 except ImportError:
@@ -21,6 +23,7 @@ from excel_mcp.utils.security import get_allowed_directories
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stderr,
 )
 logger = logging.getLogger(__name__)
 

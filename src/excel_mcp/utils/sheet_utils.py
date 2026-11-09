@@ -5,6 +5,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from excel_mcp.core._io import atomic_save
 from excel_mcp.utils.cell_utils import parse_cell_range
 
 
@@ -18,7 +19,7 @@ def copy_sheet(filename: str, source_sheet: str, target_sheet: str) -> dict[str,
         source = wb[source_sheet]
         target = wb.copy_worksheet(source)
         target.title = target_sheet
-        wb.save(filename)
+        atomic_save(wb, filename)
         return {"message": f"Sheet '{source_sheet}' copied to '{target_sheet}'"}
     except Exception as e:
         return {"error": str(e)}
@@ -32,7 +33,7 @@ def delete_sheet(filename: str, sheet_name: str) -> dict[str, Any]:
         if len(wb.sheetnames) == 1:
             return {"error": "Cannot delete the only sheet in workbook"}
         del wb[sheet_name]
-        wb.save(filename)
+        atomic_save(wb, filename)
         return {"message": f"Sheet '{sheet_name}' deleted"}
     except Exception as e:
         return {"error": str(e)}
@@ -47,7 +48,7 @@ def rename_sheet(filename: str, old_name: str, new_name: str) -> dict[str, Any]:
             return {"error": f"Sheet '{new_name}' already exists"}
         sheet = wb[old_name]
         sheet.title = new_name
-        wb.save(filename)
+        atomic_save(wb, filename)
         return {"message": f"Sheet renamed from '{old_name}' to '{new_name}'"}
     except Exception as e:
         return {"error": str(e)}
@@ -210,7 +211,7 @@ def merge_range(
         range_string = format_range_string(start_row, start_col, end_row, end_col)
         worksheet = wb[sheet_name]
         worksheet.merge_cells(range_string)
-        wb.save(filename)
+        atomic_save(wb, filename)
         return {"message": f"Range '{range_string}' merged in sheet '{sheet_name}'"}
     except Exception as e:
         return {"error": str(e)}
@@ -236,7 +237,7 @@ def unmerge_range(
         ):
             return {"error": f"Range '{range_string}' is not merged"}
         worksheet.unmerge_cells(range_string)
-        wb.save(filename)
+        atomic_save(wb, filename)
         return {"message": f"Range '{range_string}' unmerged successfully"}
     except Exception as e:
         return {"error": str(e)}
@@ -317,7 +318,7 @@ def copy_range_operation(
                             justifyLastLine=align.justifyLastLine,
                             readingOrder=align.readingOrder,
                         )
-        wb.save(filename)
+        atomic_save(wb, filename)
         return {"message": "Range copied successfully"}
     except Exception as e:
         return {"error": f"Failed to copy range: {str(e)}"}
@@ -361,7 +362,7 @@ def delete_range_operation(
             worksheet.delete_rows(start_row, (end_row or start_row) - start_row + 1)
         elif shift_direction == "left":
             worksheet.delete_cols(start_col, (end_col or start_col) - start_col + 1)
-        wb.save(filename)
+        atomic_save(wb, filename)
         return {"message": f"Range {range_string} deleted successfully"}
     except Exception as e:
         return {"error": str(e)}
