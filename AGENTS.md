@@ -68,7 +68,7 @@ To guarantee consistency, cleanliness, and maintainability across the project:
 - **Support Folders (Lowercase):**
   - `docs/` (technical documentation and tool specifications)
   - `scripts/` (release, versioning, and build automation)
-  - `skills/` (modular skills for LLMs: `excel-spreadsheet-creator`, `excel-spreadsheet-editor`, `excel-spreadsheet-analyzer`)
+  - `skills/` (modular skills for LLMs: `excel-spreadsheet-creator`, `excel-spreadsheet-editor`, `excel-spreadsheet-analyzer`, `excel-tools-reference`)
   - `tests/` (automated test suites)
   - `.github/` (CI/CD and security workflows)
 
