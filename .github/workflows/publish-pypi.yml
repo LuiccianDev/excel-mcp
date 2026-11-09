@@ -42,10 +42,15 @@ jobs:
       - name: Build sdist and wheel
         run: uv build
 
-      - name: Generate artifact attestation (PEP 740)
+      - name: Generate GitHub Artifact Attestation (SLSA Provenance)
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: "dist/*"
+
+      - name: Generate PEP 740 Digital Attestations for PyPI (Sigstore)
+        uses: astral-sh/attest-action@v0
+        with:
+          paths: "dist/*"
 
       - name: Publish to PyPI (Production via OIDC)
         if: ${{ (github.event.inputs.target_env || 'pypi') == 'pypi' }}

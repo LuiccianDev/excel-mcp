@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.2] - 2026-11-09
+
+### Changed
+- **Project Licensing**: Formally relicensed project from MIT License to Apache License, Version 2.0 (`Apache-2.0`), providing explicit patent grants, trademark protection, and corporate supply-chain compatibility.
+- **PyPI Provenance & PEP 740 Attestations**: Integrated `astral-sh/attest-action` into `.github/workflows/publish-pypi.yml` to generate cryptographic Sigstore digital attestations alongside distribution packages, providing verified supply-chain provenance on PyPI.
+
+---
+
 ## [2.1.1] - 2026-11-09
 
 ### Removed

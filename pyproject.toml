@@ -1,18 +1,18 @@
 [project]
 name = "luiccian-excel-mcp"
-version = "2.1.1"
+version = "2.1.2"
 description = "High-performance Model Context Protocol (MCP) server for Excel (.xlsx) spreadsheet automation and generation"
 readme = "README.md"
 authors = [
     {name = "LuiccianDev", email = "luicciandev@gmail.com"}
 ]
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 keywords = ["mcp", "model-context-protocol", "excel", "office", "xlsx", "llm", "automation", "spreadsheet"]
 requires-python = ">=3.11"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
