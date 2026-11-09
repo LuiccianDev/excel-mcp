@@ -8,75 +8,99 @@ disable-model-invocation: false
 
 # Excel Spreadsheet Editor
 
-Use this skill to modify and format existing Microsoft Excel workbooks while preserving token efficiency.
+Use this skill to modify, format, and enhance existing Microsoft Excel workbooks while preserving token efficiency.
+
+---
 
 ## Core Rules
 
-1. **Inspect before modifying:**
-   - Always call `excel_get_workbook_outline(filename)` first to understand the sheet structure, dimensions, and headers without dumping thousands of rows into context.
-2. **Prefer atomic batch writes over cell-by-cell loops:**
-   - Use `excel_batch_write_data` to write 2D arrays or rows at once rather than repeatedly calling `write_data_to_excel`.
-3. **Always validate formulas before bulk application:**
-   - Use `excel_validate_formula_syntax` if creating complex calculation expressions.
+1. **Always Inspect Outline Before Modifying:**
+   - Always call `excel_get_workbook_outline(filename)` first. It returns dimensions (e.g., `A1:F50`), detected column headers, and sheet names without loading full cell grids into context.
+2. **Prefer Atomic Batch Writes:**
+   - Use `excel_batch_write_data` to update tables, append rows, or insert matrices in a single call instead of issuing repetitive cell-by-cell write operations.
+3. **Validate Complex Formulas First:**
+   - For custom formulas or conditional expressions, verify validity with `excel_validate_formula_syntax` before inserting into worksheets.
 
-## Canonical Editing Workflow
+---
 
-### 1. Structure Inspection
+## Canonical Editing Protocols
+
+### Protocol 1: Inspecting & Appending Batch Data
 
 ```json
+// Step 1: Inspect structure
 {
-  "filename": "/path/to/financial_model.xlsx"
+  "filename": "/path/to/inventory.xlsx"
 }
-```
-Tool: `excel_get_workbook_outline`
+// Tool: excel_get_workbook_outline
+// Response indicates sheet "Stock" spans A1:E40. New rows should start at A41.
 
-### 2. Batch Data Append / Update
-
-Write multiple rows or a table update starting from cell `A10`:
-
-```json
+// Step 2: Write batch rows starting at A41
 {
-  "filename": "/path/to/financial_model.xlsx",
-  "sheet_name": "Revenue Summary",
-  "start_cell": "A10",
+  "filename": "/path/to/inventory.xlsx",
+  "sheet_name": "Stock",
+  "start_cell": "A41",
   "data_matrix": [
-    ["November 2026", 85000, 92000, "=C10-B10"],
-    ["December 2026", 95000, 104000, "=C11-B11"]
+    ["SKU-9021", "USB-C Docking Station", "Hardware", 120, 89.50],
+    ["SKU-9022", "Mechanical Keyboard", "Hardware", 85, 115.00],
+    ["SKU-9023", "27-inch 4K Monitor", "Hardware", 40, 320.00]
   ]
 }
+// Tool: excel_batch_write_data
 ```
-Tool: `excel_batch_write_data`
 
-### 3. Visual Styling & Formatting
+---
 
-Apply consistent currency formatting or headers:
+### Protocol 2: Formatting & Auto-Fitting Columns
+
+Apply professional currency styling to column `E` and auto-fit column widths:
 
 ```json
+// Format currency range
 {
-  "filename": "/path/to/financial_model.xlsx",
-  "sheet_name": "Revenue Summary",
-  "start_cell": "B10",
-  "end_cell": "D11",
+  "filename": "/path/to/inventory.xlsx",
+  "sheet_name": "Stock",
+  "start_cell": "E2",
+  "end_cell": "E43",
   "number_format": "$#,##0.00"
 }
+// Tool: excel_format_range_excel
+
+// Auto-fit all columns in the sheet
+{
+  "filename": "/path/to/inventory.xlsx",
+  "sheet_name": "Stock"
+}
+// Tool: excel_auto_fit_columns
 ```
-Tool: `excel_format_range_excel`
 
-### 4. Pivot Table Summary
+---
 
-Generate an analytical pivot table from tabular data:
+### Protocol 3: Generating Analytical Pivot Tables
+
+Summarize large data sheets using native pivot tables:
 
 ```json
 {
-  "filename": "/path/to/financial_model.xlsx",
+  "filename": "/path/to/sales_ledger.xlsx",
   "source_sheet": "Transactions",
-  "target_sheet": "Pivot_Summary",
-  "source_range": "A1:E500",
+  "target_sheet": "Pivot_Department_Summary",
+  "source_range": "A1:F500",
   "target_cell": "A3",
   "rows": ["Department"],
   "columns": ["Quarter"],
-  "values": ["Amount"],
+  "values": ["Revenue"],
   "aggfunc": "sum"
 }
+// Tool: excel_create_pivot_table
 ```
-Tool: `excel_create_pivot_table`
+
+*Valid `aggfunc` options:* `"sum"`, `"mean"`, `"count"`, `"min"`, `"max"`, `"std"`.
+
+---
+
+### Protocol 4: Worksheet Management
+
+- **Duplicate template sheet:** `excel_copy_sheet(filename, "Template", "Q1_Report")`
+- **Rename sheet:** `excel_rename_sheet(filename, "Sheet1", "Dashboard")`
+- **Delete obsolete sheet:** `excel_delete_sheet(filename, "Old_Draft")`
