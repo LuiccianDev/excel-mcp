@@ -60,12 +60,10 @@ jobs:
         run: uv sync --all-groups
 
       - name: Run linter (ruff)
-        run: uv run ruff check src
-        continue-on-error: true
+        run: uv run ruff check src --output-format=github
 
       - name: Run type checker (mypy)
         run: uv run mypy src
-        continue-on-error: true
 
       - name: Run test suite (pytest)
         run: uv run pytest

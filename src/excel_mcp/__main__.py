@@ -197,7 +197,8 @@ def list_excel_files(
         else:
             typer.echo(f"Found {len(excel_files)} Excel file(s) in: {target_directory}")
             for file_info in excel_files:
-                size_mb = float(file_info["size"]) / (1024 * 1024)
+                raw_size = file_info.get("size", 0)
+                size_mb = float(str(raw_size)) / (1024 * 1024)
                 typer.echo(f"  - {file_info['name']} ({size_mb:.2f} MB)")
 
     except Exception as e:
