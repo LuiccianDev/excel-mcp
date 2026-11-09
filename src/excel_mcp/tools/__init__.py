@@ -10,6 +10,7 @@ import importlib
 from typing import Any
 
 __all__ = [
+    "analysis_tools",
     "batch_tools",
     "content_tools",
     "excel_tools",
@@ -17,6 +18,7 @@ __all__ = [
     "formulas_excel_tools",
     "graphics_tools",
     "register_all_tools",
+    "structure_tools",
 ]
 
 

@@ -36,18 +36,26 @@ class TestRegisterTools(unittest.TestCase):
             register_all_tools(mock_mcp)
 
             tool_names = list(mock_mcp.registered_tools.keys())
-            self.assertEqual(len(tool_names), 22)
+            self.assertEqual(len(tool_names), 30)
             for name in tool_names:
                 self.assertTrue(
                     name.startswith("excel_"),
                     f"Tool '{name}' should be prefixed with 'excel_' by default",
                 )
 
-            # Check specific canonical renames
+            # Check specific canonical tools
             self.assertIn("excel_create_workbook", tool_names)
             self.assertIn("excel_create_worksheet", tool_names)
             self.assertIn("excel_format_range", tool_names)
             self.assertIn("excel_apply_formula", tool_names)
+            self.assertIn("excel_append_rows", tool_names)
+            self.assertIn("excel_format_sheet", tool_names)
+            self.assertIn("excel_create_table", tool_names)
+            self.assertIn("excel_sort_range", tool_names)
+            self.assertIn("excel_insert_rows_columns", tool_names)
+            self.assertIn("excel_delete_rows_columns", tool_names)
+            self.assertIn("excel_find_cells", tool_names)
+            self.assertIn("excel_profile_sheet", tool_names)
             self.assertNotIn("create_excel_workbook", tool_names)
 
     def test_legacy_aliases_enabled(self) -> None:

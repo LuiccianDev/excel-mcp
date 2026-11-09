@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 
 def get_allowed_directories() -> list[str]:
@@ -51,3 +52,36 @@ def is_path_in_allowed_directories(file_path: str | Path) -> tuple[bool, str | N
         f"Path '{file_path}' is not in allowed directories: {', '.join(allowed_dirs)}"
     )
     return False, error_msg
+
+
+def resolve_and_check_path(
+    filename: str | None,
+    file_path: str | None = None,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Resolve target path, enforce allowed directory security, and ensure parent directory exists."""
+    target = filename or file_path
+    if not target:
+        return None, {
+            "status": "error",
+            "message": "Missing required parameter 'filename' (or 'file_path').",
+        }
+
+    is_allowed, error_msg = is_path_in_allowed_directories(target)
+    if not is_allowed:
+        return None, {
+            "status": "error",
+            "message": f"Security restriction: {error_msg}",
+        }
+
+    directory = os.path.dirname(os.path.abspath(target))
+    if directory and not os.path.exists(directory):
+        try:
+            os.makedirs(directory, exist_ok=True)
+        except OSError as e:
+            return None, {
+                "status": "error",
+                "message": f"Cannot create directory '{directory}': {e}",
+            }
+
+    return target, None
+
