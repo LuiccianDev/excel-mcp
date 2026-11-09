@@ -46,6 +46,9 @@ INJECTION_PATTERNS: Final[list[str]] = [
     r"sys\.exit",  # System exit calls
     r"open\s*\(",  # File operations
     r"file://",  # File protocol
+    r"\bcmd\|",  # Windows DDE command execution
+    r"\bpowershell\|",  # PowerShell DDE execution
+    r"\|\s*['\"]",  # General DDE pipe execution syntax
 ]
 
 # Maximum formula length (Excel limit is 8192)
