@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Legacy Module Directory (`src/mcp_excel`)**: Removed the legacy compatibility directory and associated shim files, establishing `src/excel_mcp` as the exclusive, canonical Python package source module and minimizing PyPI distribution payload.
+
 ---
 
 ## [2.1.0] - 2026-11-09

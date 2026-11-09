@@ -1,6 +1,6 @@
 """Centralized exceptions package for MCP Excel Office.
 
-This package provides all custom exceptions used across the mcp_excel module,
+This package provides all custom exceptions used across the excel_mcp module,
 organized into core and tools specific exceptions.
 """
 
