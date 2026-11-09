@@ -6,6 +6,7 @@ from openpyxl.styles import Font
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
+from excel_mcp.core._io import atomic_save
 from excel_mcp.core.data import SheetData, read_excel_range
 from excel_mcp.exceptions.exception_core import PivotError, ValidationError
 from excel_mcp.utils.cell_utils import parse_cell_range
@@ -212,7 +213,7 @@ def create_pivot_table(
                 f"Failed to create pivot table formatting: {str(e)}"
             ) from e
         try:
-            wb.save(filename)
+            atomic_save(wb, filename)
         except Exception as e:
             raise PivotError(f"Failed to save workbook: {str(e)}") from e
         return {

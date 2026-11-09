@@ -14,6 +14,7 @@ from openpyxl.worksheet._read_only import ReadOnlyWorksheet
 from openpyxl.worksheet._write_only import WriteOnlyWorksheet
 from openpyxl.worksheet.worksheet import Worksheet
 
+from excel_mcp.core._io import atomic_save
 from excel_mcp.exceptions.exception_core import (
     DataError,
     InvalidCellReferenceError,
@@ -301,9 +302,9 @@ def write_data(
         # Write data
         _write_data_to_worksheet(ws, data, start_row, start_col)
 
-        # Save changes
+        # Save changes atomically
         try:
-            wb.save(str(path))
+            atomic_save(wb, path)
         except Exception as e:
             raise WorkbookError(f"Failed to save workbook: {str(e)}") from e
 

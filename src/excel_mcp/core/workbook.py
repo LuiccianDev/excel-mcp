@@ -13,6 +13,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from excel_mcp.core._io import atomic_save
 from excel_mcp.exceptions.exception_core import (
     SheetExistsError,
     SheetNotFoundError,
@@ -51,8 +52,8 @@ def create_workbook(
         wb = Workbook()
         _create_initial_worksheet(wb, sheet_name)
 
-        # Save the workbook
-        wb.save(str(path))
+        # Save the workbook atomically
+        atomic_save(wb, path)
 
         return {
             "status": "success",
@@ -170,8 +171,8 @@ def create_sheet(filename: str | Path, sheet_name: str) -> dict[str, Any]:
         _validate_sheet_name(sheet_name)
         _create_new_sheet(wb, sheet_name)
 
-        # Save the workbook
-        wb.save(str(path))
+        # Save the workbook atomically
+        atomic_save(wb, path)
 
         return {
             "status": "success",
@@ -380,7 +381,7 @@ def managed_workbook(
         yield wb
 
         if auto_save and not read_only:
-            wb.save(str(path))
+            atomic_save(wb, path)
 
     except Exception:
         # Re-raise exception after cleanup

@@ -18,8 +18,10 @@ class SheetOutline(BaseModel):
     max_column: int = Field(description="Total number of populated columns")
     dimension: str = Field(description="Populated cell range (e.g., 'A1:H50')")
     headers: list[str] = Field(default_factory=list, description="Top row headers if present")
+    header_row: int = Field(default=1, description="Detected 1-indexed row number containing headers")
     has_formulas: bool = Field(default=False, description="Whether the sheet contains formulas")
     formula_count: int = Field(default=0, description="Number of cells containing formulas")
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal warnings or anomalies detected")
 
 
 class WorkbookOutline(BaseModel):
@@ -39,6 +41,7 @@ class BuildWorkbookResult(BaseModel):
     total_rows_inserted: int = Field(description="Total data rows inserted across all sheets")
     preset_applied: str = Field(description="Visual design preset applied ('corporate', 'financial', etc.)")
     charts_created: int = Field(default=0, description="Number of charts generated")
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal warnings (e.g. chart generation issues)")
     message: str = Field(description="Status confirmation message")
 
 

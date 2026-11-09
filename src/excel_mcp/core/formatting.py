@@ -17,6 +17,7 @@ from openpyxl.styles import (
     Side,
 )
 
+from excel_mcp.core._io import atomic_save
 from excel_mcp.core.workbook import get_or_create_workbook
 from excel_mcp.utils.cell_utils import parse_cell_range, validate_cell_reference
 
@@ -210,7 +211,7 @@ def format_range(
                     "status": "error",
                     "message": f"Failed to apply conditional formatting: {str(e)}",
                 }
-        wb.save(filename)
+        atomic_save(wb, filename)
         range_str = f"{start_cell}:{end_cell}" if end_cell else start_cell
         return {
             "status": "success",
