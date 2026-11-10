@@ -34,12 +34,13 @@ class DocCollectorMCP:
             read_only = False
             destructive = False
             if annotations:
-                read_only = getattr(
-                    annotations, "read_only_hint", False
-                ) or annotations.kwargs.get("read_only_hint", False)
+                kwargs = getattr(annotations, "kwargs", {})
+                read_only = getattr(annotations, "read_only_hint", False) or kwargs.get(
+                    "read_only_hint", False
+                )
                 destructive = getattr(
                     annotations, "destructive_hint", False
-                ) or annotations.kwargs.get("destructive_hint", False)
+                ) or kwargs.get("destructive_hint", False)
 
             self.tools[tool_name] = {
                 "fn": fn,
@@ -98,7 +99,21 @@ def categorize_tools(tool_names: list[str]) -> dict[str, list[str]]:
             "excel_read_data",
             "excel_write_data",
         ],
+        "Validation & Print Layout": [
+            "excel_add_data_validation",
+            "excel_add_conditional_format",
+            "excel_protect_sheet",
+            "excel_configure_page_setup",
+        ],
     }
+
+    # Safety net: a newly registered tool must never disappear from the
+    # generated reference just because nobody updated this mapping yet.
+    categorized = {name for names in categories.values() for name in names}
+    uncategorized = [name for name in tool_names if name not in categorized]
+    if uncategorized:
+        categories["Other Tools"] = uncategorized
+
     return categories
 
 

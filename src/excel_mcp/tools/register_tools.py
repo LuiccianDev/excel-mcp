@@ -28,6 +28,7 @@ from excel_mcp.tools import (
     formulas_excel_tools,
     graphics_tools,
     structure_tools,
+    validation_tools,
 )
 
 logger = logging.getLogger(__name__)
@@ -201,6 +202,14 @@ def register_all_tools(mcp: Any) -> None:
         analysis_tools.profile_sheet,
         read_only,
         ["profile_sheet"],
+    )
+
+    # 8. VALIDATION & LAYOUT TOOLS
+    _reg(
+        "excel_add_data_validation",
+        validation_tools.add_data_validation,
+        write,
+        ["add_data_validation"],
     )
 
     logger.info(

@@ -2,12 +2,13 @@
 
 > [!NOTE]
 > This document is automatically generated from the registered FastMCP tool signatures.
-> Total Canonical Tools: **30**.
+> Total Canonical Tools: **31**.
 
 ## Tool Inventory
 
 | Canonical Tool Name | Type | Description |
 | :--- | :--- | :--- |
+| [`excel_add_data_validation`](#excel-add-data-validation) | `Write` | Add a data validation rule to a worksheet range. |
 | [`excel_append_rows`](#excel-append-rows) | `Write` | Append batch rows of data below the existing content in a worksheet in an atomic operation. |
 | [`excel_apply_formula`](#excel-apply-formula) | `Write` | Apply a validated Excel formula to a specific cell in a worksheet. |
 | [`excel_batch_write_data`](#excel-batch-write-data) | `Write` | Write a 2D matrix of values or formulas into a worksheet starting from a specific cell in one atomic operation. |
@@ -768,4 +769,37 @@ Notes:
     • Data will overwrite any existing content in the target range.
     • The function does not create new worksheets; the target sheet must already exist.
     • Input data is written as-is, without formula injection or type conversion.
+```
+
+## Validation & Print Layout
+
+### `excel_add_data_validation`
+
+- **Access Mode:** `Write`
+- **Signature:** `excel_add_data_validation(filename: 'str | None' = None, file_path: 'str | None' = None, cell_range: 'str | None' = None, validation_type: "Literal['list', 'whole', 'decimal', 'date', 'time', 'textLength', 'custom']" = 'list', operator: "Literal['between', 'notBetween', 'equal', 'notEqual', 'greaterThan', 'lessThan', 'greaterThanOrEqual', 'lessThanOrEqual']" = 'between', formula1: 'str | None' = None, formula2: 'str | None' = None, allow_blank: 'bool' = True, prompt_title: 'str | None' = None, prompt: 'str | None' = None, error_title: 'str | None' = None, error_message: 'str | None' = None, sheet_name: 'str | None' = None) -> 'dict[str, Any]'`
+
+```text
+Add a data validation rule to a worksheet range.
+
+Restricts what users (or generated templates) may enter in a range: a
+dropdown list, a whole/decimal number bound, a date or time window, a text
+length limit, or a custom formula.
+
+Args:
+    filename: Path to the target .xlsx file.
+    file_path: Alternative alias for filename.
+    cell_range: Target range in A1 notation (e.g. "A2:A100").
+    validation_type: Rule type: list, whole, decimal, date, time, textLength or custom.
+    operator: Comparison operator for non-list rules.
+    formula1: List source (e.g. '"Open,Closed"'), lower bound or custom formula.
+    formula2: Upper bound for between/notBetween rules.
+    allow_blank: Whether empty cells bypass the validation.
+    prompt_title: Optional input-message title.
+    prompt: Optional input message shown when the cell is selected.
+    error_title: Optional error-dialog title.
+    error_message: Optional error-dialog message.
+    sheet_name: Target sheet name (defaults to active sheet).
+
+Returns:
+    Structured result with the sheet, range and applied validation type.
 ```
