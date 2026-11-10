@@ -63,9 +63,6 @@ def validate_and_apply_configuration(path: str | None = None) -> None:
         # Reload configuration with overrides
         config_manager.reload_configuration(**overrides)
 
-        # Get validated configuration
-        config = config_manager.config
-
         logger.info("Configuration validated and applied successfully")
 
     except ConfigurationError as e:

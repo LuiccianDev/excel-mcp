@@ -1,9 +1,7 @@
 """Tests for context managers in workbook module."""
 
-from pathlib import Path
-
 import pytest
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 
 from excel_mcp.exceptions.exception_core import SheetNotFoundError
 from excel_mcp.core.workbook import (
@@ -73,17 +71,15 @@ class TestManagedWorkbook:
         wb.save(test_file)
         wb.close()
 
-        # Get original modification time
-        original_mtime = test_file.stat().st_mtime
-
         # Open with auto_save=False
         with managed_workbook(test_file, auto_save=False) as wb:
             ws = wb.active
             ws["A1"] = "Changed"
 
-        # File should not have been saved (modification time unchanged)
-        # Note: This might be flaky due to filesystem timing
-        # A better approach would be to reopen and check content
+        # The workbook was not saved, so the original value must survive.
+        reloaded = load_workbook(test_file)
+        assert reloaded.active["A1"].value == "Original"
+        reloaded.close()
 
     def test_managed_workbook_read_only(self, tmp_path):
         """Test read_only mode."""
@@ -139,9 +135,10 @@ class TestManagedWorksheet:
             ws["A1"] = "New Sheet Data"
 
         # Verify sheet was created by reopening
-        wb = Workbook()
-        wb = Workbook()
-        # Would need to reopen to verify
+        reloaded = load_workbook(test_file)
+        assert "NewSheet" in reloaded.sheetnames
+        assert reloaded["NewSheet"]["A1"].value == "New Sheet Data"
+        reloaded.close()
 
     def test_managed_worksheet_opens_existing(self, tmp_path):
         """Test that managed_worksheet opens existing sheet."""
@@ -169,7 +166,7 @@ class TestManagedWorksheet:
         with pytest.raises(SheetNotFoundError):
             with managed_worksheet(
                 test_file, "NonExistent", create_if_missing=False
-            ) as ws:
+            ) as _ws:
                 pass
 
     def test_managed_worksheet_auto_save(self, tmp_path):

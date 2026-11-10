@@ -208,7 +208,10 @@ def create_table(
     assert target is not None
 
     if not range_string:
-        return {"status": "error", "message": "Missing required parameter 'range_string'."}
+        return {
+            "status": "error",
+            "message": "Missing required parameter 'range_string'.",
+        }
 
     res = create_excel_table(
         filename=target,
@@ -252,9 +255,15 @@ def sort_range(
     assert target is not None
 
     if not range_string:
-        return {"status": "error", "message": "Missing required parameter 'range_string'."}
+        return {
+            "status": "error",
+            "message": "Missing required parameter 'range_string'.",
+        }
     if key_column is None:
-        return {"status": "error", "message": "Missing required parameter 'key_column'."}
+        return {
+            "status": "error",
+            "message": "Missing required parameter 'key_column'.",
+        }
 
     res = sort_worksheet_range(
         filename=target,

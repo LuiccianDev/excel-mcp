@@ -1,7 +1,5 @@
 """Tests for formula security validation."""
 
-import pytest
-
 from excel_mcp.core.calculations import (
     apply_formula_secure,
     validate_formula_secure,

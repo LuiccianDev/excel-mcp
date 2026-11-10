@@ -344,7 +344,7 @@ class TestGetWorksheetRange:
         wb = Workbook()
         ws = wb.active
 
-        result = _get_worksheet_range(ws)
+        _get_worksheet_range(ws)
 
         # Empty sheet might still return a range depending on openpyxl version
         wb.close()

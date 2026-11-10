@@ -27,7 +27,10 @@ def test_multiple_roots_and_trailing_separator(monkeypatch, tmp_path):
     first.mkdir()
     second.mkdir()
     monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", f"{first}{os.sep}, {second}")
-    assert resolve_allowed_directories() == [str(first.resolve()), str(second.resolve())]
+    assert resolve_allowed_directories() == [
+        str(first.resolve()),
+        str(second.resolve()),
+    ]
 
 
 def test_traversal_outside_root_is_rejected(monkeypatch, tmp_path):

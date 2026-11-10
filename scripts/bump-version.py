@@ -18,7 +18,6 @@ from __future__ import annotations
 import argparse
 import os
 import re
-import sys
 from datetime import date
 from pathlib import Path
 
@@ -33,16 +32,22 @@ def get_current_version(pyproject_path: Path) -> str:
     return match.group(1).strip()
 
 
-def calculate_next_version(current: str, bump_type: str, custom_version: str | None = None) -> str:
+def calculate_next_version(
+    current: str, bump_type: str, custom_version: str | None = None
+) -> str:
     if bump_type == "custom":
         if not custom_version:
-            raise ValueError("custom_version must be provided when bump_type is 'custom'")
+            raise ValueError(
+                "custom_version must be provided when bump_type is 'custom'"
+            )
         return custom_version.lstrip("v").strip()
 
     # Parse semver (e.g., 2.0.0)
     match = re.match(r"^(\d+)\.(\d+)\.(\d+)(.*)$", current)
     if not match:
-        raise ValueError(f"Current version '{current}' is not standard semver (major.minor.patch)")
+        raise ValueError(
+            f"Current version '{current}' is not standard semver (major.minor.patch)"
+        )
 
     major = int(match.group(1))
     minor = int(match.group(2))
@@ -95,7 +100,9 @@ def bump_files(new_version: str, repo_root: Path, dry_run: bool = False) -> None
             )
             if not dry_run:
                 changelog_path.write_text(updated, encoding="utf-8")
-            print(f"  [OK] {changelog_path.name} promoted [Unreleased] -> {new_version}")
+            print(
+                f"  [OK] {changelog_path.name} promoted [Unreleased] -> {new_version}"
+            )
 
     # 3. Export to GITHUB_OUTPUT if running in GitHub Actions
     github_output = os.environ.get("GITHUB_OUTPUT")
@@ -103,20 +110,28 @@ def bump_files(new_version: str, repo_root: Path, dry_run: bool = False) -> None
         with open(github_output, "a", encoding="utf-8") as f:
             f.write(f"version={new_version}\n")
             f.write(f"tag=v{new_version}\n")
-        print(f"  [OK] Exported version={new_version} and tag=v{new_version} to $GITHUB_OUTPUT")
+        print(
+            f"  [OK] Exported version={new_version} and tag=v{new_version} to $GITHUB_OUTPUT"
+        )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Bump project version")
-    parser.add_argument("version", nargs="?", default=None, help="Explicit new version (e.g. 2.0.1)")
+    parser.add_argument(
+        "version", nargs="?", default=None, help="Explicit new version (e.g. 2.0.1)"
+    )
     parser.add_argument(
         "--type",
         choices=["patch", "minor", "major", "custom"],
         default=None,
         help="Semantic version bump type (patch, minor, major, custom)",
     )
-    parser.add_argument("--custom", default=None, help="Custom version string when --type is custom")
-    parser.add_argument("--dry-run", action="store_true", help="Calculate without modifying files")
+    parser.add_argument(
+        "--custom", default=None, help="Custom version string when --type is custom"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Calculate without modifying files"
+    )
 
     args = parser.parse_args()
     repo_root = Path(__file__).resolve().parent.parent

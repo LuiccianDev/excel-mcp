@@ -51,7 +51,9 @@ def find_cells_in_workbook(
         sheets_to_search: list[Any] = []
         if sheet_name:
             if sheet_name not in wb.sheetnames:
-                raise SheetNotFoundError(f"Worksheet '{sheet_name}' not found in workbook.")
+                raise SheetNotFoundError(
+                    f"Worksheet '{sheet_name}' not found in workbook."
+                )
             sheets_to_search = [wb[sheet_name]]
         else:
             sheets_to_search = wb.worksheets
@@ -71,19 +73,29 @@ def find_cells_in_workbook(
                     if use_regex and pattern:
                         matched = bool(pattern.search(val_str))
                     elif exact_match:
-                        matched = (val_str == norm_query) if match_case else (val_str.lower() == norm_query)
+                        matched = (
+                            (val_str == norm_query)
+                            if match_case
+                            else (val_str.lower() == norm_query)
+                        )
                     else:
-                        matched = (norm_query in val_str) if match_case else (norm_query in val_str.lower())
+                        matched = (
+                            (norm_query in val_str)
+                            if match_case
+                            else (norm_query in val_str.lower())
+                        )
 
                     if matched:
                         is_formula = isinstance(val, str) and val.startswith("=")
-                        matches.append({
-                            "sheet": ws.title,
-                            "cell": cell.coordinate,
-                            "value": val,
-                            "is_formula": is_formula,
-                            "data_type": cell.data_type,
-                        })
+                        matches.append(
+                            {
+                                "sheet": ws.title,
+                                "cell": cell.coordinate,
+                                "value": val,
+                                "is_formula": is_formula,
+                                "data_type": cell.data_type,
+                            }
+                        )
                         if len(matches) >= max_results:
                             return {
                                 "total_matches": len(matches),
@@ -117,7 +129,9 @@ def profile_worksheet(
     try:
         if sheet_name:
             if sheet_name not in wb.sheetnames:
-                raise SheetNotFoundError(f"Worksheet '{sheet_name}' not found in workbook.")
+                raise SheetNotFoundError(
+                    f"Worksheet '{sheet_name}' not found in workbook."
+                )
             ws = wb[sheet_name]
         else:
             ws = wb.active
@@ -192,7 +206,11 @@ def profile_worksheet(
         column_summaries = []
         for c_idx in range(num_cols):
             letter = get_column_letter(c_idx + 1)
-            raw_header = headers[c_idx] if c_idx < len(headers) and headers[c_idx] else f"Column {letter}"
+            raw_header = (
+                headers[c_idx]
+                if c_idx < len(headers) and headers[c_idx]
+                else f"Column {letter}"
+            )
             stats = col_stats[c_idx]
             types_set = stats["types"]
 

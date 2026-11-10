@@ -125,8 +125,16 @@ def build_single_pass_sheet(
                         f"Formula security validation failed in sheet '{ws.title}' row {current_row} col {col_idx}: {msg}"
                     )
             cell = ws.cell(row=current_row, column=col_idx, value=val)
-            is_curr = (col_idx - 1 in currency_cols) or (headers and col_idx - 1 < len(headers) and headers[col_idx - 1] in currency_cols)
-            is_num = is_curr or (col_idx - 1 in numeric_cols) or isinstance(val, (int, float))
+            is_curr = (col_idx - 1 in currency_cols) or (
+                headers
+                and col_idx - 1 < len(headers)
+                and headers[col_idx - 1] in currency_cols
+            )
+            is_num = (
+                is_curr
+                or (col_idx - 1 in numeric_cols)
+                or isinstance(val, (int, float))
+            )
             apply_data_cell_style(
                 cell=cell,
                 row_idx=r_idx,
@@ -143,17 +151,31 @@ def build_single_pass_sheet(
     if auto_totals and rows:
         ws.row_dimensions[current_row].height = 22
         first_cell = ws.cell(row=current_row, column=1, value="Total")
-        apply_data_cell_style(first_cell, row_idx=1, preset_name=preset_name, is_total=True)
+        apply_data_cell_style(
+            first_cell, row_idx=1, preset_name=preset_name, is_total=True
+        )
 
         # Detect numeric columns to sum
-        cols_to_sum = auto_totals if isinstance(auto_totals, list) else list(range(1, num_cols))
+        cols_to_sum = (
+            auto_totals if isinstance(auto_totals, list) else list(range(1, num_cols))
+        )
         for col_idx in range(2, num_cols + 1):
             cell = ws.cell(row=current_row, column=col_idx)
-            is_curr = (col_idx - 1 in currency_cols) or (headers and col_idx - 1 < len(headers) and headers[col_idx - 1] in currency_cols)
+            is_curr = (col_idx - 1 in currency_cols) or (
+                headers
+                and col_idx - 1 < len(headers)
+                and headers[col_idx - 1] in currency_cols
+            )
 
-            if (col_idx - 1 in cols_to_sum) or (headers and col_idx - 1 < len(headers) and headers[col_idx - 1] in cols_to_sum):
+            if (col_idx - 1 in cols_to_sum) or (
+                headers
+                and col_idx - 1 < len(headers)
+                and headers[col_idx - 1] in cols_to_sum
+            ):
                 col_letter = get_column_letter(col_idx)
-                cell.value = f"=SUM({col_letter}{data_start_row}:{col_letter}{data_end_row})"
+                cell.value = (
+                    f"=SUM({col_letter}{data_start_row}:{col_letter}{data_end_row})"
+                )
                 apply_data_cell_style(
                     cell,
                     row_idx=1,
@@ -163,7 +185,9 @@ def build_single_pass_sheet(
                     is_currency=is_curr,
                 )
             else:
-                apply_data_cell_style(cell, row_idx=1, preset_name=preset_name, is_total=True)
+                apply_data_cell_style(
+                    cell, row_idx=1, preset_name=preset_name, is_total=True
+                )
         current_row += 1
 
     # 5. Optional Chart Generation
@@ -205,7 +229,7 @@ def build_single_pass_workbook(
     warnings: list[str] = []
 
     for i, s_data in enumerate(sheets):
-        sheet_name = s_data.get("name", f"Sheet{i+1}")
+        sheet_name = s_data.get("name", f"Sheet{i + 1}")
         if i == 0 and default_sheet is not None:
             ws = default_sheet
             ws.title = sheet_name
@@ -251,7 +275,10 @@ def inspect_workbook_outline(filename: str) -> WorkbookOutline:
             ws = wb[name]
             max_r = ws.max_row or 0
             max_c = ws.max_column or 0
-            dim = getattr(ws, "dimensions", None) or f"A1:{get_column_letter(max(max_c, 1))}{max(max_r, 1)}"
+            dim = (
+                getattr(ws, "dimensions", None)
+                or f"A1:{get_column_letter(max(max_c, 1))}{max(max_r, 1)}"
+            )
 
             headers: list[str] = []
             header_row_idx = 1
@@ -266,10 +293,17 @@ def inspect_workbook_outline(filename: str) -> WorkbookOutline:
                 best_headers: list[str] = []
                 best_row = 1
                 for r_idx, row in enumerate(
-                    ws.iter_rows(min_row=1, max_row=min(max_r, 5), max_col=min(max_c, 50), values_only=True),
+                    ws.iter_rows(
+                        min_row=1,
+                        max_row=min(max_r, 5),
+                        max_col=min(max_c, 50),
+                        values_only=True,
+                    ),
                     start=1,
                 ):
-                    row_vals = [str(v).strip() for v in row if v is not None and str(v).strip()]
+                    row_vals = [
+                        str(v).strip() for v in row if v is not None and str(v).strip()
+                    ]
                     if len(row_vals) > len(best_headers):
                         best_headers = row_vals
                         best_row = r_idx
@@ -348,6 +382,7 @@ def batch_write_matrix(
 
         # Parse start cell coordinate (e.g., 'B3')
         from openpyxl.utils.cell import coordinate_to_tuple
+
         start_row, start_col = coordinate_to_tuple(start_cell)
 
         rows_affected = len(data_matrix)
@@ -362,7 +397,9 @@ def batch_write_matrix(
                         raise FormulaSecurityError(
                             f"Formula security validation failed at row offset {r_offset}, col offset {c_offset}: {msg}"
                         )
-                ws.cell(row=start_row + r_offset, column=start_col + c_offset, value=val)
+                ws.cell(
+                    row=start_row + r_offset, column=start_col + c_offset, value=val
+                )
                 total_cells += 1
 
         end_cell = f"{get_column_letter(start_col + max(cols_affected - 1, 0))}{start_row + max(rows_affected - 1, 0)}"

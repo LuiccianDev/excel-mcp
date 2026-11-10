@@ -58,7 +58,11 @@ def append_rows_to_sheet(
     if not os.path.exists(filename):
         raise FileNotFoundError(f"Workbook not found: {filename}")
     if not rows:
-        return {"sheet_name": sheet_name or "active", "rows_appended": 0, "message": "No rows to append."}
+        return {
+            "sheet_name": sheet_name or "active",
+            "rows_appended": 0,
+            "message": "No rows to append.",
+        }
 
     wb = openpyxl.load_workbook(filename)
     try:
@@ -68,7 +72,10 @@ def append_rows_to_sheet(
         max_r = ws.max_row or 0
         actual_last_row = 0
         for r in range(max_r, 0, -1):
-            if any(ws.cell(row=r, column=c).value is not None for c in range(1, (ws.max_column or 1) + 1)):
+            if any(
+                ws.cell(row=r, column=c).value is not None
+                for c in range(1, (ws.max_column or 1) + 1)
+            ):
                 actual_last_row = r
                 break
 
@@ -116,7 +123,9 @@ def insert_worksheet_dimension(
 
     dim_lower = dimension.strip().lower()
     if dim_lower not in ("row", "column"):
-        raise ValidationError(f"Dimension must be 'row' or 'column', got '{dimension}'.")
+        raise ValidationError(
+            f"Dimension must be 'row' or 'column', got '{dimension}'."
+        )
 
     wb = openpyxl.load_workbook(filename)
     try:
@@ -155,7 +164,9 @@ def delete_worksheet_dimension(
 
     dim_lower = dimension.strip().lower()
     if dim_lower not in ("row", "column"):
-        raise ValidationError(f"Dimension must be 'row' or 'column', got '{dimension}'.")
+        raise ValidationError(
+            f"Dimension must be 'row' or 'column', got '{dimension}'."
+        )
 
     wb = openpyxl.load_workbook(filename)
     try:
@@ -202,7 +213,10 @@ def format_worksheet_properties(
         if auto_filter is not None:
             if isinstance(auto_filter, bool):
                 if auto_filter:
-                    dim = getattr(ws, "dimensions", None) or f"A1:{get_column_letter(ws.max_column or 1)}{ws.max_row or 1}"
+                    dim = (
+                        getattr(ws, "dimensions", None)
+                        or f"A1:{get_column_letter(ws.max_column or 1)}{ws.max_row or 1}"
+                    )
                     ws.auto_filter.ref = dim
                     applied["auto_filter"] = dim
                 else:
@@ -253,10 +267,14 @@ def create_excel_table(
         try:
             min_col, min_row, max_col, max_row = range_boundaries(range_string)
         except Exception as e:
-            raise ValidationError(f"Invalid range specification '{range_string}': {e}") from e
+            raise ValidationError(
+                f"Invalid range specification '{range_string}': {e}"
+            ) from e
 
         if min_row >= max_row:
-            raise ValidationError(f"Table range '{range_string}' must include at least one header row and one data row.")
+            raise ValidationError(
+                f"Table range '{range_string}' must include at least one header row and one data row."
+            )
 
         # Determine table name
         existing_names = set(ws.tables.keys())
@@ -275,7 +293,9 @@ def create_excel_table(
                     f"Invalid table name '{table_name}'. Names must start with a letter or underscore and contain only alphanumeric characters or underscores."
                 )
             if table_name in existing_names:
-                raise ValidationError(f"Table name '{table_name}' already exists in workbook.")
+                raise ValidationError(
+                    f"Table name '{table_name}' already exists in workbook."
+                )
 
         norm_range = f"{get_column_letter(min_col)}{min_row}:{get_column_letter(max_col)}{max_row}"
         table = Table(displayName=table_name, ref=norm_range)
@@ -318,7 +338,9 @@ def sort_worksheet_range(
         try:
             min_col, min_row, max_col, max_row = range_boundaries(range_string)
         except Exception as e:
-            raise ValidationError(f"Invalid range specification '{range_string}': {e}") from e
+            raise ValidationError(
+                f"Invalid range specification '{range_string}': {e}"
+            ) from e
 
         start_data_row = min_row + 1 if has_header else min_row
         if start_data_row >= max_row:
@@ -353,18 +375,25 @@ def sort_worksheet_range(
 
             # If not a valid column letter within bounds, search headers
             if rel_idx < 0 and has_header:
-                headers = [str(ws.cell(row=min_row, column=c).value or "").strip().lower() for c in range(min_col, max_col + 1)]
+                headers = [
+                    str(ws.cell(row=min_row, column=c).value or "").strip().lower()
+                    for c in range(min_col, max_col + 1)
+                ]
                 target = col_str.lower()
                 if target in headers:
                     rel_idx = headers.index(target)
 
             if rel_idx < 0:
-                raise ValidationError(f"Key column '{key_column}' cannot be resolved within range '{range_string}'.")
+                raise ValidationError(
+                    f"Key column '{key_column}' cannot be resolved within range '{range_string}'."
+                )
 
         # Read rows
         rows_data = []
         for r in range(start_data_row, max_row + 1):
-            row_vals = [ws.cell(row=r, column=c).value for c in range(min_col, max_col + 1)]
+            row_vals = [
+                ws.cell(row=r, column=c).value for c in range(min_col, max_col + 1)
+            ]
             rows_data.append(row_vals)
 
         # Sort with type-safe ordering (numbers, then strings, then None)

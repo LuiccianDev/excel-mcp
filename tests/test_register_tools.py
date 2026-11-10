@@ -6,7 +6,10 @@ import os
 from unittest.mock import patch
 import unittest
 
-from excel_mcp.tools.register_tools import register_all_tools, should_register_legacy_aliases
+from excel_mcp.tools.register_tools import (
+    register_all_tools,
+    should_register_legacy_aliases,
+)
 
 
 class MockFastMCP:

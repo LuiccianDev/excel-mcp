@@ -5,7 +5,6 @@ This module provides pytest fixtures and configuration for testing
 the MCP Excel Office Server functionality.
 """
 
-import tempfile
 from pathlib import Path
 from typing import Generator
 import pytest

@@ -24,9 +24,7 @@ class TestGetAllowedDirectories:
 
     def test_get_allowed_directories_from_config(self, tmp_path: Path) -> None:
         """Test getting allowed directories from configuration."""
-        with patch(
-            "excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)
-        ):
+        with patch("excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)):
             result = _get_allowed_directories()
 
         assert len(result) >= 1
@@ -272,9 +270,7 @@ class TestListExcelFilesInDirectory:
         (tmp_path / "file2.xlsx").write_text("content")
         (tmp_path / "other.txt").write_text("content")
 
-        with patch(
-            "excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)
-        ):
+        with patch("excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)):
             result = list_excel_files_in_directory()
 
         assert len(result) == 2
@@ -287,9 +283,7 @@ class TestListExcelFilesInDirectory:
         test_file = tmp_path / "test.xlsx"
         test_file.write_text("content")
 
-        with patch(
-            "excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)
-        ):
+        with patch("excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)):
             result = list_excel_files_in_directory()
 
         assert len(result) == 1
@@ -301,9 +295,7 @@ class TestListExcelFilesInDirectory:
 
     def test_list_excel_files_empty_directory(self, tmp_path: Path) -> None:
         """Test listing in empty directory."""
-        with patch(
-            "excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)
-        ):
+        with patch("excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)):
             result = list_excel_files_in_directory()
 
         assert result == []

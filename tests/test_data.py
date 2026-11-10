@@ -14,12 +14,10 @@ from excel_mcp.core.data import (
     write_data,
 )
 from excel_mcp.exceptions.exception_core import (
-    DataError,
     InvalidCellReferenceError,
     InvalidDataError,
     RangeError,
     SheetNotFoundError,
-    WorkbookError,
 )
 
 
@@ -325,7 +323,6 @@ class TestWriteData:
         assert result["status"] == "success"
 
         # Verify file contents
-        wb = Workbook()
         # Note: write_data creates the file, we need to reload it
         from openpyxl import load_workbook
 

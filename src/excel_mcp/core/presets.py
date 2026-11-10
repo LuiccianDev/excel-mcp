@@ -23,11 +23,11 @@ PRESETS: dict[str, dict[str, Any]] = {
         "font_name": "Calibri",
         "header_font_size": 11,
         "data_font_size": 11,
-        "header_fill": "1F4E79",       # Deep Navy Blue
+        "header_fill": "1F4E79",  # Deep Navy Blue
         "header_font_color": "FFFFFF",  # Pure White
-        "zebra_fill": "EDF2F8",        # Soft Ice Blue
-        "border_color": "D9D9D9",      # Light Gray
-        "total_fill": "D9E1F2",        # Highlighted Soft Blue
+        "zebra_fill": "EDF2F8",  # Soft Ice Blue
+        "border_color": "D9D9D9",  # Light Gray
+        "total_fill": "D9E1F2",  # Highlighted Soft Blue
         "number_format": "#,##0.00",
         "currency_format": "$#,##0.00",
         "date_format": "YYYY-MM-DD",
@@ -37,11 +37,11 @@ PRESETS: dict[str, dict[str, Any]] = {
         "font_name": "Calibri",
         "header_font_size": 11,
         "data_font_size": 11,
-        "header_fill": "1E4620",       # Forest Green
+        "header_fill": "1E4620",  # Forest Green
         "header_font_color": "FFFFFF",  # Pure White
-        "zebra_fill": "F0F6F1",        # Pale Mint Tint
-        "border_color": "BFBFBF",      # Medium Gray
-        "total_fill": "E2EFDA",        # Soft Green Accent
+        "zebra_fill": "F0F6F1",  # Pale Mint Tint
+        "border_color": "BFBFBF",  # Medium Gray
+        "total_fill": "E2EFDA",  # Soft Green Accent
         "number_format": "#,##0.00",
         "currency_format": "$#,##0.00",
         "date_format": "YYYY-MM-DD",
@@ -51,11 +51,11 @@ PRESETS: dict[str, dict[str, Any]] = {
         "font_name": "Segoe UI",
         "header_font_size": 10.5,
         "data_font_size": 10.5,
-        "header_fill": "2F3542",       # Charcoal / Slate
+        "header_fill": "2F3542",  # Charcoal / Slate
         "header_font_color": "FFFFFF",  # Pure White
-        "zebra_fill": "F8F9FA",        # Off-white / Cool Gray
-        "border_color": "E0E0E0",      # Minimalist Soft Gray
-        "total_fill": "E9ECEF",        # Cool Gray Highlight
+        "zebra_fill": "F8F9FA",  # Off-white / Cool Gray
+        "border_color": "E0E0E0",  # Minimalist Soft Gray
+        "total_fill": "E9ECEF",  # Cool Gray Highlight
         "number_format": "#,##0.00",
         "currency_format": "$#,##0.00",
         "date_format": "YYYY-MM-DD",
@@ -65,11 +65,11 @@ PRESETS: dict[str, dict[str, Any]] = {
         "font_name": "Arial",
         "header_font_size": 9.5,
         "data_font_size": 9.5,
-        "header_fill": "4A6572",       # Steel Gray
+        "header_fill": "4A6572",  # Steel Gray
         "header_font_color": "FFFFFF",  # Pure White
-        "zebra_fill": "F5F5F5",        # Very Light Gray
-        "border_color": "CCCCCC",      # Standard Border
-        "total_fill": "E0E0E0",        # Distinct Total Fill
+        "zebra_fill": "F5F5F5",  # Very Light Gray
+        "border_color": "CCCCCC",  # Standard Border
+        "total_fill": "E0E0E0",  # Distinct Total Fill
         "number_format": "#,##0.00",
         "currency_format": "$#,##0.00",
         "date_format": "YYYY-MM-DD",
@@ -155,7 +155,9 @@ def apply_data_cell_style(
         cell.alignment = Alignment(horizontal="left", vertical="center")
 
 
-def auto_fit_column_widths(ws: Worksheet, min_width: int = 12, max_width: int = 50) -> None:
+def auto_fit_column_widths(
+    ws: Worksheet, min_width: int = 12, max_width: int = 50
+) -> None:
     """Automatically adjust column widths based on maximum cell content length."""
     for col_idx, col in enumerate(ws.columns, start=1):
         col_letter = get_column_letter(col_idx)

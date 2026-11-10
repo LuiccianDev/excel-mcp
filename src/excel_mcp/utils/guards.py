@@ -36,7 +36,9 @@ def tool_guard(
                 try:
                     return await fn(*args, **kwargs)
                 except Exception as e:
-                    return ExceptionTool.handle_error(e, filename=target_file, operation=name)
+                    return ExceptionTool.handle_error(
+                        e, filename=target_file, operation=name
+                    )
 
             return async_wrapper  # type: ignore
 
@@ -46,7 +48,9 @@ def tool_guard(
             try:
                 return fn(*args, **kwargs)
             except Exception as e:
-                return ExceptionTool.handle_error(e, filename=target_file, operation=name)
+                return ExceptionTool.handle_error(
+                    e, filename=target_file, operation=name
+                )
 
         return sync_wrapper  # type: ignore
 
