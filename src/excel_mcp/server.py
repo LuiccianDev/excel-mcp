@@ -17,6 +17,7 @@ except ImportError:
     except ImportError:
         FastMCP = Any  # type: ignore
 
+from excel_mcp import __version__
 from excel_mcp.tools.register_tools import register_all_tools
 from excel_mcp.utils.security import get_allowed_directories
 
@@ -69,12 +70,14 @@ High-performance Model Context Protocol (MCP) server for programmatic Excel (.xl
 
 ## Tool Naming
 
-All tools use the `excel_` prefix for clarity (e.g., `excel_build_workbook`, `excel_create_excel_workbook`). Legacy names without the prefix are also registered for backward compatibility.
+All tools use the `excel_` prefix for clarity (e.g., `excel_build_workbook`, `excel_create_excel_workbook`).
+Legacy unprefixed aliases are opt-in: set `EXCEL_MCP_LEGACY_ALIASES=1` to register them.
 """
 
     mcp = FastMCP(
         name="excel_mcp",
         instructions=instructions,
+        version=__version__,
         on_duplicate="error",
     )
 
