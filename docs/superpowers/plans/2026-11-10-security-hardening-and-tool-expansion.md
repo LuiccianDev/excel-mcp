@@ -422,40 +422,47 @@ git commit -m "feat(tools): add excel_add_data_validation"
 
 ---
 
-### Task 6: `excel_add_conditional_format`
+### Task 6: `excel_protect_sheet` (swapped from `excel_add_conditional_format`)
+
+> [!NOTE]
+> The original Task 6 proposed `excel_add_conditional_format`, but conditional
+> formatting is already reachable through `excel_format_range(conditional_format=...)`
+> (cellIs, formula, colorScale, dataBar, iconSet). Adding a second tool for the
+> same capability would duplicate the surface. This task therefore ships sheet
+> protection instead, which had no coverage at all.
 
 **Files:**
-- Create: `src/excel_mcp/core/conditional_format.py`
-- Modify: `src/excel_mcp/tools/validation_tools.py`
+- Create: `src/excel_mcp/core/protection.py`
+- Create: `src/excel_mcp/tools/protection_tools.py`
 - Modify: `src/excel_mcp/tools/register_tools.py`
-- Test: `tests/test_conditional_format.py`
+- Test: `tests/test_protection.py`
 
 **Interfaces:**
-- Produces: `core.conditional_format.add_conditional_format(filename: str, cell_range: str, rule_type: str, operator: str = "greaterThan", formula: str | None = None, fill_color: str | None = None, font_color: str | None = None, bold: bool = False, sheet_name: str | None = None) -> dict[str, Any]`; tool `excel_add_conditional_format`.
+- Produces: `core.protection.protect_sheet(filename: str, enabled: bool = True, password: str | None = None, sheet_name: str | None = None, allow_select_locked_cells: bool = True, allow_select_unlocked_cells: bool = True, allow_format_cells: bool = False, allow_format_columns: bool = False, allow_format_rows: bool = False, allow_insert_columns: bool = False, allow_insert_rows: bool = False, allow_insert_hyperlinks: bool = False, allow_delete_columns: bool = False, allow_delete_rows: bool = False, allow_sort: bool = False, allow_auto_filter: bool = False, allow_pivot_tables: bool = False, allow_edit_objects: bool = False, allow_edit_scenarios: bool = False) -> dict[str, Any]`; tool `excel_protect_sheet`.
 
 - [ ] **Step 1: Write the failing tests**
 
-Cases: `cellIs` with `operator="greaterThan"`, `formula="100"`, `fill_color="FFC7CE"` persists one `CellIsRule` with that fill; `formula` rule persists `FormulaRule`; `colorScale` persists `ColorScaleRule`; `dataBar` persists `DataBarRule`; an invalid hex color returns `{"status": "error"}`; an unknown `rule_type` returns `{"status": "error"}`.
+Cases: `enabled=True` with a password persists `ws.protection.sheet is True` and a hashed password; `allow_sort=True` persists `ws.protection.sort is False`; `enabled=False` removes protection from an already protected sheet; a `sheet_name` that does not exist returns `{"status": "error"}`; a missing filename returns `{"status": "error"}`.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `uv run pytest tests/test_conditional_format.py -q`
+Run: `uv run pytest tests/test_protection.py -q`
 Expected: FAIL with `ModuleNotFoundError`.
 
 - [ ] **Step 3: Implement the core module and tool**
 
-Map `rule_type` to `openpyxl.formatting.rule.CellIsRule`, `FormulaRule`, `ColorScaleRule`, `DataBarRule`. Validate colors with `re.fullmatch(r"[0-9A-Fa-f]{6}", color)`. Use `ws.conditional_formatting.add(cell_range, rule)` and `atomic_save`.
+Use `openpyxl.worksheet.protection.SheetProtection` through `ws.protection`. In openpyxl the boolean attributes mean "locked/disallowed", so each `allow_*` flag maps to the negation of its attribute. Hash the password with openpyxl's built-in `SheetProtection.set_password` (assigning `ws.protection.password` does this automatically). Use `atomic_save` from `excel_mcp.core._io`, raise `SheetNotFoundError` for unknown sheets, and wrap the tool with `@tool_guard()` plus `resolve_and_check_path`.
 
 - [ ] **Step 4: Register the tool and run the tests**
 
-Run: `uv run pytest tests/test_conditional_format.py -q`
+Add `_reg("excel_protect_sheet", protection_tools.protect_sheet, write, ["protect_sheet"])` under `# 8. VALIDATION & LAYOUT TOOLS`. Run: `uv run pytest tests/test_protection.py tests/test_register_tools.py -q`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/excel_mcp/core/conditional_format.py src/excel_mcp/tools/validation_tools.py src/excel_mcp/tools/register_tools.py tests/test_conditional_format.py
-git commit -m "feat(tools): add excel_add_conditional_format"
+git add src/excel_mcp/core/protection.py src/excel_mcp/tools/protection_tools.py src/excel_mcp/tools/register_tools.py tests/test_protection.py
+git commit -m "feat(tools): add excel_protect_sheet"
 ```
 
 ---

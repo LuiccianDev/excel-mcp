@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > This document is automatically generated from the registered FastMCP tool signatures.
-> Total Canonical Tools: **31**.
+> Total Canonical Tools: **32**.
 
 ## Tool Inventory
 
@@ -32,6 +32,7 @@
 | [`excel_list_documents`](#excel-list-documents) | `Read-Only` | List all .xlsx files in the specified directory. |
 | [`excel_merge_cells`](#excel-merge-cells) | `Write` | Merge a rectangular range of cells into a single, larger cell. |
 | [`excel_profile_sheet`](#excel-profile-sheet) | `Read-Only` | Generate lightweight column-level profiling and statistical summaries for a worksheet. |
+| [`excel_protect_sheet`](#excel-protect-sheet) | `Write` | Protect or unprotect a worksheet, with optional per-action exceptions. |
 | [`excel_read_data`](#excel-read-data) | `Read-Only` | Read a specific range of tabular data from an Excel worksheet and return it in a structured format. |
 | [`excel_rename_worksheet`](#excel-rename-worksheet) | `Write` | Change the name of an existing worksheet within a workbook. |
 | [`excel_sort_range`](#excel-sort-range) | `Write` | Sort a 2D range of cells in-place by a specific key column. |
@@ -802,4 +803,42 @@ Args:
 
 Returns:
     Structured result with the sheet, range and applied validation type.
+```
+
+### `excel_protect_sheet`
+
+- **Access Mode:** `Write`
+- **Signature:** `excel_protect_sheet(filename: 'str | None' = None, file_path: 'str | None' = None, enabled: 'bool' = True, password: 'str | None' = None, sheet_name: 'str | None' = None, allow_select_locked_cells: 'bool' = True, allow_select_unlocked_cells: 'bool' = True, allow_format_cells: 'bool' = False, allow_format_columns: 'bool' = False, allow_format_rows: 'bool' = False, allow_insert_columns: 'bool' = False, allow_insert_rows: 'bool' = False, allow_insert_hyperlinks: 'bool' = False, allow_delete_columns: 'bool' = False, allow_delete_rows: 'bool' = False, allow_sort: 'bool' = False, allow_auto_filter: 'bool' = False, allow_pivot_tables: 'bool' = False, allow_edit_objects: 'bool' = False, allow_edit_scenarios: 'bool' = False) -> 'dict[str, Any]'`
+
+```text
+Protect or unprotect a worksheet, with optional per-action exceptions.
+
+Use this when delivering a workbook template: lock the sheet so structure
+and formulas survive, then open only the cells or actions the recipient
+needs (for example, allow sorting and autofilter but not row deletion).
+
+Args:
+    filename: Path to the target .xlsx file.
+    file_path: Alternative alias for filename.
+    enabled: True to protect the sheet, False to remove existing protection.
+    password: Optional password required to unprotect the sheet.
+    sheet_name: Target sheet name (defaults to active sheet).
+    allow_select_locked_cells: Allow selecting locked cells.
+    allow_select_unlocked_cells: Allow selecting unlocked cells.
+    allow_format_cells: Allow formatting cells.
+    allow_format_columns: Allow formatting columns.
+    allow_format_rows: Allow formatting rows.
+    allow_insert_columns: Allow inserting columns.
+    allow_insert_rows: Allow inserting rows.
+    allow_insert_hyperlinks: Allow inserting hyperlinks.
+    allow_delete_columns: Allow deleting columns.
+    allow_delete_rows: Allow deleting rows.
+    allow_sort: Allow sorting.
+    allow_auto_filter: Allow using autofilters.
+    allow_pivot_tables: Allow creating or refreshing pivot tables.
+    allow_edit_objects: Allow editing embedded objects.
+    allow_edit_scenarios: Allow editing scenarios.
+
+Returns:
+    Structured result with the sheet name and resulting protection state.
 ```
