@@ -95,3 +95,6 @@ WARP.md
 *.dxt
 dist/
 opencode.json
+
+# Superpowers SDD scratch workspace
+.superpowers/

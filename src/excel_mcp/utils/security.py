@@ -2,6 +2,7 @@
 
 Provides functions for validating file paths against permitted directories
 configured via MCP_ALLOWED_DIRECTORIES or DIRECTORY environment variables.
+Delegates the actual resolution to :mod:`excel_mcp.utils.paths`.
 """
 
 from __future__ import annotations
@@ -10,20 +11,17 @@ import os
 from pathlib import Path
 from typing import Any
 
+from excel_mcp.utils import paths
+
 
 def get_allowed_directories() -> list[str]:
-    """Get the list of allowed directories from environment variables.
+    """Get the list of allowed directories from the environment.
 
     Returns:
         List of absolute paths to directories where spreadsheets can be created/accessed.
         Defaults to ['./documents'] if MCP_ALLOWED_DIRECTORIES or DIRECTORY is not set.
     """
-    allowed_dirs_str = os.environ.get(
-        "MCP_ALLOWED_DIRECTORIES",
-        os.environ.get("DIRECTORY", "./documents")
-    )
-    allowed_dirs = [d.strip() for d in allowed_dirs_str.split(",") if d.strip()]
-    return [str(Path(d).resolve()) for d in allowed_dirs]
+    return paths.resolve_allowed_directories()
 
 
 def is_path_in_allowed_directories(file_path: str | Path) -> tuple[bool, str | None]:
@@ -37,21 +35,7 @@ def is_path_in_allowed_directories(file_path: str | Path) -> tuple[bool, str | N
         indicating if the path is allowed, and error_message provides details
         if the path is not allowed.
     """
-    allowed_dirs = get_allowed_directories()
-    resolved_path = Path(file_path).resolve()
-
-    for allowed_dir in allowed_dirs:
-        allowed_path = Path(allowed_dir).resolve()
-        try:
-            if resolved_path == allowed_path or resolved_path.is_relative_to(allowed_path):
-                return True, None
-        except (ValueError, TypeError):
-            continue
-
-    error_msg = (
-        f"Path '{file_path}' is not in allowed directories: {', '.join(allowed_dirs)}"
-    )
-    return False, error_msg
+    return paths.is_path_allowed(file_path)
 
 
 def resolve_and_check_path(
@@ -84,4 +68,3 @@ def resolve_and_check_path(
             }
 
     return target, None
-

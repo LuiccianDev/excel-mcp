@@ -6,6 +6,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import openpyxl
 
@@ -29,9 +30,13 @@ class TestBatchTools(unittest.TestCase):
 
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
-        os.environ["MCP_ALLOWED_DIRECTORIES"] = self.temp_dir.name
+        self._env_patch = patch.dict(
+            os.environ, {"MCP_ALLOWED_DIRECTORIES": self.temp_dir.name}
+        )
+        self._env_patch.start()
 
     def tearDown(self) -> None:
+        self._env_patch.stop()
         self.temp_dir.cleanup()
 
     def test_presets_exist(self) -> None:

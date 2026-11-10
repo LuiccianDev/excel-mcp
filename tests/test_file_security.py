@@ -46,7 +46,7 @@ class TestSymlinkSecurity:
 
                 # Mock allowed directory to allowed_dir
                 with patch(
-                    "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
+                    "excel_mcp.utils.paths.get_directory", return_value=allowed_dir
                 ):
                     # Attempt to validate symlink - must fail
                     is_allowed, error = _is_path_in_allowed_directories(symlink_path)
@@ -77,7 +77,7 @@ class TestSymlinkSecurity:
 
             # Mock allowed directory to allowed_dir
             with patch(
-                "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
+                "excel_mcp.utils.paths.get_directory", return_value=allowed_dir
             ):
                 # Validate symlink - must pass
                 is_allowed, error = _is_path_in_allowed_directories(symlink_path)
@@ -99,7 +99,7 @@ class TestPathTraversalSecurity:
                 f.write("data")
 
             with patch(
-                "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
+                "excel_mcp.utils.paths.get_directory", return_value=allowed_dir
             ):
                 # Attempt path traversal - must fail
                 malicious_path = os.path.join(allowed_dir, "..", "..", "etc", "passwd")
@@ -113,7 +113,7 @@ class TestPathTraversalSecurity:
         """Test that relative paths with parent directory navigation (..) are blocked."""
         with tempfile.TemporaryDirectory() as allowed_dir:
             with patch(
-                "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
+                "excel_mcp.utils.paths.get_directory", return_value=allowed_dir
             ):
                 # Attempt relative path traversal
                 is_allowed, error = _is_path_in_allowed_directories(
@@ -129,7 +129,7 @@ class TestPathTraversalSecurity:
                 outside_file = os.path.join(outside_dir, "file.xlsx")
 
                 with patch(
-                    "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
+                    "excel_mcp.utils.paths.get_directory", return_value=allowed_dir
                 ):
                     # Attempt to access file outside allowed directory
                     is_allowed, error = _is_path_in_allowed_directories(outside_file)
@@ -146,7 +146,7 @@ class TestResolveSafePath:
         """Test that relative paths are normalized into allowed directory."""
         with tempfile.TemporaryDirectory() as allowed_dir:
             with patch(
-                "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
+                "excel_mcp.utils.paths.get_directory", return_value=allowed_dir
             ):
                 result = resolve_safe_path("document.xlsx")
 
@@ -159,7 +159,7 @@ class TestResolveSafePath:
                 outside_file = os.path.join(outside_dir, "file.xlsx")
 
                 with patch(
-                    "excel_mcp.utils.file_utils.get_directory", return_value=allowed_dir
+                    "excel_mcp.utils.paths.get_directory", return_value=allowed_dir
                 ):
                     result = resolve_safe_path(outside_file)
 
@@ -183,7 +183,7 @@ class TestAllowedDirectories:
                 pytest.skip("Symlinks not supported on this platform")
 
             with patch(
-                "excel_mcp.utils.file_utils.get_directory", return_value=symlink_dir
+                "excel_mcp.utils.paths.get_directory", return_value=symlink_dir
             ):
                 dirs = _get_allowed_directories()
 

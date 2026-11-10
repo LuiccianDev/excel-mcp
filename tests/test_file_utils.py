@@ -25,7 +25,7 @@ class TestGetAllowedDirectories:
     def test_get_allowed_directories_from_config(self, tmp_path: Path) -> None:
         """Test getting allowed directories from configuration."""
         with patch(
-            "excel_mcp.utils.file_utils.get_directory", return_value=str(tmp_path)
+            "excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)
         ):
             result = _get_allowed_directories()
 
@@ -35,7 +35,7 @@ class TestGetAllowedDirectories:
     def test_get_allowed_directories_fallback_to_env(self, tmp_path: Path) -> None:
         """Test fallback to environment variable when config fails."""
         with patch(
-            "excel_mcp.utils.file_utils.get_directory",
+            "excel_mcp.utils.paths.get_directory",
             side_effect=Exception("Config error"),
         ):
             with patch.dict(os.environ, {"DIRECTORY": str(tmp_path)}):
@@ -52,7 +52,7 @@ class TestIsPathInAllowedDirectories:
         test_file = tmp_path / "test.xlsx"
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(tmp_path)],
         ):
             is_allowed, error = _is_path_in_allowed_directories(str(test_file))
@@ -66,7 +66,7 @@ class TestIsPathInAllowedDirectories:
         outside_path = tmp_path / "outside" / "test.xlsx"
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(allowed_path)],
         ):
             is_allowed, error = _is_path_in_allowed_directories(str(outside_path))
@@ -88,7 +88,7 @@ class TestIsPathInAllowedDirectories:
         test_file = real_dir / "test.xlsx"
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(link_dir)],
         ):
             is_allowed, _ = _is_path_in_allowed_directories(str(test_file))
@@ -105,7 +105,7 @@ class TestCheckFileWriteable:
         test_file = tmp_path / "new_file.xlsx"
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(tmp_path)],
         ):
             is_writable, error = _check_file_writeable(str(test_file))
@@ -119,7 +119,7 @@ class TestCheckFileWriteable:
         test_file.write_text("test")
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(tmp_path)],
         ):
             is_writable, error = _check_file_writeable(str(test_file))
@@ -131,7 +131,7 @@ class TestCheckFileWriteable:
         test_file = tmp_path / "subdir" / "test.xlsx"
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(tmp_path)],
         ):
             is_writable, error = _check_file_writeable(str(test_file))
@@ -146,7 +146,7 @@ class TestCheckFileWriteable:
         test_file = tmp_path / "test.xlsx"
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(allowed_dir)],
         ):
             is_writable, error = _check_file_writeable(str(test_file))
@@ -161,7 +161,7 @@ class TestResolveSafePath:
     def test_resolve_relative_path(self, tmp_path: Path) -> None:
         """Test resolving relative path."""
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(tmp_path)],
         ):
             result = resolve_safe_path("test.xlsx")
@@ -173,7 +173,7 @@ class TestResolveSafePath:
         test_file = tmp_path / "test.xlsx"
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(tmp_path)],
         ):
             result = resolve_safe_path(test_file)
@@ -186,7 +186,7 @@ class TestResolveSafePath:
         outside_file = tmp_path / "outside" / "test.xlsx"
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(allowed_dir)],
         ):
             result = resolve_safe_path(outside_file)
@@ -197,7 +197,7 @@ class TestResolveSafePath:
     def test_resolve_no_allowed_directories(self) -> None:
         """Test resolving when no allowed directories available."""
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories", return_value=[]
+            "excel_mcp.utils.paths.resolve_allowed_directories", return_value=[]
         ):
             with pytest.raises(PermissionError) as exc_info:
                 resolve_safe_path("test.xlsx")
@@ -273,7 +273,7 @@ class TestListExcelFilesInDirectory:
         (tmp_path / "other.txt").write_text("content")
 
         with patch(
-            "excel_mcp.utils.file_utils.get_directory", return_value=str(tmp_path)
+            "excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)
         ):
             result = list_excel_files_in_directory()
 
@@ -288,7 +288,7 @@ class TestListExcelFilesInDirectory:
         test_file.write_text("content")
 
         with patch(
-            "excel_mcp.utils.file_utils.get_directory", return_value=str(tmp_path)
+            "excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)
         ):
             result = list_excel_files_in_directory()
 
@@ -302,7 +302,7 @@ class TestListExcelFilesInDirectory:
     def test_list_excel_files_empty_directory(self, tmp_path: Path) -> None:
         """Test listing in empty directory."""
         with patch(
-            "excel_mcp.utils.file_utils.get_directory", return_value=str(tmp_path)
+            "excel_mcp.utils.paths.get_directory", return_value=str(tmp_path)
         ):
             result = list_excel_files_in_directory()
 
@@ -313,7 +313,7 @@ class TestListExcelFilesInDirectory:
         nonexistent = tmp_path / "nonexistent"
 
         with patch(
-            "excel_mcp.utils.file_utils.get_directory", return_value=str(nonexistent)
+            "excel_mcp.utils.paths.get_directory", return_value=str(nonexistent)
         ):
             # The function wraps FileNotFoundError in OSError
             with pytest.raises((FileNotFoundError, OSError)) as exc_info:
@@ -324,7 +324,7 @@ class TestListExcelFilesInDirectory:
     def test_list_excel_files_config_error(self) -> None:
         """Test listing when configuration fails."""
         with patch(
-            "excel_mcp.utils.file_utils.get_directory",
+            "excel_mcp.utils.paths.get_directory",
             side_effect=Exception("Config error"),
         ):
             with pytest.raises(ConfigurationError):
@@ -343,7 +343,7 @@ class TestValidateFileAccess:
             return {"status": "success", "filename": filename}
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(tmp_path)],
         ):
             result = test_func(str(test_file))
@@ -359,7 +359,7 @@ class TestValidateFileAccess:
             return {"status": "success", "filename": filename}
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(tmp_path)],
         ):
             import asyncio
@@ -378,7 +378,7 @@ class TestValidateFileAccess:
             return {"status": "success"}
 
         with patch(
-            "excel_mcp.utils.file_utils._get_allowed_directories",
+            "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(allowed_dir)],
         ):
             result = test_func(str(test_file))
