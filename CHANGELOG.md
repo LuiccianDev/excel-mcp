@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.1.4] - 2026-11-11
+
 ### Added
 - **Unified Path Sandbox (`excel_mcp.utils.paths`)**: Single resolver shared by every tool. `MCP_ALLOWED_DIRECTORIES` now governs all read, write and discovery operations and accepts multiple comma-separated roots.
 - **Coverage Gate**: `pytest-cov` enforces a 75% floor over `src/excel_mcp` in CI and locally.
