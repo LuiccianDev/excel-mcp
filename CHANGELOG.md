@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.1.5] - 2026-11-11
+
 ### Changed
 - **Release Pipeline**: `release.yml` is now one ordered pipeline (detect, verify on Python 3.11 to 3.14, build once, GitHub Release, PyPI) that runs only when a push to `master` changes the package version and the tag does not exist. The same artifacts are published to GitHub and PyPI.
 - **Manual PyPI Recovery**: `publish-pypi.yml` is manual-only and requires an existing tag.
