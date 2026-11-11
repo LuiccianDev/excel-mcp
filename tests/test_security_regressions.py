@@ -82,9 +82,7 @@ def test_reversed_range_is_rejected_before_workbook_mutation(tmp_path: Path) -> 
     openpyxl.Workbook().save(workbook)
 
     with pytest.raises(Exception, match="precede"):
-        add_data_validation(
-            str(workbook), "B5:A1", "list", formula1='"a,b"'
-        )
+        add_data_validation(str(workbook), "B5:A1", "list", formula1='"a,b"')
 
 
 def test_invalid_color_returns_structured_error(tmp_path: Path) -> None:
