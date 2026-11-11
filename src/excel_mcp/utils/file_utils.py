@@ -15,29 +15,21 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypeVar, cast
 
-from excel_mcp.config import ConfigurationError, get_directory
+from excel_mcp.config import ConfigurationError
+from excel_mcp.utils import paths
 
 
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-# Get allowed directories from configuration system
+# Get allowed directories from the shared resolver
 def _get_allowed_directories() -> list[str]:
-    """Get the list of allowed directories from configuration system.
+    """Get the list of allowed directories from the shared resolver.
 
-    Uses Path.resolve() to properly resolve symlinks and normalize paths
-    for enhanced security against path traversal attacks.
+    Delegates to :mod:`excel_mcp.utils.paths` so this module can never honour a
+    different sandbox than :mod:`excel_mcp.utils.security`.
     """
-    try:
-        directory = get_directory()
-        # Use resolve() instead of abspath() to resolve symlinks
-        return [str(Path(directory).resolve())]
-    except Exception:
-        # Fallback to environment variable for backward compatibility
-        allowed_dirs_str = os.environ.get("DIRECTORY", "./documents")
-        allowed_dirs = [dir.strip() for dir in allowed_dirs_str.split(",")]
-        # Use resolve() instead of abspath() to resolve symlinks
-        return [str(Path(dir).resolve()) for dir in allowed_dirs]
+    return paths.resolve_allowed_directories()
 
 
 # Check if the given file path is within allowed directories
@@ -47,24 +39,7 @@ def _is_path_in_allowed_directories(file_path: str) -> tuple[bool, str | None]:
     Uses Path.resolve() to properly resolve symlinks before validation,
     preventing symlink-based path traversal attacks.
     """
-    allowed_dirs = _get_allowed_directories()
-    # Use resolve() instead of abspath() to resolve symlinks and normalize path
-    resolved_path = Path(file_path).resolve()
-
-    for allowed_dir in allowed_dirs:
-        allowed_path = Path(allowed_dir).resolve()
-        try:
-            # Check if resolved path is relative to allowed directory
-            resolved_path.relative_to(allowed_path)
-            return True, None
-        except ValueError:
-            # Path is not within this allowed directory
-            continue
-
-    return (
-        False,
-        f"Path '{file_path}' (resolved: '{resolved_path}') is not in allowed directories: {', '.join(allowed_dirs)}",
-    )
+    return paths.is_path_allowed(file_path)
 
 
 def resolve_safe_path(filename: str | Path) -> Path:
@@ -87,16 +62,20 @@ def resolve_safe_path(filename: str | Path) -> Path:
         for allowed_dir in allowed_dirs:
             try:
                 # Check if the path is within an allowed directory
-                path.resolve().relative_to(Path(allowed_dir).resolve())
-                return path  # Path is allowed
+                resolved = path.resolve()
+                resolved.relative_to(Path(allowed_dir).resolve())
+                return resolved
             except ValueError:
                 continue  # Path is not within this allowed directory
 
-        # If not in any allowed directory, use filename in first allowed dir
-        return Path(allowed_dirs[0]) / path.name
+        raise PermissionError(f"Path '{path}' is not in allowed directories")
 
-    # If relative path, use first allowed directory
-    return Path(allowed_dirs[0]) / filename
+    # Resolve relative paths before returning them so traversal cannot escape.
+    resolved = (Path(allowed_dirs[0]) / path).resolve()
+    allowed, error = _is_path_in_allowed_directories(str(resolved))
+    if not allowed:
+        raise PermissionError(error or f"Path '{path}' is not in allowed directories")
+    return resolved
 
 
 # Check if a file can be written to, including directory permissions
@@ -201,7 +180,11 @@ def ensure_xlsx_extension(filename: str) -> str:
 # * Retrieve metadata for all Excel (.xlsx) files in the specified directory
 def list_excel_files_in_directory() -> list[dict]:
     """
-    Retrieve metadata for all Excel (.xlsx) files in the configured directory.
+    Retrieve metadata for all Excel (.xlsx) files in the allowed directories.
+
+    Every root returned by :func:`excel_mcp.utils.paths.resolve_allowed_directories`
+    is scanned, so ``MCP_ALLOWED_DIRECTORIES`` governs discovery exactly as it
+    governs access.
 
     Returns:
         list[dict]: List of dictionaries containing file metadata with keys:
@@ -211,49 +194,53 @@ def list_excel_files_in_directory() -> list[dict]:
             - path (str): Full absolute path to the file
 
     Raises:
-        FileNotFoundError: If the configured directory does not exist
-        NotADirectoryError: If the path exists but is not a directory
+        FileNotFoundError: If no allowed directory exists
         OSError: For other filesystem-related errors
         ConfigurationError: If directory configuration is invalid
     """
     try:
-        directory = get_directory()
+        directories = paths.resolve_allowed_directories()
     except Exception as e:
         raise ConfigurationError(f"Failed to get configured directory: {e}") from e
 
+    existing = [directory for directory in directories if os.path.isdir(directory)]
+    if not existing:
+        raise FileNotFoundError(
+            f"Configured directory not found: {', '.join(directories)}"
+        )
+
+    excel_files: list[dict] = []
+    seen: set[str] = set()
+
     try:
-        # Validate directory exists and is accessible
-        if not os.path.exists(directory):
-            raise FileNotFoundError(f"Configured directory not found: {directory}")
-        if not os.path.isdir(directory):
-            raise NotADirectoryError(f"Configured path is not a directory: {directory}")
-
-        excel_files = []
-
-        # Use listdir with absolute paths for better error handling
-        with os.scandir(directory) as entries:
-            for entry in entries:
-                try:
-                    if entry.is_file() and entry.name.lower().endswith(".xlsx"):
-                        stat = entry.stat()
-                        excel_files.append(
-                            {
-                                "filename": entry.name,
-                                "size_kb": round(stat.st_size / 1024, 2),
-                                "modified": stat.st_mtime,
-                                "path": entry.path,
-                            }
-                        )
-                except (OSError, PermissionError):
-                    # Skip files we can't access but continue with others
-                    continue
+        for directory in existing:
+            # Use scandir with absolute paths for better error handling
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    try:
+                        if entry.is_file() and entry.name.lower().endswith(".xlsx"):
+                            if entry.path in seen:
+                                continue
+                            seen.add(entry.path)
+                            stat = entry.stat()
+                            excel_files.append(
+                                {
+                                    "filename": entry.name,
+                                    "size_kb": round(stat.st_size / 1024, 2),
+                                    "modified": stat.st_mtime,
+                                    "path": entry.path,
+                                }
+                            )
+                    except (OSError, PermissionError):
+                        # Skip files we can't access but continue with others
+                        continue
 
         return sorted(excel_files, key=lambda x: x["filename"].lower())
 
     except OSError as e:
         # Re-raise with more context
         raise OSError(
-            f"Error accessing configured directory '{directory}': {str(e)}"
+            f"Error accessing configured directory '{', '.join(existing)}': {str(e)}"
         ) from e
 
 

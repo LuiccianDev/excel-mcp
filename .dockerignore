@@ -55,7 +55,6 @@ Docker.md
 GEMINI.md
 WARP.md
 TOOLS.md
-.pre-commit-config.yaml
 .python-version
 mypy.ini
 pytest.ini

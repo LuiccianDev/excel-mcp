@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -46,7 +45,9 @@ class TestAtomicSave(unittest.TestCase):
         """Test temp file cleanup when serialization fails."""
         wb = openpyxl.Workbook()
 
-        with patch.object(wb, "save", side_effect=IOError("Simulated disk write failure")):
+        with patch.object(
+            wb, "save", side_effect=IOError("Simulated disk write failure")
+        ):
             with self.assertRaises(IOError):
                 atomic_save(wb, self.target_file)
 

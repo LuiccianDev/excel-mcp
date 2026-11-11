@@ -16,6 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "fastmcp>=3.0.0",
@@ -34,8 +35,8 @@ Changelog = "https://github.com/LuiccianDev/excel-mcp/blob/master/CHANGELOG.md"
 
 [dependency-groups]
 dev = [
+    "build>=1.2.2",
     "mypy>=1.17.0",
-    "pre-commit>=4.2.0",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",
@@ -104,7 +105,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["E", "W", "F"]
+"scripts/*" = ["E402"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["excel_mcp"]
@@ -126,6 +127,15 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 pythonpath = ["src"]
 asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["excel_mcp"]
+branch = false
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true
 
 [tool.mypy]
 python_version = "3.11"

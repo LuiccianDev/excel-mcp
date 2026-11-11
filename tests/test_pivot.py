@@ -3,7 +3,6 @@
 from pathlib import Path
 from typing import Any
 
-import pytest
 from openpyxl import Workbook, load_workbook
 
 from excel_mcp.core.pivot import (
@@ -13,7 +12,6 @@ from excel_mcp.core.pivot import (
     _aggregate_values,
     create_pivot_table,
 )
-from excel_mcp.exceptions.exception_core import PivotError, ValidationError
 
 
 class TestConvertSheetDataToDicts:

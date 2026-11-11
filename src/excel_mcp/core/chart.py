@@ -9,6 +9,7 @@ from openpyxl.chart import (
     PieChart,
     Reference,
     ScatterChart,
+    Series,
 )
 from openpyxl.chart.axis import ChartLines
 from openpyxl.chart.label import DataLabelList
@@ -138,7 +139,7 @@ def create_chart_in_sheet(
                     y_values = Reference(
                         worksheet, min_row=start_row + 1, max_row=end_row, min_col=col
                     )
-                    chart.series.append((x_values, y_values))  # simplified for mypy
+                    chart.series.append(Series(y_values, x_values))
             else:
                 data = Reference(
                     worksheet,

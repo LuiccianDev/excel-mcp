@@ -49,7 +49,6 @@ htmlcov/
 .dmypy.json
 .pyre/
 .pytype/
-.pre-commit-config.yaml
 .mypy.ini
 .ruff.toml
 
@@ -95,3 +94,6 @@ WARP.md
 *.dxt
 dist/
 opencode.json
+
+# Superpowers SDD scratch workspace
+.superpowers/

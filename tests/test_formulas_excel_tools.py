@@ -5,7 +5,6 @@ import pytest
 
 from openpyxl import Workbook
 
-from excel_mcp.exceptions.exception_tools import ValidationError
 from excel_mcp.tools import formulas_excel_tools
 from excel_mcp.config import ConfigurationManager
 from excel_mcp.utils.validation_utils import validate_formula_in_cell_operation

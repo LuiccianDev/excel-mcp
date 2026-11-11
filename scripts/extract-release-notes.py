@@ -55,7 +55,9 @@ def extract_notes(changelog_path: Path, target_version: str | None) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Extract release notes from CHANGELOG.md")
+    parser = argparse.ArgumentParser(
+        description="Extract release notes from CHANGELOG.md"
+    )
     parser.add_argument("--version", help="Version to extract (e.g. 2.0.0)")
     parser.add_argument("--tag", help="Tag to extract (e.g. v2.0.0)")
     parser.add_argument(

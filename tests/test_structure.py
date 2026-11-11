@@ -166,23 +166,45 @@ class TestStructureOperations(unittest.TestCase):
         wb.close()
 
     def test_structure_tools_guards(self) -> None:
-        with patch.dict(os.environ, {"MCP_ALLOWED_DIRECTORIES": os.path.dirname(self.sample_workbook)}):
-            r1 = append_rows(filename=self.sample_workbook, rows=[["Zara", 21, 99.0]], sheet_name="Data")
+        with patch.dict(
+            os.environ,
+            {"MCP_ALLOWED_DIRECTORIES": os.path.dirname(self.sample_workbook)},
+        ):
+            r1 = append_rows(
+                filename=self.sample_workbook,
+                rows=[["Zara", 21, 99.0]],
+                sheet_name="Data",
+            )
             self.assertEqual(r1["status"], "success")
 
-            r2 = format_sheet(filename=self.sample_workbook, sheet_name="Data", freeze_panes="A2")
+            r2 = format_sheet(
+                filename=self.sample_workbook, sheet_name="Data", freeze_panes="A2"
+            )
             self.assertEqual(r2["status"], "success")
 
-            r3 = sort_range(filename=self.sample_workbook, range_string="A1:C5", key_column="Score", ascending=False)
+            r3 = sort_range(
+                filename=self.sample_workbook,
+                range_string="A1:C5",
+                key_column="Score",
+                ascending=False,
+            )
             self.assertEqual(r3["status"], "success")
 
-            r4 = insert_rows_columns(filename=self.sample_workbook, dimension="column", index=1, amount=1)
+            r4 = insert_rows_columns(
+                filename=self.sample_workbook, dimension="column", index=1, amount=1
+            )
             self.assertEqual(r4["status"], "success")
 
-            r5 = delete_rows_columns(filename=self.sample_workbook, dimension="column", index=1, amount=1)
+            r5 = delete_rows_columns(
+                filename=self.sample_workbook, dimension="column", index=1, amount=1
+            )
             self.assertEqual(r5["status"], "success")
 
-            r6 = create_table(filename=self.sample_workbook, range_string="A1:C5", table_name="AutoTable")
+            r6 = create_table(
+                filename=self.sample_workbook,
+                range_string="A1:C5",
+                table_name="AutoTable",
+            )
             self.assertEqual(r6["status"], "success")
 
 

@@ -26,7 +26,7 @@ on:
 
 concurrency:
   group: release-${{ github.workflow }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   bump:
@@ -52,10 +52,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Install dependencies
+        run: uv sync --all-groups
+
       - name: Bump Version in pyproject.toml & CHANGELOG.md
         id: bump
         run: |
-          python3 scripts/bump-version.py --type "${{ github.event.inputs.bump_type }}" --custom "${{ github.event.inputs.custom_version }}"
+          uv run python scripts/bump-version.py --type "${{ github.event.inputs.bump_type }}" --custom "${{ github.event.inputs.custom_version }}"
           VERSION=$(grep -m1 '^version = ' pyproject.toml | cut -d '"' -f2)
           TAG="v$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -65,7 +68,13 @@ jobs:
 
       - name: Extract Release Notes from CHANGELOG
         run: |
-          python3 scripts/extract-release-notes.py --tag "${{ steps.bump.outputs.tag }}" --output pr_body.md
+          uv run python scripts/extract-release-notes.py --tag "${{ steps.bump.outputs.tag }}" --output pr_body.md
+
+      - name: Synchronize release metadata
+        run: |
+          uv lock
+          uv run python scripts/generate-tools-doc.py
+          uv run python scripts/check-repository-consistency.py
 
       - name: Create Pull Request (Recommended Mode)
         if: ${{ github.event.inputs.create_pr == true || github.event.inputs.create_pr == 'true' }}
@@ -74,7 +83,7 @@ jobs:
         run: |
           BRANCH_NAME="release/${{ steps.bump.outputs.tag }}"
           git checkout -b "$BRANCH_NAME"
-          git add pyproject.toml CHANGELOG.md
+          git add pyproject.toml uv.lock CHANGELOG.md manifest.json docs/TOOLS.md
           git commit -m "chore(release): bump version to ${{ steps.bump.outputs.tag }} [skip ci]"
           git push origin "$BRANCH_NAME" --force
           gh pr create \
@@ -86,7 +95,7 @@ jobs:
       - name: Direct Commit & Tag on master (Alternative Mode)
         if: ${{ github.event.inputs.create_pr == false || github.event.inputs.create_pr == 'false' }}
         run: |
-          git add pyproject.toml CHANGELOG.md
+          git add pyproject.toml uv.lock CHANGELOG.md manifest.json docs/TOOLS.md
           git commit -m "chore(release): bump version to ${{ steps.bump.outputs.tag }} [skip ci]"
           git tag -a "${{ steps.bump.outputs.tag }}" -m "Release ${{ steps.bump.outputs.tag }}"
           CURRENT_BRANCH=$(git branch --show-current || echo "master")

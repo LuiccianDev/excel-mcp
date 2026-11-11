@@ -112,7 +112,7 @@ Add this configuration to your `claude_desktop_config.json`:
 
 The repository includes pre-built agent skills under `skills/`:
 
-- **`excel-tools-reference`**: Authoritative encyclopedia and decision matrix covering all 30 canonical tools, types, signatures, and safety rules.
+- **`excel-tools-reference`**: Authoritative encyclopedia and decision matrix covering all 33 canonical tools, types, signatures, and safety rules.
 - **`excel-spreadsheet-creator`**: Direct single-pass synthesis for reports, budgets, and financial statements (`excel_build_workbook`).
 - **`excel-spreadsheet-editor`**: Lightweight structural inspection, atomic batch matrix writes, row appending, table formatting, and in-place sorting.
 - **`excel-spreadsheet-analyzer`**: Context-efficient sampling, statistical column profiling (`excel_profile_sheet`), and cell discovery (`excel_find_cells`).
@@ -155,6 +155,9 @@ All tools use the standard `excel_*` canonical prefix. Legacy unprefixed aliases
 | | `excel_create_pivot_table` | `Write` | Create analytical pivot tables from ranges |
 | **Content I/O** | `excel_read_data` | `Read-Only` | Read tabular data from worksheet range |
 | | `excel_write_data` | `Write` | Write data starting at target cell |
+| **Validation & Print Layout** | `excel_add_data_validation` | `Write` | Add list, numeric, date, or custom validation rules to a cell range |
+| | `excel_protect_sheet` | `Write` | Protect or unprotect a worksheet with action-level permissions |
+| | `excel_configure_page_setup` | `Write` | Configure print orientation, scaling, area, headers, footers, and centering |
 
 ---
 
@@ -176,12 +179,31 @@ cd excel-mcp
 # Install dependencies with Astral uv
 uv sync --all-groups
 
-# Run linting
-uv run ruff check src
+# Run linting and formatting
+uv run ruff check .
+uv run ruff format --check .
 
-# Run test suite
-uv run pytest
+# Run static type checking
+uv run mypy src
+
+# Run test suite with coverage gate (80% minimum)
+uv run pytest --cov --cov-report=term-missing
+
+# Build the wheel and source distribution
+uv run python -m build
 ```
+
+> [!NOTE]
+> The commands above run through `uv` and are the local source of truth for CI. A clean checkout is reproducible with `uv sync --all-groups`.
+
+### Performance Baseline
+
+The repository keeps deterministic workbook-operation benchmarks in
+`tests/benchmarks/test_workbook_benchmarks.py`. The initial local baseline is
+recorded in [`docs/benchmarks/workbook-baseline.json`](docs/benchmarks/workbook-baseline.json).
+Run the benchmark tests before changing batch writes, workbook construction, or
+format-and-save behavior; do not accept an optimization without comparing the
+functional result, runtime, and peak memory.
 
 ---
 

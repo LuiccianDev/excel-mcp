@@ -34,8 +34,13 @@ class DocCollectorMCP:
             read_only = False
             destructive = False
             if annotations:
-                read_only = getattr(annotations, "read_only_hint", False) or annotations.kwargs.get("read_only_hint", False)
-                destructive = getattr(annotations, "destructive_hint", False) or annotations.kwargs.get("destructive_hint", False)
+                kwargs = getattr(annotations, "kwargs", {})
+                read_only = getattr(annotations, "read_only_hint", False) or kwargs.get(
+                    "read_only_hint", False
+                )
+                destructive = getattr(
+                    annotations, "destructive_hint", False
+                ) or kwargs.get("destructive_hint", False)
 
             self.tools[tool_name] = {
                 "fn": fn,
@@ -94,7 +99,20 @@ def categorize_tools(tool_names: list[str]) -> dict[str, list[str]]:
             "excel_read_data",
             "excel_write_data",
         ],
+        "Validation & Print Layout": [
+            "excel_add_data_validation",
+            "excel_protect_sheet",
+            "excel_configure_page_setup",
+        ],
     }
+
+    # Safety net: a newly registered tool must never disappear from the
+    # generated reference just because nobody updated this mapping yet.
+    categorized = {name for names in categories.values() for name in names}
+    uncategorized = [name for name in tool_names if name not in categorized]
+    if uncategorized:
+        categories["Other Tools"] = uncategorized
+
     return categories
 
 
@@ -117,9 +135,15 @@ def generate_tools_markdown() -> str:
     ]
 
     for name, meta in sorted(collector.tools.items()):
-        mode = "Destructive" if meta["destructive"] else ("Read-Only" if meta["read_only"] else "Write")
+        mode = (
+            "Destructive"
+            if meta["destructive"]
+            else ("Read-Only" if meta["read_only"] else "Write")
+        )
         first_line = meta["doc"].strip().split("\n")[0].replace("|", "\\|")
-        lines.append(f"| [`{name}`](#{name.replace('_', '-')}) | `{mode}` | {first_line} |")
+        lines.append(
+            f"| [`{name}`](#{name.replace('_', '-')}) | `{mode}` | {first_line} |"
+        )
 
     lines.append("")
     categories = categorize_tools(list(collector.tools.keys()))
@@ -131,7 +155,11 @@ def generate_tools_markdown() -> str:
             if name not in collector.tools:
                 continue
             meta = collector.tools[name]
-            mode = "Destructive" if meta["destructive"] else ("Read-Only" if meta["read_only"] else "Write")
+            mode = (
+                "Destructive"
+                if meta["destructive"]
+                else ("Read-Only" if meta["read_only"] else "Write")
+            )
             lines.append(f"### `{name}`")
             lines.append("")
             lines.append(f"- **Access Mode:** `{mode}`")

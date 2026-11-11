@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Unified Path Sandbox (`excel_mcp.utils.paths`)**: Single resolver shared by every tool. `MCP_ALLOWED_DIRECTORIES` now governs all read, write and discovery operations and accepts multiple comma-separated roots.
+- **Coverage Gate**: `pytest-cov` enforces a 75% floor over `src/excel_mcp` in CI and locally.
+- **Validation and Print Layout Tools**: Added `excel_add_data_validation`, `excel_protect_sheet`, and `excel_configure_page_setup` for publication-ready workbook templates.
+
+### Changed
+- **CI Matrix**: GitHub Actions now tests Python 3.11, 3.12 and 3.13, matching the declared classifiers.
+- **Quality Gates**: Pre-commit hooks removed; CI runs `ruff check`, `ruff format --check`, `mypy` and `pytest --cov` through `uv` on the whole repository, including `scripts/` and `tests/`.
+
+### Fixed
+- **Documented Sandbox Variable**: Tools decorated with `validate_file_access` rejected paths that were valid under `MCP_ALLOWED_DIRECTORIES`, and `excel_list_documents` silently scanned `./documents`. Both now use the shared resolver.
+- **stdio Transport Purity**: Startup messages no longer write to stdout, which corrupted the JSON-RPC channel for strict MCP clients.
+- **Server Version**: `serverInfo.version` reports the package version instead of the FastMCP version.
+- **Scatter Charts**: `excel_create_chart` with `chart_type="scatter"` failed because a raw tuple was appended to `chart.series`; it now builds a proper `Series`.
+- **Lint Errors in Automation Scripts**: Removed an unused import and documented the intentional `sys.path` import order.
+- **Manifest Drift**: Synchronized the MCPB manifest, generated tool reference, skills, and README with the 33 canonical `excel_*` tools.
+
 ---
 
 ## [2.1.3] - 2026-11-09

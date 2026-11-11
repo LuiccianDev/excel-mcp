@@ -19,7 +19,6 @@ wheels/
 
 # Configuration files
 .markdownlint.json
-.pre-commit-config.yaml
 pytest.ini
 ruff.toml
 mypy.ini
@@ -83,7 +82,6 @@ WARP.md
 ruff.toml
 pytest.ini
 mypy.ini
-.pre-commit-config.yaml
 
 # Python
 .Python

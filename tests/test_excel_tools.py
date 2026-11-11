@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -43,7 +42,21 @@ async def test_create_excel_workbook_workbook_error(tmp_path) -> None:
 
         result = await excel_tools.create_excel_workbook(test_filename)
 
-        assert "error" in result
+    assert "error" in result
+
+
+async def test_create_excel_workbook_rejects_relative_traversal(
+    tmp_path, monkeypatch
+) -> None:
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(allowed))
+    monkeypatch.delenv("DIRECTORY", raising=False)
+
+    result = await excel_tools.create_excel_workbook("../escape.xlsx")
+
+    assert "error" in result
+    assert not (tmp_path / "escape.xlsx").exists()
 
 
 @pytest.mark.asyncio  # type: ignore[misc]

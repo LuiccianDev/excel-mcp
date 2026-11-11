@@ -5,11 +5,8 @@ This module provides pytest fixtures and configuration for testing
 the MCP Excel Office Server functionality.
 """
 
-import tempfile
-from pathlib import Path
 from typing import Generator
 import pytest
-import shutil
 
 from excel_mcp.config import ConfigurationManager
 
@@ -100,13 +97,3 @@ def test_workbook_file(tmp_path) -> str:
     wb.save(test_file_path)
 
     return str(test_file_path)
-
-
-@pytest.fixture(autouse=True)
-def setup_test_documents(tmp_path) -> None:
-    """Copy test documents to the test directory if they exist."""
-    source_docs = Path("documents")
-    if source_docs.exists():
-        for doc_file in source_docs.glob("*.xlsx"):
-            target_file = tmp_path / doc_file.name
-            shutil.copy2(doc_file, target_file)

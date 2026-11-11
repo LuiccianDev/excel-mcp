@@ -25,6 +25,7 @@ __all__ = [
 def __getattr__(name: str) -> Any:
     if name == "register_all_tools":
         from excel_mcp.tools.register_tools import register_all_tools
+
         return register_all_tools
     if name in __all__:
         return importlib.import_module(f"excel_mcp.tools.{name}")

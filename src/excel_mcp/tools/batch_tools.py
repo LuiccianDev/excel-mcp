@@ -94,7 +94,9 @@ def build_workbook(
     assert target is not None
 
     if not sheets:
-        sheets = [{"name": "Sheet1", "headers": ["Column 1"], "rows": [["No data provided"]]}]
+        sheets = [
+            {"name": "Sheet1", "headers": ["Column 1"], "rows": [["No data provided"]]}
+        ]
 
     result = build_single_pass_workbook(
         filename=target,

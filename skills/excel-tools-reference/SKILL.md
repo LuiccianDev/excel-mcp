@@ -1,6 +1,6 @@
 ---
 name: excel-tools-reference
-description: "Authoritative toolkit encyclopedia and decision matrix for Excel MCP. Details exact canonical tool signatures, parameter schemas, format strings, formula rules, and error recovery across all 30 canonical tools."
+description: "Authoritative toolkit encyclopedia and decision matrix for Excel MCP. Details exact canonical tool signatures, parameter schemas, format strings, formula rules, and error recovery across all 33 canonical tools."
 argument-hint: "Tool name, functional category, or Excel task to look up"
 user-invocable: true
 disable-model-invocation: false
@@ -43,7 +43,7 @@ flowchart TD
 
 ---
 
-## 2. Complete Canonical Tool Inventory (30 Tools)
+## 2. Complete Canonical Tool Inventory (33 Tools)
 
 ### A. Batch & Single-Pass Tools (Priority 1)
 
@@ -140,6 +140,14 @@ flowchart TD
 
 29. **`excel_read_data`**: Read 2D data matrix from range (`filename`, `sheet_name`, `start_cell`, `end_cell`, `preview_only`).
 30. **`excel_write_data`**: Write value or 2D matrix starting at cell (`filename`, `sheet_name`, `data`, `start_cell`).
+
+---
+
+### G. Validation, Protection & Print Layout
+
+31. **`excel_add_data_validation`**: Add list, numeric, date, time, text length, or custom formula validation to a range (`filename`, `cell_range`, `validation_type`, `formula1`, `formula2`, `sheet_name`).
+32. **`excel_protect_sheet`**: Protect or unprotect a worksheet with optional password and action permissions (`filename`, `enabled`, `password`, `sheet_name`).
+33. **`excel_configure_page_setup`**: Configure orientation, paper size, scaling, print area, title rows, headers, footers, and centering (`filename`, `orientation`, `paper_size`, `fit_to_width`, `fit_to_height`, `print_area`, `print_title_rows`, `header`, `footer`, `center_horizontally`, `sheet_name`).
 
 ---
 

@@ -6,7 +6,10 @@ import os
 from unittest.mock import patch
 import unittest
 
-from excel_mcp.tools.register_tools import register_all_tools, should_register_legacy_aliases
+from excel_mcp.tools.register_tools import (
+    register_all_tools,
+    should_register_legacy_aliases,
+)
 
 
 class MockFastMCP:
@@ -36,7 +39,7 @@ class TestRegisterTools(unittest.TestCase):
             register_all_tools(mock_mcp)
 
             tool_names = list(mock_mcp.registered_tools.keys())
-            self.assertEqual(len(tool_names), 30)
+            self.assertEqual(len(tool_names), 33)
             for name in tool_names:
                 self.assertTrue(
                     name.startswith("excel_"),
@@ -67,7 +70,7 @@ class TestRegisterTools(unittest.TestCase):
             register_all_tools(mock_mcp)
 
             tool_names = list(mock_mcp.registered_tools.keys())
-            self.assertGreater(len(tool_names), 30)
+            self.assertGreater(len(tool_names), 33)
 
             # Both canonical and legacy aliases must exist
             self.assertIn("excel_create_workbook", tool_names)

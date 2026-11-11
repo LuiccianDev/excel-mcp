@@ -49,7 +49,9 @@ class TestSearchAndProfileOperations(unittest.TestCase):
         self.assertIn("B4", cells)
 
         # Case-sensitive search
-        res_cs = find_cells_in_workbook(self.sample_workbook, query="engineering", match_case=True)
+        res_cs = find_cells_in_workbook(
+            self.sample_workbook, query="engineering", match_case=True
+        )
         self.assertEqual(res_cs["total_matches"], 0)
 
         # Formula detection
@@ -89,7 +91,10 @@ class TestSearchAndProfileOperations(unittest.TestCase):
         self.assertEqual(cols["Active"]["detected_type"], "boolean")
 
     def test_analysis_tools_guards(self) -> None:
-        with patch.dict(os.environ, {"MCP_ALLOWED_DIRECTORIES": os.path.dirname(self.sample_workbook)}):
+        with patch.dict(
+            os.environ,
+            {"MCP_ALLOWED_DIRECTORIES": os.path.dirname(self.sample_workbook)},
+        ):
             r1 = find_cells(filename=self.sample_workbook, query="Alice")
             self.assertEqual(r1["status"], "success")
             self.assertGreaterEqual(r1["data"]["total_matches"], 1)

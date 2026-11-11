@@ -17,11 +17,21 @@ class SheetOutline(BaseModel):
     max_row: int = Field(description="Total number of populated rows")
     max_column: int = Field(description="Total number of populated columns")
     dimension: str = Field(description="Populated cell range (e.g., 'A1:H50')")
-    headers: list[str] = Field(default_factory=list, description="Top row headers if present")
-    header_row: int = Field(default=1, description="Detected 1-indexed row number containing headers")
-    has_formulas: bool = Field(default=False, description="Whether the sheet contains formulas")
-    formula_count: int = Field(default=0, description="Number of cells containing formulas")
-    warnings: list[str] = Field(default_factory=list, description="Non-fatal warnings or anomalies detected")
+    headers: list[str] = Field(
+        default_factory=list, description="Top row headers if present"
+    )
+    header_row: int = Field(
+        default=1, description="Detected 1-indexed row number containing headers"
+    )
+    has_formulas: bool = Field(
+        default=False, description="Whether the sheet contains formulas"
+    )
+    formula_count: int = Field(
+        default=0, description="Number of cells containing formulas"
+    )
+    warnings: list[str] = Field(
+        default_factory=list, description="Non-fatal warnings or anomalies detected"
+    )
 
 
 class WorkbookOutline(BaseModel):
@@ -30,7 +40,9 @@ class WorkbookOutline(BaseModel):
     filename: str = Field(description="Path to the Excel workbook file")
     sheet_count: int = Field(description="Total number of worksheets in the workbook")
     sheets: list[SheetOutline] = Field(description="List of sheet outlines")
-    total_cells_populated: int = Field(default=0, description="Estimated count of non-empty cells")
+    total_cells_populated: int = Field(
+        default=0, description="Estimated count of non-empty cells"
+    )
 
 
 class BuildWorkbookResult(BaseModel):
@@ -38,10 +50,17 @@ class BuildWorkbookResult(BaseModel):
 
     filename: str = Field(description="Path to the created or updated workbook")
     sheets_created: list[str] = Field(description="Names of created worksheets")
-    total_rows_inserted: int = Field(description="Total data rows inserted across all sheets")
-    preset_applied: str = Field(description="Visual design preset applied ('corporate', 'financial', etc.)")
+    total_rows_inserted: int = Field(
+        description="Total data rows inserted across all sheets"
+    )
+    preset_applied: str = Field(
+        description="Visual design preset applied ('corporate', 'financial', etc.)"
+    )
     charts_created: int = Field(default=0, description="Number of charts generated")
-    warnings: list[str] = Field(default_factory=list, description="Non-fatal warnings (e.g. chart generation issues)")
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Non-fatal warnings (e.g. chart generation issues)",
+    )
     message: str = Field(description="Status confirmation message")
 
 
@@ -62,7 +81,9 @@ class RangeDataResult(BaseModel):
     filename: str = Field(description="Source workbook path")
     sheet_name: str = Field(description="Source worksheet name")
     range: str = Field(description="Read cell range (e.g. 'A1:D10')")
-    headers: list[str] | None = Field(default=None, description="Column headers if present")
+    headers: list[str] | None = Field(
+        default=None, description="Column headers if present"
+    )
     data: list[list[Any]] = Field(description="2D array of cell values")
     row_count: int = Field(description="Number of data rows read")
     column_count: int = Field(description="Number of columns read")
@@ -91,7 +112,9 @@ class FormulaResult(BaseModel):
 
     filename: str | None = Field(default=None, description="Target workbook")
     sheet_name: str | None = Field(default=None, description="Target worksheet")
-    target_cell: str | None = Field(default=None, description="Cell or range receiving the formula")
+    target_cell: str | None = Field(
+        default=None, description="Cell or range receiving the formula"
+    )
     formula: str = Field(description="The formula expression")
     is_valid: bool = Field(description="Whether formula syntax is valid")
     message: str = Field(description="Result description")

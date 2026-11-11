@@ -12,8 +12,10 @@ except PackageNotFoundError:
     try:
         __version__ = version("excel_mcp")
     except PackageNotFoundError:
-        __version__ = "2.1.0"
+        __version__ = "0.0.0+unknown"
 
 __title__ = "excel_mcp"
-__description__ = "High-performance Model Context Protocol (MCP) server for Excel spreadsheets"
+__description__ = (
+    "High-performance Model Context Protocol (MCP) server for Excel spreadsheets"
+)
 __author__ = "LuiccianDev"

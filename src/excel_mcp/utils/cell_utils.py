@@ -17,20 +17,26 @@ def parse_cell_range(
         start_cell = cell_ref
         end_cell = None
 
-    match = re.match(r"([A-Z]+)([0-9]+)", start_cell.upper())
+    match = re.fullmatch(r"([A-Z]+)([0-9]+)", start_cell.upper())
     if not match:
         raise ValueError(f"Invalid cell reference: {start_cell}")
     col_str, row_str = match.groups()
     start_row = int(row_str)
+    if start_row < 1:
+        raise ValueError(f"Invalid row number: {start_row}")
     start_col = column_index_from_string(col_str)
 
     if end_cell:
-        match = re.match(r"([A-Z]+)([0-9]+)", end_cell.upper())
+        match = re.fullmatch(r"([A-Z]+)([0-9]+)", end_cell.upper())
         if not match:
             raise ValueError(f"Invalid cell reference: {end_cell}")
         col_str, row_str = match.groups()
         end_row = int(row_str)
+        if end_row < 1:
+            raise ValueError(f"Invalid row number: {end_row}")
         end_col = column_index_from_string(col_str)
+        if (end_row, end_col) < (start_row, start_col):
+            raise ValueError("Range end must not precede its start")
     else:
         end_row = None
         end_col = None

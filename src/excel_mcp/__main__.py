@@ -63,13 +63,6 @@ def validate_and_apply_configuration(path: str | None = None) -> None:
         # Reload configuration with overrides
         config_manager.reload_configuration(**overrides)
 
-        # Get validated configuration
-        config = config_manager.config
-
-        # Set environment variables for backward compatibility
-        if config.directory:
-            os.environ["DIRECTORY"] = config.directory
-
         logger.info("Configuration validated and applied successfully")
 
     except ConfigurationError as e:
@@ -115,13 +108,13 @@ def run_mcp_server(
         # Get validated configuration
         config = config_manager.config
 
-        # Provide user feedback about configuration
-        typer.echo("Starting MCP Excel Office Server...")
-        typer.echo("Server Name: MCP Excel Office Server")
-        typer.echo(f"File operations directory: {config.file_config.directory}")
+        # Provide user feedback about configuration (stderr only: stdout is the
+        # JSON-RPC transport channel and must stay free of human-readable text).
+        logger.info("Starting MCP Excel Office Server...")
+        logger.info("Server Name: MCP Excel Office Server")
         logger.info(f"File operations directory: {config.file_config.directory}")
 
-        typer.echo("Server ready. Listening on stdio transport...")
+        logger.info("Server ready. Listening on stdio transport...")
         logger.info("MCP server starting on stdio transport")
 
         # Start the MCP server with proper error handling
@@ -226,8 +219,9 @@ def main() -> None:
 
         # If no arguments provided, default to server mode for backward compatibility
         if len(sys.argv) == 1:
-            # Default behavior: start the MCP server
-            typer.echo(
+            # Default behavior: start the MCP server. stdout is reserved for the
+            # JSON-RPC transport, so the notice goes to the log (stderr).
+            logger.info(
                 "No command specified. Starting MCP server (use --help for options)..."
             )
             logger.info("Defaulting to server mode - no command specified")

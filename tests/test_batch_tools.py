@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
-from pathlib import Path
+from unittest.mock import patch
 
 import openpyxl
 
@@ -18,9 +18,7 @@ from excel_mcp.core.calculations import FormulaSecurityError
 from excel_mcp.core.presets import PRESETS, get_preset
 from excel_mcp.exceptions.exception_core import SheetNotFoundError
 from excel_mcp.tools.batch_tools import (
-    batch_write_data,
     build_workbook,
-    get_workbook_outline,
 )
 
 
@@ -29,9 +27,13 @@ class TestBatchTools(unittest.TestCase):
 
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
-        os.environ["MCP_ALLOWED_DIRECTORIES"] = self.temp_dir.name
+        self._env_patch = patch.dict(
+            os.environ, {"MCP_ALLOWED_DIRECTORIES": self.temp_dir.name}
+        )
+        self._env_patch.start()
 
     def tearDown(self) -> None:
+        self._env_patch.stop()
         self.temp_dir.cleanup()
 
     def test_presets_exist(self) -> None:
@@ -221,7 +223,10 @@ class TestBatchTools(unittest.TestCase):
                     "name": "ChartSheet",
                     "headers": ["A", "B"],
                     "rows": [[1, 2]],
-                    "chart": {"type": "bar", "data_column": 999},  # out of bounds column
+                    "chart": {
+                        "type": "bar",
+                        "data_column": 999,
+                    },  # out of bounds column
                 }
             ],
         )
