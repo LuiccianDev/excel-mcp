@@ -37,7 +37,6 @@ Changelog = "https://github.com/LuiccianDev/excel-mcp/blob/master/CHANGELOG.md"
 dev = [
     "build>=1.2.2",
     "mypy>=1.17.0",
-    "pre-commit>=4.3.0",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",

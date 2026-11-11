@@ -37,13 +37,8 @@ def test_codeql_and_release_workflows_use_safe_triggers_and_uv() -> None:
     assert "cancel-in-progress: true" in release
 
 
-def test_pre_commit_covers_repository_hygiene() -> None:
-    config = (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
-    for hook in (
-        "ruff",
-        "check-yaml",
-        "check-json",
-        "trailing-whitespace",
-        "detect-secrets",
-    ):
-        assert hook in config
+def test_uv_is_the_only_local_quality_gate() -> None:
+    assert not (ROOT / ".pre-commit-config.yaml").exists()
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert "pre-commit" not in pyproject
+    assert "uv run ruff check ." in (ROOT / "README.md").read_text(encoding="utf-8")
