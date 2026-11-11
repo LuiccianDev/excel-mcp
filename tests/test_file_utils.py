@@ -87,7 +87,7 @@ class TestIsPathInAllowedDirectories:
 
         with patch(
             "excel_mcp.utils.paths.resolve_allowed_directories",
-            return_value=[str(link_dir)],
+            return_value=[str(real_dir)],
         ):
             is_allowed, _ = _is_path_in_allowed_directories(str(test_file))
 
