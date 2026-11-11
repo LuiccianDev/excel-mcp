@@ -186,12 +186,15 @@ uv run ruff format --check .
 # Run static type checking
 uv run mypy src
 
-# Run test suite with coverage gate (75% minimum)
+# Run test suite with coverage gate (80% minimum)
 uv run pytest --cov --cov-report=term-missing
+
+# Build the wheel and source distribution
+uv run python -m build
 ```
 
 > [!NOTE]
-> Pre-commit hooks were removed in favour of uv-native gates. The same four commands above run in CI on Python 3.11, 3.12 and 3.13, so a green local run is the same signal as a green pipeline.
+> The commands above run through `uv` and are the local source of truth for CI. A clean checkout is reproducible with `uv sync --all-groups`.
 
 ---
 
