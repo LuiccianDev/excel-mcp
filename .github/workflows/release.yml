@@ -8,20 +8,8 @@ name: Release - Tag, GitHub Release & PyPI
 on:
   push:
     branches: [ master ]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'skills/**'
-      - 'examples/**'
-      - '.gitignore'
-      - '.gitattributes'
-      - '.mcpbignore'
-      - '.dockerignore'
-      - 'Dockerfile'
-      - '.vscode/**'
-      - '.python-version'
-      - '.env.example'
-      - 'LICENSE'
+    paths:
+      - 'pyproject.toml'
   workflow_dispatch:
 
 permissions:

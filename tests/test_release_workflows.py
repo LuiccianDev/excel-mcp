@@ -31,6 +31,7 @@ def test_release_triggers_only_on_master_push_and_dispatch() -> None:
     assert "push:" in triggers
     assert re.search(r"branches:\s*\[\s*master\s*\]", triggers)
     assert "workflow_dispatch:" in triggers
+    assert re.search(r"paths:\s*\n\s*-\s*['\"]?pyproject\.toml['\"]?", triggers)
     for forbidden in ("tags:", "release:", "pull_request:", "schedule:"):
         assert forbidden not in triggers
 
