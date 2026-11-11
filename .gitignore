@@ -95,5 +95,9 @@ WARP.md
 dist/
 opencode.json
 
-# Superpowers SDD scratch workspace
+# Superpowers & Benchmarks (local only)
 .superpowers/
+docs/superpowers/
+docs/benchmarks/
+tests/benchmarks/
+benchmarks/
