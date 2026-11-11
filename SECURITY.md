@@ -6,7 +6,7 @@ Security updates and patches are applied to the following versions of `excel-mcp
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 2.0.x   | :white_check_mark: |
+| 2.1.x   | Supported          |
 | < 2.0.0 | :x:                |
 
 ---
