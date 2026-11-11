@@ -22,3 +22,11 @@ uv run mypy src
 
 Do not add runtime dependencies without documenting the reason and updating
 `uv.lock` with `uv sync --all-groups`.
+
+## Releasing
+
+1. Run the **Automated Version Bump & Release Preparation** workflow (patch, minor, major or custom).
+2. Review the release pull request. The full CI runs on the release branch.
+3. Merge the pull request. `release.yml` detects the version change, verifies the commit on Python 3.11 to 3.14, builds once, creates the tag and GitHub Release, and publishes the same artifacts to PyPI through Trusted Publishing.
+
+Commits that do not change the version never release. If only the PyPI upload fails, run **Publish to PyPI (manual recovery)** with the existing tag.

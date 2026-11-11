@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import tomllib
@@ -28,7 +29,13 @@ class Collector:
         return decorator
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--tag",
+        help="Release tag (for example v2.1.4) that must match the pyproject version.",
+    )
+    args = parser.parse_args(argv)
     with (ROOT / "pyproject.toml").open("rb") as handle:
         project = tomllib.load(handle)["project"]
     manifest = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
@@ -40,6 +47,10 @@ def main() -> int:
     manifest_names = {item["name"] for item in manifest["tools"]}
     missing_docs = sorted(name for name in registered if f"`{name}`" not in docs)
     errors: list[str] = []
+    if args.tag is not None and args.tag != f"v{project['version']}":
+        errors.append(
+            f"Tag {args.tag} does not match pyproject version {project['version']}"
+        )
     if manifest["version"] != project["version"]:
         errors.append("manifest version does not match pyproject version")
     if manifest_names != registered:

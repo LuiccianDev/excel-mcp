@@ -1,76 +1,171 @@
-name: Release - Build & Publish Artifacts
+name: Release - Tag, GitHub Release & PyPI
+
+# Single ordered pipeline. A push to master releases only when the pyproject.toml
+# version changed and the matching tag does not exist yet (see scripts/release-state.py).
+# Normal flow: run "Automated Version Bump" -> merge the release PR -> this workflow.
+# Recovery for a failed PyPI upload: run publish-pypi.yml manually with the tag.
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ master ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'skills/**'
+      - 'examples/**'
+      - '.gitignore'
+      - '.gitattributes'
+      - '.mcpbignore'
+      - '.dockerignore'
+      - 'Dockerfile'
+      - '.vscode/**'
+      - '.python-version'
+      - '.env.example'
+      - 'LICENSE'
   workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Release Tag (leave empty to auto-detect from pyproject.toml, e.g. v2.0.0)'
-        required: false
-        default: ''
-        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
-  publish-release:
-    name: Build & Publish Release
+  detect:
+    name: Detect release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write
-
+    timeout-minutes: 5
+    outputs:
+      should_release: ${{ steps.state.outputs.should_release }}
+      tag: ${{ steps.state.outputs.tag }}
+      version: ${{ steps.state.outputs.version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
-      - name: Determine Release Tag and Version
-        id: tag_info
-        run: |
-          TAG="${{ github.event.inputs.tag_name }}"
-          if [ -z "$TAG" ]; then
-            if [ "${{ github.ref_type }}" = "tag" ]; then
-              TAG="${{ github.ref_name }}"
-            else
-              RAW_VER=$(grep -m1 '^version = ' pyproject.toml | cut -d '"' -f2)
-              TAG="v$RAW_VER"
-            fi
-          fi
-          VERSION="${TAG#v}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo ">>> Resolved Release Tag: $TAG"
-          echo ">>> Resolved Version: $VERSION"
+      - name: Compute release state
+        id: state
+        run: python3 scripts/release-state.py --previous-ref "${{ github.event.before }}" | tee -a "$GITHUB_OUTPUT"
+
+  verify:
+    name: Verify (Python ${{ matrix.python-version }})
+    needs: detect
+    if: needs.detect.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run linter (ruff)
+        run: uv run ruff check .
+
+      - name: Verify formatting (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Run type checker (mypy)
+        run: uv run mypy src
+
+      - name: Run test suite (pytest + coverage gate)
+        run: uv run pytest --cov --cov-report=term-missing
+
+      - name: Verify repository consistency and tag
+        run: uv run python scripts/check-repository-consistency.py --tag "${{ needs.detect.outputs.tag }}"
+
+  build:
+    name: Build distributions
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           enable-cache: true
 
-      - name: Build Python Package (Wheel & Sdist)
+      - name: Build sdist and wheel (once)
         run: uv build
 
-      - name: Extract Release Notes from CHANGELOG
-        run: |
-          python3 scripts/extract-release-notes.py --tag "${{ steps.tag_info.outputs.tag }}" --output release_body.md
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload distributions
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          tag_name: ${{ steps.tag_info.outputs.tag }}
-          name: Release ${{ steps.tag_info.outputs.tag }}
-          body_path: release_body.md
-          files: |
-            dist/*.whl
-            dist/*.tar.gz
-          generate_release_notes: true
-          make_latest: true
+          name: dist
+          path: dist/*
+          if-no-files-found: error
 
-      - name: Trigger PyPI Publication Workflow
+  github-release:
+    name: Create tag and GitHub Release
+    needs: [detect, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Download distributions
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Extract release notes from CHANGELOG
+        run: python3 scripts/extract-release-notes.py --tag "${{ needs.detect.outputs.tag }}" --output release_body.md
+
+      - name: Create tag and release on the verified commit
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo ">>> Triggering PyPI publication workflow..."
-          gh workflow run publish-pypi.yml --ref master -f target_env=pypi || echo "Note: Workflow run dispatched if permissions permit."
+          gh release create "${{ needs.detect.outputs.tag }}" dist/* \
+            --target "${{ github.sha }}" \
+            --title "Release ${{ needs.detect.outputs.tag }}" \
+            --notes-file release_body.md \
+            --generate-notes \
+            --latest
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: [detect, github-release]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/p/luiccian-excel-mcp
+    permissions:
+      id-token: write        # Trusted Publishing (OIDC)
+      attestations: write    # PEP 740 attestations
+      contents: read
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Generate GitHub artifact attestation (SLSA provenance)
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: "dist/*"
+
+      - name: Publish to PyPI (OIDC + PEP 740 attestations)
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1

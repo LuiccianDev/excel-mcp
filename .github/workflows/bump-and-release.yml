@@ -1,5 +1,10 @@
 name: Automated Version Bump & Release Preparation
 
+# Opens the release PR and runs the full CI against its branch (workflow_call), so the
+# checks are visible before merging without a personal access token. Tag, GitHub Release
+# and PyPI publication are handled by release.yml after the PR is merged.
+# The bump commit message must not carry a CI-skip marker: a squash merge reuses it and`n# would suppress the push-triggered release workflow.
+
 on:
   workflow_dispatch:
     inputs:
@@ -18,11 +23,9 @@ on:
         required: false
         default: ''
         type: string
-      create_pr:
-        description: 'Create a Pull Request instead of direct tag release'
-        required: true
-        default: true
-        type: boolean
+
+permissions:
+  contents: read
 
 concurrency:
   group: release-${{ github.workflow }}
@@ -32,18 +35,21 @@ jobs:
   bump:
     name: Bump Version & Prepare Release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      branch: ${{ steps.bump.outputs.branch }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           enable-cache: true
 
@@ -63,6 +69,7 @@ jobs:
           TAG="v$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "branch=release/$TAG" >> "$GITHUB_OUTPUT"
           echo ">>> New Version: $VERSION"
           echo ">>> New Tag: $TAG"
 
@@ -76,15 +83,14 @@ jobs:
           uv run python scripts/generate-tools-doc.py
           uv run python scripts/check-repository-consistency.py
 
-      - name: Create Pull Request (Recommended Mode)
-        if: ${{ github.event.inputs.create_pr == true || github.event.inputs.create_pr == 'true' }}
+      - name: Create release branch and Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BRANCH_NAME="release/${{ steps.bump.outputs.tag }}"
+          BRANCH_NAME="${{ steps.bump.outputs.branch }}"
           git checkout -b "$BRANCH_NAME"
           git add pyproject.toml uv.lock CHANGELOG.md manifest.json docs/TOOLS.md
-          git commit -m "chore(release): bump version to ${{ steps.bump.outputs.tag }} [skip ci]"
+          git commit -m "chore(release): bump version to ${{ steps.bump.outputs.tag }}"
           git push origin "$BRANCH_NAME" --force
           gh pr create \
             --head "$BRANCH_NAME" \
@@ -92,11 +98,11 @@ jobs:
             --title "chore(release): prepare release ${{ steps.bump.outputs.tag }}" \
             --body-file pr_body.md || echo "Pull request already exists or created"
 
-      - name: Direct Commit & Tag on master (Alternative Mode)
-        if: ${{ github.event.inputs.create_pr == false || github.event.inputs.create_pr == 'false' }}
-        run: |
-          git add pyproject.toml uv.lock CHANGELOG.md manifest.json docs/TOOLS.md
-          git commit -m "chore(release): bump version to ${{ steps.bump.outputs.tag }} [skip ci]"
-          git tag -a "${{ steps.bump.outputs.tag }}" -m "Release ${{ steps.bump.outputs.tag }}"
-          CURRENT_BRANCH=$(git branch --show-current || echo "master")
-          git push origin "$CURRENT_BRANCH" --tags
+  ci:
+    name: CI on release branch
+    needs: bump
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.bump.outputs.branch }}
