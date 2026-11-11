@@ -48,10 +48,12 @@ excel-mcp = "excel_mcp.__main__:main"
 excel_mcp = "excel_mcp.__main__:main"
 mcp-excel = "excel_mcp.__main__:main"
 mcp_excel = "excel_mcp.__main__:main"
+luiccian-excel-mcp = "excel_mcp.__main__:main"
 
 [project.entry-points."mcp.servers"]
 excel-mcp = "excel_mcp.__main__:main"
 excel_mcp = "excel_mcp.__main__:main"
+luiccian-excel-mcp = "excel_mcp.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/excel_mcp"]
