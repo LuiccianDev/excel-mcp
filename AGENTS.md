@@ -101,5 +101,10 @@ To preserve compute quotas and prevent unnecessary runner execution in GitHub Ac
    - Valid changelog subsections: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`.
 2. **Unreleased Section (`[Unreleased]`):**
    - Active developments not yet published with a git tag must be recorded under `## [Unreleased]`.
-3. **Atomic 1-Click Releases:**
-   - Do not perform manual version tagging or ad-hoc PyPI publishing. Use the automated workflow `.github/workflows/bump-and-release.yml` with `scripts/bump-version.py` to atomically bump version in `pyproject.toml`, promote changelog notes, create the git tag `v*`, and deploy to PyPI via Trusted Publishing OIDC.
+3. **Atomic 1-Click Releases (Automated PR Pipeline):**
+   - Do not perform manual version tagging or ad-hoc PyPI publishing.
+   - Run the workflow `.github/workflows/bump-and-release.yml` (specifying `bump_type`: `patch`, `minor`, or `major`).
+   - The workflow atomically bumps `pyproject.toml`, `manifest.json`, `uv.lock`, and `CHANGELOG.md`, runs full CI on the release branch (`workflow_call`), and opens a release PR.
+   - Review and merge the release PR to `master`.
+   - The push to `master` triggers `.github/workflows/release.yml` (strictly filtered to `paths: ['pyproject.toml']`), which verifies the release via `scripts/release-state.py`, executes test suites, builds single-pass distributions, creates the GitHub Release tag `v*`, and automatically publishes to PyPI via Trusted Publishing OIDC.
+   - For emergency recovery if PyPI fails after the GitHub Release exists, use `.github/workflows/publish-pypi.yml` manually specifying the existing tag.
