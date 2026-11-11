@@ -81,5 +81,7 @@ def test_matrix_matches_classifiers() -> None:
     assert matrix
     versions = {v.strip().strip("\"'") for v in matrix.group(1).split(",")}
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    classifiers = set(re.findall(r"Programming Language :: Python :: (3\.\d+)\"", pyproject))
+    classifiers = set(
+        re.findall(r"Programming Language :: Python :: (3\.\d+)\"", pyproject)
+    )
     assert versions == classifiers
