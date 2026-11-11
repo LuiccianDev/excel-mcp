@@ -196,6 +196,15 @@ uv run python -m build
 > [!NOTE]
 > The commands above run through `uv` and are the local source of truth for CI. A clean checkout is reproducible with `uv sync --all-groups`.
 
+### Performance Baseline
+
+The repository keeps deterministic workbook-operation benchmarks in
+`tests/benchmarks/test_workbook_benchmarks.py`. The initial local baseline is
+recorded in [`docs/benchmarks/workbook-baseline.json`](docs/benchmarks/workbook-baseline.json).
+Run the benchmark tests before changing batch writes, workbook construction, or
+format-and-save behavior; do not accept an optimization without comparing the
+functional result, runtime, and peak memory.
+
 ---
 
 ## License

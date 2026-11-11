@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "python": "3.11",
+  "scenarios": [
+    {
+      "name": "batch_write_10000_cells",
+      "median_runtime_ms": 1911.15,
+      "peak_memory_bytes": 3789276
+    },
+    {
+      "name": "multi_sheet_build",
+      "median_runtime_ms": 920.72,
+      "peak_memory_bytes": 607071
+    },
+    {
+      "name": "format_and_save",
+      "median_runtime_ms": 142.87,
+      "peak_memory_bytes": 418144
+    }
+  ]
+}
