@@ -178,8 +178,10 @@ class TestResolveSafePath:
 
         assert result == test_file
 
-    def test_resolve_absolute_path_outside_allowed(self, tmp_path: Path) -> None:
-        """Test resolving absolute path outside allowed directory."""
+    def test_resolve_absolute_path_outside_allowed_is_rejected(
+        self, tmp_path: Path
+    ) -> None:
+        """Reject absolute paths outside the allowed directory."""
         allowed_dir = tmp_path / "allowed"
         outside_file = tmp_path / "outside" / "test.xlsx"
 
@@ -187,10 +189,20 @@ class TestResolveSafePath:
             "excel_mcp.utils.paths.resolve_allowed_directories",
             return_value=[str(allowed_dir)],
         ):
-            result = resolve_safe_path(outside_file)
+            with pytest.raises(PermissionError, match="not in allowed directories"):
+                resolve_safe_path(outside_file)
 
-        # Should use filename in first allowed directory
-        assert result == allowed_dir / "test.xlsx"
+    def test_resolve_relative_traversal_is_rejected(self, tmp_path: Path) -> None:
+        """Reject relative paths that escape the allowed directory."""
+        allowed_dir = tmp_path / "allowed"
+        allowed_dir.mkdir()
+
+        with patch(
+            "excel_mcp.utils.paths.resolve_allowed_directories",
+            return_value=[str(allowed_dir)],
+        ):
+            with pytest.raises(PermissionError, match="not in allowed directories"):
+                resolve_safe_path("../escape.xlsx")
 
     def test_resolve_no_allowed_directories(self) -> None:
         """Test resolving when no allowed directories available."""

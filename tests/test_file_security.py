@@ -144,7 +144,7 @@ class TestResolveSafePath:
                 assert str(result) == os.path.join(allowed_dir, "document.xlsx")
 
     def test_resolve_safe_path_blocks_absolute_outside(self):
-        """Test that absolute paths outside allowed directory are rewritten safely."""
+        """Test that absolute paths outside allowed directory are rejected."""
         with tempfile.TemporaryDirectory() as allowed_dir:
             with tempfile.TemporaryDirectory() as outside_dir:
                 outside_file = os.path.join(outside_dir, "file.xlsx")
@@ -152,11 +152,10 @@ class TestResolveSafePath:
                 with patch(
                     "excel_mcp.utils.paths.get_directory", return_value=allowed_dir
                 ):
-                    result = resolve_safe_path(outside_file)
-
-                    # Should be safely rewritten to allowed directory
-                    expected = os.path.join(allowed_dir, "file.xlsx")
-                    assert str(result) == expected
+                    with pytest.raises(
+                        PermissionError, match="not in allowed directories"
+                    ):
+                        resolve_safe_path(outside_file)
 
 
 class TestAllowedDirectories:

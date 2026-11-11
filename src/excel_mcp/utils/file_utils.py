@@ -62,16 +62,20 @@ def resolve_safe_path(filename: str | Path) -> Path:
         for allowed_dir in allowed_dirs:
             try:
                 # Check if the path is within an allowed directory
-                path.resolve().relative_to(Path(allowed_dir).resolve())
-                return path  # Path is allowed
+                resolved = path.resolve()
+                resolved.relative_to(Path(allowed_dir).resolve())
+                return resolved
             except ValueError:
                 continue  # Path is not within this allowed directory
 
-        # If not in any allowed directory, use filename in first allowed dir
-        return Path(allowed_dirs[0]) / path.name
+        raise PermissionError(f"Path '{path}' is not in allowed directories")
 
-    # If relative path, use first allowed directory
-    return Path(allowed_dirs[0]) / filename
+    # Resolve relative paths before returning them so traversal cannot escape.
+    resolved = (Path(allowed_dirs[0]) / path).resolve()
+    allowed, error = _is_path_in_allowed_directories(str(resolved))
+    if not allowed:
+        raise PermissionError(error or f"Path '{path}' is not in allowed directories")
+    return resolved
 
 
 # Check if a file can be written to, including directory permissions

@@ -78,6 +78,31 @@ def test_unknown_validation_type_is_rejected(workbook_path):
     assert "Unsupported validation type" in result["message"]
 
 
+def test_unknown_operator_is_rejected_for_list_validation(workbook_path):
+    result = add_data_validation(
+        filename=str(workbook_path),
+        cell_range="A2:A10",
+        validation_type="list",
+        operator="invalid",
+        formula1='"a,b"',
+        sheet_name="Data",
+    )
+    assert result["status"] == "error"
+    assert "Unsupported operator" in result["message"]
+
+
+def test_malformed_range_is_rejected(workbook_path):
+    result = add_data_validation(
+        filename=str(workbook_path),
+        cell_range="A0junk",
+        validation_type="list",
+        formula1='"a,b"',
+        sheet_name="Data",
+    )
+    assert result["status"] == "error"
+    assert "Invalid cell range" in result["message"]
+
+
 def test_missing_formula_is_rejected(workbook_path):
     result = add_data_validation(
         filename=str(workbook_path),

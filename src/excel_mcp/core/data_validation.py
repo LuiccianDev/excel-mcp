@@ -96,7 +96,7 @@ def add_data_validation(
             f"Expected one of: {', '.join(sorted(VALID_VALIDATION_TYPES))}."
         )
 
-    if validation_type != "list" and operator not in VALID_OPERATORS:
+    if operator not in VALID_OPERATORS:
         raise ValidationError(
             f"Unsupported operator '{operator}'. "
             f"Expected one of: {', '.join(sorted(VALID_OPERATORS))}."

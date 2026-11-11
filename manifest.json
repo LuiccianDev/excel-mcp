@@ -194,7 +194,7 @@
       "type": "directory",
       "title": "Allowed directories",
       "description": "Select directories where this server can read and write Excel files.",
-      "multiple": false,
+      "multiple": true,
       "required": true,
       "sensitive": false
     }

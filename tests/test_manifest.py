@@ -51,3 +51,7 @@ def test_manifest_tools_are_registered_canonical_tools() -> None:
     assert len(canonical) == 33
     assert manifest_names <= canonical
     assert "excel_configure_page_setup" in manifest_names
+
+
+def test_manifest_directory_configuration_supports_multiple_roots() -> None:
+    assert _manifest()["user_config"]["directory"]["multiple"] is True
