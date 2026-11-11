@@ -65,14 +65,13 @@ To guarantee consistency, cleanliness, and maintainability across the project:
 - **Source Module:** Python source resides strictly in `src/excel_mcp/`.
 - **Package Name on PyPI:** `luiccian-excel-mcp` (Distribution identifier on PyPI).
 - **Command-line Scripts (Entrypoints):** Registered in `pyproject.toml` pointing to `excel_mcp.__main__:main`:
-  - `excel-mcp` (primary CLI)
   - `luiccian-excel-mcp` (exact distribution mirror CLI)
-  - `mcp-excel`, `excel_mcp`, `mcp_excel` (convenience aliases)
+  - `excel-mcp` (standard CLI shorthand)
 - **Canonical Naming & Usage Matrix:**
   | Context | Official Name | Standard Invocation / Config |
   |---|---|---|
   | **PyPI Package** | `luiccian-excel-mcp` | `pip install luiccian-excel-mcp` / `uvx luiccian-excel-mcp` |
-  | **CLI Command** | `excel-mcp` & `luiccian-excel-mcp` | `uvx --from luiccian-excel-mcp excel-mcp` |
+  | **CLI Command** | `luiccian-excel-mcp` & `excel-mcp` | `uvx --from luiccian-excel-mcp luiccian-excel-mcp` |
   | **Python Import** | `excel_mcp` | `import excel_mcp` |
   | **MCP Server ID** | `excel-mcp` | Configuration key in `claude_desktop_config.json` |
 - **Support Folders (Lowercase):**
