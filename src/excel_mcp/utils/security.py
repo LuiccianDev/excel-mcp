@@ -57,7 +57,8 @@ def resolve_and_check_path(
             "message": f"Security restriction: {error_msg}",
         }
 
-    directory = os.path.dirname(os.path.abspath(target))
+    resolved_target = str(Path(target).resolve())
+    directory = os.path.dirname(resolved_target)
     if directory and not os.path.exists(directory):
         try:
             os.makedirs(directory, exist_ok=True)
@@ -67,4 +68,4 @@ def resolve_and_check_path(
                 "message": f"Cannot create directory '{directory}': {e}",
             }
 
-    return target, None
+    return resolved_target, None

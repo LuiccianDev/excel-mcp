@@ -28,6 +28,11 @@ def _measure(operation: Callable[[], Any]) -> tuple[float, int, Any]:
     return elapsed_ms, peak_bytes, result
 
 
+def _baseline(name: str) -> dict[str, float]:
+    report = json.loads(REPORT.read_text(encoding="utf-8"))
+    return next(item for item in report["scenarios"] if item["name"] == name)
+
+
 def test_batch_write_10000_cells_is_functionally_complete(tmp_path: Path) -> None:
     filename = tmp_path / "batch.xlsx"
     openpyxl.Workbook().save(filename)
@@ -38,8 +43,11 @@ def test_batch_write_10000_cells_is_functionally_complete(tmp_path: Path) -> Non
     )
 
     assert result.cells_updated == 10_000
-    assert elapsed_ms < 30_000
+    assert elapsed_ms > 0
     assert peak_bytes > 0
+    baseline = _baseline("batch_write_10000_cells")
+    assert elapsed_ms <= baseline["median_runtime_ms"] * 10
+    assert peak_bytes <= baseline["peak_memory_bytes"] * 10
     assert openpyxl.load_workbook(filename).active["CV100"].value == 9_999
 
 
@@ -57,8 +65,11 @@ def test_multi_sheet_build_is_functionally_complete(tmp_path: Path) -> None:
 
     assert result.sheets_created == ["First", "Second"]
     assert result.total_rows_inserted == 200
-    assert elapsed_ms < 30_000
+    assert elapsed_ms > 0
     assert peak_bytes > 0
+    baseline = _baseline("multi_sheet_build")
+    assert elapsed_ms <= baseline["median_runtime_ms"] * 10
+    assert peak_bytes <= baseline["peak_memory_bytes"] * 10
     assert set(openpyxl.load_workbook(filename).sheetnames) == {"First", "Second"}
 
 
@@ -82,15 +93,19 @@ def test_format_and_save_is_functionally_complete(tmp_path: Path) -> None:
     )
 
     assert result["status"] == "success"
-    assert elapsed_ms < 30_000
+    assert elapsed_ms > 0
     assert peak_bytes > 0
+    baseline = _baseline("format_and_save")
+    assert elapsed_ms <= baseline["median_runtime_ms"] * 10
+    assert peak_bytes <= baseline["peak_memory_bytes"] * 10
     assert openpyxl.load_workbook(filename).active["A1"].font.bold is True
 
 
 def test_baseline_report_has_measured_scenarios() -> None:
-    if not REPORT.exists():
-        return
+    assert REPORT.exists()
     report = json.loads(REPORT.read_text(encoding="utf-8"))
+    assert all(item["median_runtime_ms"] > 0 for item in report["scenarios"])
+    assert all(item["peak_memory_bytes"] > 0 for item in report["scenarios"])
     assert {item["name"] for item in report["scenarios"]} == {
         "batch_write_10000_cells",
         "multi_sheet_build",

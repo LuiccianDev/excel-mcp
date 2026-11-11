@@ -59,6 +59,27 @@ def test_absolute_external_path_is_rejected(tmp_path: Path, monkeypatch) -> None
     assert not external.exists()
 
 
+def test_public_format_tool_rejects_external_path_without_mutation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    external = tmp_path / "external.xlsx"
+    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(allowed))
+
+    result = asyncio.run(
+        format_range_excel(
+            filename=str(external),
+            sheet_name="Sheet",
+            start_cell="A1",
+            bold=True,
+        )
+    )
+
+    assert result["status"] == "error"
+    assert not external.exists()
+
+
 def test_symlink_escape_is_rejected(tmp_path: Path, monkeypatch) -> None:
     allowed = tmp_path / "allowed"
     outside = tmp_path / "outside"

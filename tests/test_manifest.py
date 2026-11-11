@@ -49,7 +49,7 @@ def test_manifest_tools_are_registered_canonical_tools() -> None:
     manifest_names = {item["name"] for item in _manifest()["tools"]}
 
     assert len(canonical) == 33
-    assert manifest_names <= canonical
+    assert manifest_names == canonical
     assert "excel_configure_page_setup" in manifest_names
 
 

@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 from datetime import date
@@ -71,6 +72,7 @@ def calculate_next_version(
 def bump_files(new_version: str, repo_root: Path, dry_run: bool = False) -> None:
     pyproject_path = repo_root / "pyproject.toml"
     changelog_path = repo_root / "CHANGELOG.md"
+    manifest_path = repo_root / "manifest.json"
 
     print(f">>> Bumping to version: {new_version} (dry_run={dry_run})")
 
@@ -104,7 +106,16 @@ def bump_files(new_version: str, repo_root: Path, dry_run: bool = False) -> None
                 f"  [OK] {changelog_path.name} promoted [Unreleased] -> {new_version}"
             )
 
-    # 3. Export to GITHUB_OUTPUT if running in GitHub Actions
+    # 3. Keep the distributable manifest version aligned with the package.
+    if manifest_path.is_file() and not dry_run:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["version"] = new_version
+        manifest_path.write_text(
+            json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+        )
+        print(f"  [OK] {manifest_path.name} -> {new_version}")
+
+    # 4. Export to GITHUB_OUTPUT if running in GitHub Actions
     github_output = os.environ.get("GITHUB_OUTPUT")
     if github_output and Path(github_output).is_file():
         with open(github_output, "a", encoding="utf-8") as f:

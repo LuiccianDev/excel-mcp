@@ -10,7 +10,7 @@ from excel_mcp.exceptions.exception_tools import (
     ValidationError,
     WorkbookError,
 )
-from excel_mcp.utils.file_utils import ensure_xlsx_extension
+from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_access
 from excel_mcp.utils.sheet_utils import (
     copy_range_operation,
     copy_sheet,
@@ -22,6 +22,7 @@ from excel_mcp.utils.sheet_utils import (
 )
 
 
+@validate_file_access("filename")
 async def format_range_excel(
     filename: str,
     sheet_name: str,
@@ -106,6 +107,7 @@ async def format_range_excel(
         return {"status": "error", "message": f"Failed to format range: {str(e)}"}
 
 
+@validate_file_access("filename")
 async def copy_worksheet(
     filename: str, source_sheet: str, target_sheet: str
 ) -> dict[str, Any]:
@@ -133,6 +135,7 @@ async def copy_worksheet(
         return {"status": "error", "message": f"Failed to copy worksheet: {str(e)}"}
 
 
+@validate_file_access("filename")
 async def delete_worksheet(filename: str, sheet_name: str) -> dict[str, Any]:
     """Permanently delete a worksheet from a workbook.
 
@@ -157,6 +160,7 @@ async def delete_worksheet(filename: str, sheet_name: str) -> dict[str, Any]:
         return {"status": "error", "message": f"Failed to delete worksheet: {str(e)}"}
 
 
+@validate_file_access("filename")
 async def rename_worksheet(
     filename: str, old_name: str, new_name: str
 ) -> dict[str, Any]:
@@ -184,6 +188,7 @@ async def rename_worksheet(
         return {"status": "error", "message": f"Failed to rename worksheet: {str(e)}"}
 
 
+@validate_file_access("filename")
 async def get_workbook_metadata(
     filename: str, include_ranges: bool = False
 ) -> dict[str, Any]:
@@ -215,6 +220,7 @@ async def get_workbook_metadata(
         }
 
 
+@validate_file_access("filename")
 async def merge_cells(
     filename: str, sheet_name: str, start_cell: str, end_cell: str
 ) -> dict[str, Any]:
@@ -243,6 +249,7 @@ async def merge_cells(
         return {"status": "error", "message": f"Failed to merge cells: {str(e)}"}
 
 
+@validate_file_access("filename")
 async def unmerge_cells(
     filename: str, sheet_name: str, start_cell: str, end_cell: str
 ) -> dict[str, Any]:
@@ -273,6 +280,7 @@ async def unmerge_cells(
         return {"status": "error", "message": f"Failed to unmerge cells: {str(e)}"}
 
 
+@validate_file_access("filename")
 async def copy_range(
     filename: str,
     sheet_name: str,
@@ -310,6 +318,7 @@ async def copy_range(
         return {"status": "error", "message": f"Failed to copy range: {str(e)}"}
 
 
+@validate_file_access("filename")
 async def delete_range(
     filename: str,
     sheet_name: str,
@@ -345,6 +354,7 @@ async def delete_range(
         return {"status": "error", "message": f"Failed to delete range: {str(e)}"}
 
 
+@validate_file_access("filename")
 async def validate_excel_range(
     filename: str, sheet_name: str, start_cell: str, end_cell: str | None = None
 ) -> dict[str, Any]:

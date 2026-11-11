@@ -42,9 +42,11 @@ def main() -> int:
     errors: list[str] = []
     if manifest["version"] != project["version"]:
         errors.append("manifest version does not match pyproject version")
-    if not manifest_names <= registered:
+    if manifest_names != registered:
         errors.append(
-            f"manifest contains unregistered tools: {sorted(manifest_names - registered)}"
+            "manifest tool inventory differs from registered tools: "
+            f"missing={sorted(registered - manifest_names)}, "
+            f"extra={sorted(manifest_names - registered)}"
         )
     if missing_docs:
         errors.append(f"docs/TOOLS.md is missing tools: {missing_docs}")

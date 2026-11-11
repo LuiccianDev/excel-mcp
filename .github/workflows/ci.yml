@@ -72,3 +72,9 @@ jobs:
 
       - name: Run test suite (pytest + coverage gate)
         run: uv run pytest --cov --cov-report=term-missing
+
+      - name: Verify repository consistency
+        run: uv run python scripts/check-repository-consistency.py
+
+      - name: Build distributions
+        run: uv run python -m build
