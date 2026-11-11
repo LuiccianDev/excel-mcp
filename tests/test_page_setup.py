@@ -47,7 +47,9 @@ def test_paper_size_maps_to_openpyxl_constant(workbook_path):
         sheet_name="Report",
     )
     assert result["status"] == "success"
-    assert str(openpyxl.load_workbook(workbook_path)["Report"].page_setup.paperSize) == "8"
+    assert (
+        str(openpyxl.load_workbook(workbook_path)["Report"].page_setup.paperSize) == "8"
+    )
 
 
 def test_print_area_persists(workbook_path):
