@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > This document is automatically generated from the registered FastMCP tool signatures.
-> Total Canonical Tools: **32**.
+> Total Canonical Tools: **33**.
 
 ## Tool Inventory
 
@@ -13,6 +13,7 @@
 | [`excel_apply_formula`](#excel-apply-formula) | `Write` | Apply a validated Excel formula to a specific cell in a worksheet. |
 | [`excel_batch_write_data`](#excel-batch-write-data) | `Write` | Write a 2D matrix of values or formulas into a worksheet starting from a specific cell in one atomic operation. |
 | [`excel_build_workbook`](#excel-build-workbook) | `Write` | Build a complete Excel workbook with typography, zebra striping, currency/date formats, formulas, and charts in a single pass. |
+| [`excel_configure_page_setup`](#excel-configure-page-setup) | `Write` | Configure the print layout of a worksheet. |
 | [`excel_copy_range`](#excel-copy-range) | `Write` | Copy a range of cells, including their values and formatting, to a new location, potentially in a different worksheet. |
 | [`excel_copy_worksheet`](#excel-copy-worksheet) | `Write` | Create a duplicate of an existing worksheet within the same Excel workbook. |
 | [`excel_create_chart`](#excel-create-chart) | `Write` | Create a chart in a worksheet based on a specified data range. |
@@ -841,4 +842,34 @@ Args:
 
 Returns:
     Structured result with the sheet name and resulting protection state.
+```
+
+### `excel_configure_page_setup`
+
+- **Access Mode:** `Write`
+- **Signature:** `excel_configure_page_setup(filename: 'str | None' = None, file_path: 'str | None' = None, orientation: "Literal['portrait', 'landscape']" = 'portrait', paper_size: "Literal['A4', 'A3', 'Letter', 'Legal']" = 'A4', fit_to_width: 'int | None' = 1, fit_to_height: 'int | None' = None, print_area: 'str | None' = None, print_title_rows: 'str | None' = None, header: 'str | None' = None, footer: 'str | None' = None, center_horizontally: 'bool' = False, sheet_name: 'str | None' = None) -> 'dict[str, Any]'`
+
+```text
+Configure the print layout of a worksheet.
+
+Sets the page orientation, paper size, fit-to-page scaling, print area,
+repeating title rows, centered header and footer, and horizontal centering
+so the workbook prints as a publication-ready document.
+
+Args:
+    filename: Path to the target .xlsx file.
+    file_path: Alternative alias for filename.
+    orientation: Page orientation: portrait or landscape.
+    paper_size: Paper size: A4, A3, Letter or Legal.
+    fit_to_width: Pages to fit horizontally (default 1).
+    fit_to_height: Pages to fit vertically (default unlimited).
+    print_area: Print area in A1 notation (e.g. "A1:H50").
+    print_title_rows: Repeating title rows (e.g. "1:2").
+    header: Text for the centered odd-page header.
+    footer: Text for the centered odd-page footer.
+    center_horizontally: Center printed content horizontally.
+    sheet_name: Target sheet name (defaults to active sheet).
+
+Returns:
+    Structured result with the applied print layout settings.
 ```

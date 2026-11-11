@@ -38,8 +38,8 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
             cls.registered_tools = mcp.tools
 
     def test_canonical_tool_count(self) -> None:
-        """Verify exactly 32 canonical tools are registered."""
-        self.assertEqual(len(self.registered_tools), 32)
+        """Verify exactly 33 canonical tools are registered."""
+        self.assertEqual(len(self.registered_tools), 33)
 
     def test_all_tools_documented_in_tools_md(self) -> None:
         """Verify every registered tool is documented in docs/TOOLS.md."""

@@ -27,6 +27,7 @@ from excel_mcp.tools import (
     format_tools,
     formulas_excel_tools,
     graphics_tools,
+    page_tools,
     protection_tools,
     structure_tools,
     validation_tools,
@@ -217,6 +218,12 @@ def register_all_tools(mcp: Any) -> None:
         protection_tools.protect_sheet,
         write,
         ["protect_sheet"],
+    )
+    _reg(
+        "excel_configure_page_setup",
+        page_tools.configure_page_setup,
+        write,
+        ["configure_page_setup"],
     )
 
     logger.info(
