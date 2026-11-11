@@ -105,7 +105,39 @@ Sort tabular rows by key column while preserving header rows:
 
 ---
 
-### Protocol 5: Generating Analytical Pivot Tables
+### Protocol 5: Protecting and Preparing a Printable Worksheet
+
+Apply worksheet protection and print layout in dedicated operations:
+
+```json
+{
+  "filename": "/path/to/report.xlsx",
+  "sheet_name": "Report",
+  "enabled": true,
+  "password": "template-secret",
+  "allow_sort": true
+}
+```
+**Tool:** `excel_protect_sheet`
+
+```json
+{
+  "filename": "/path/to/report.xlsx",
+  "sheet_name": "Report",
+  "orientation": "landscape",
+  "paper_size": "A4",
+  "fit_to_width": 1,
+  "print_area": "A1:H50",
+  "header": "&CQuarterly Report"
+}
+```
+**Tool:** `excel_configure_page_setup`
+
+Use `excel_add_data_validation` to constrain editable cells before protecting a template.
+
+---
+
+### Protocol 6: Generating Analytical Pivot Tables
 
 Summarize large data sheets using native pivot tables:
 

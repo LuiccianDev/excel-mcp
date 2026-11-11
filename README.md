@@ -112,7 +112,7 @@ Add this configuration to your `claude_desktop_config.json`:
 
 The repository includes pre-built agent skills under `skills/`:
 
-- **`excel-tools-reference`**: Authoritative encyclopedia and decision matrix covering all 30 canonical tools, types, signatures, and safety rules.
+- **`excel-tools-reference`**: Authoritative encyclopedia and decision matrix covering all 33 canonical tools, types, signatures, and safety rules.
 - **`excel-spreadsheet-creator`**: Direct single-pass synthesis for reports, budgets, and financial statements (`excel_build_workbook`).
 - **`excel-spreadsheet-editor`**: Lightweight structural inspection, atomic batch matrix writes, row appending, table formatting, and in-place sorting.
 - **`excel-spreadsheet-analyzer`**: Context-efficient sampling, statistical column profiling (`excel_profile_sheet`), and cell discovery (`excel_find_cells`).
@@ -155,6 +155,9 @@ All tools use the standard `excel_*` canonical prefix. Legacy unprefixed aliases
 | | `excel_create_pivot_table` | `Write` | Create analytical pivot tables from ranges |
 | **Content I/O** | `excel_read_data` | `Read-Only` | Read tabular data from worksheet range |
 | | `excel_write_data` | `Write` | Write data starting at target cell |
+| **Validation & Print Layout** | `excel_add_data_validation` | `Write` | Add list, numeric, date, or custom validation rules to a cell range |
+| | `excel_protect_sheet` | `Write` | Protect or unprotect a worksheet with action-level permissions |
+| | `excel_configure_page_setup` | `Write` | Configure print orientation, scaling, area, headers, footers, and centering |
 
 ---
 

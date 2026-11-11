@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "excel_mcp",
   "display_name": "Excel MCP",
-  "version": "2.0.0",
+  "version": "2.1.3",
   "description": "High-performance Model Context Protocol (MCP) server for Excel (.xlsx) spreadsheet automation and generation.",
   "long_description": "Excel MCP provides token-optimized tools to create, edit, format, inspect, and analyze Excel spreadsheets. Features single-pass workbook building (saving >90% tokens), visual design presets (corporate, financial, modern, compact), lightweight outline inspection, formula automation, and native chart generation.",
   "author": {
@@ -35,96 +35,136 @@
   },
   "tools": [
     {
-      "name": "build_workbook",
-      "description": "Build a complete multi-sheet Excel workbook with design presets, typography, zebra striping, currency/date formats, formulas, and charts in a single pass."
+      "name": "excel_build_workbook",
+      "description": "Build a complete Excel workbook with typography, zebra striping, currency/date formats, formulas, and charts in a single pass."
     },
     {
-      "name": "build_sheet",
-      "description": "Construct or populate a full styled worksheet in a single pass with headers, rows, formulas, and styling."
+      "name": "excel_get_workbook_outline",
+      "description": "Inspect structural outline of an Excel workbook without dumping massive cell grids into LLM context."
     },
     {
-      "name": "get_workbook_outline",
-      "description": "Extract a lightweight structural outline of workbook sheets, dimensions, headers, and formulas without dumping massive cell grids."
+      "name": "excel_batch_write_data",
+      "description": "Write a 2D matrix of values or formulas into a worksheet starting from a specific cell in one atomic operation."
     },
     {
-      "name": "batch_write_data",
-      "description": "Write a 2D matrix of values or formulas into a specified cell range in a single atomic operation."
+      "name": "excel_append_rows",
+      "description": "Append batch rows of data below the existing content in a worksheet in an atomic operation."
     },
     {
-      "name": "create_excel_workbook",
-      "description": "Create a new Excel workbook file."
+      "name": "excel_create_workbook",
+      "description": "Excel workbook operation."
     },
     {
-      "name": "create_excel_worksheet",
-      "description": "Create a new worksheet in an existing Excel workbook."
+      "name": "excel_create_worksheet",
+      "description": "Excel workbook operation."
     },
     {
-      "name": "read_data_from_excel",
-      "description": "Read cell values or tabular data ranges from an Excel worksheet."
+      "name": "excel_list_documents",
+      "description": "Excel workbook operation."
     },
     {
-      "name": "write_data_to_excel",
-      "description": "Write data values to specific cells in a worksheet."
+      "name": "excel_read_data",
+      "description": "Excel workbook operation."
     },
     {
-      "name": "format_range_excel",
-      "description": "Apply font, fill, border, alignment, or number format styling to a range."
+      "name": "excel_write_data",
+      "description": "Excel workbook operation."
     },
     {
-      "name": "copy_worksheet",
-      "description": "Duplicate a worksheet within an Excel workbook."
+      "name": "excel_format_range",
+      "description": "Apply a wide range of visual and data formatting styles to a specified cell range in an Excel worksheet."
     },
     {
-      "name": "delete_worksheet",
-      "description": "Remove a worksheet from an Excel workbook."
+      "name": "excel_format_sheet",
+      "description": "Configure worksheet-level display settings and layout properties."
     },
     {
-      "name": "rename_worksheet",
-      "description": "Rename a worksheet in an Excel workbook."
+      "name": "excel_create_table",
+      "description": "Convert a range of cells into a native, styled Excel Table."
     },
     {
-      "name": "get_workbook_metadata",
-      "description": "Retrieve metadata, sheet names, and properties of an Excel workbook."
+      "name": "excel_sort_range",
+      "description": "Sort a 2D range of cells in-place by a specific key column."
     },
     {
-      "name": "merge_cells",
-      "description": "Merge a range of cells into a single cell."
+      "name": "excel_insert_rows_columns",
+      "description": "Insert empty rows or columns at the specified 1-based index in a worksheet."
     },
     {
-      "name": "unmerge_cells",
-      "description": "Unmerge a previously merged cell range."
+      "name": "excel_delete_rows_columns",
+      "description": "Delete rows or columns starting at the specified 1-based index in a worksheet."
     },
     {
-      "name": "copy_range",
-      "description": "Copy cells, formatting, and formulas from one range to another."
+      "name": "excel_copy_worksheet",
+      "description": "Create a duplicate of an existing worksheet within the same Excel workbook."
     },
     {
-      "name": "delete_range",
-      "description": "Clear or delete a range of cells and shift adjacent cells."
+      "name": "excel_delete_worksheet",
+      "description": "Permanently delete a worksheet from a workbook."
     },
     {
-      "name": "validate_excel_range",
-      "description": "Validate the syntax and bounds of an Excel cell range."
+      "name": "excel_rename_worksheet",
+      "description": "Change the name of an existing worksheet within a workbook."
     },
     {
-      "name": "validate_formula_syntax",
-      "description": "Validate the syntax of an Excel formula string."
+      "name": "excel_get_workbook_metadata",
+      "description": "Retrieve metadata about an Excel workbook, including a list of all worksheets and optional details about named ranges."
     },
     {
-      "name": "apply_formula_excel",
-      "description": "Apply an Excel formula to a cell or cell range."
+      "name": "excel_merge_cells",
+      "description": "Merge a rectangular range of cells into a single, larger cell."
     },
     {
-      "name": "create_chart",
-      "description": "Generate a chart (bar, line, pie, scatter) from worksheet data."
+      "name": "excel_unmerge_cells",
+      "description": "Unmerge a previously merged cell range, reverting it to individual cells."
     },
     {
-      "name": "create_pivot_table",
-      "description": "Create a pivot table summarizing worksheet data."
+      "name": "excel_copy_range",
+      "description": "Copy a range of cells, including their values and formatting, to a new location, potentially in a different worksheet."
     },
     {
-      "name": "list_excel_documents",
-      "description": "List available Excel (.xlsx) files within allowed directories."
+      "name": "excel_delete_range",
+      "description": "Delete a range of cells and optionally shift the surrounding cells to fill the gap."
+    },
+    {
+      "name": "excel_validate_range",
+      "description": "Validate that a given cell range is valid within a specific worksheet."
+    },
+    {
+      "name": "excel_validate_formula_syntax",
+      "description": "Validate the syntax of an Excel formula without writing it to a cell."
+    },
+    {
+      "name": "excel_apply_formula",
+      "description": "Excel workbook operation."
+    },
+    {
+      "name": "excel_create_chart",
+      "description": "Create a chart in a worksheet based on a specified data range."
+    },
+    {
+      "name": "excel_create_pivot_table",
+      "description": "Create a pivot table in a worksheet to summarize and analyze data from a given range."
+    },
+    {
+      "name": "excel_find_cells",
+      "description": "Search for cells containing text or regular expression patterns across sheets."
+    },
+    {
+      "name": "excel_profile_sheet",
+      "description": "Generate lightweight column-level profiling and statistical summaries for a worksheet."
+    },
+    {
+      "name": "excel_add_data_validation",
+      "description": "Add a data validation rule to a worksheet range."
+    },
+    {
+      "name": "excel_protect_sheet",
+      "description": "Protect or unprotect a worksheet, with optional per-action exceptions."
+    },
+    {
+      "name": "excel_configure_page_setup",
+      "description": "Configure the print layout of a worksheet."
     }
   ],
   "tools_generated": true,

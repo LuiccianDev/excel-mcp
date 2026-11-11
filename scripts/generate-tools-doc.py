@@ -101,7 +101,6 @@ def categorize_tools(tool_names: list[str]) -> dict[str, list[str]]:
         ],
         "Validation & Print Layout": [
             "excel_add_data_validation",
-            "excel_add_conditional_format",
             "excel_protect_sheet",
             "excel_configure_page_setup",
         ],
