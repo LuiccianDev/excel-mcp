@@ -83,7 +83,7 @@ class TestIsPathInAllowedDirectories:
         except (OSError, NotImplementedError):
             pytest.skip("Symlinks not supported on this platform")
 
-        test_file = real_dir / "test.xlsx"
+        test_file = link_dir / "test.xlsx"
 
         with patch(
             "excel_mcp.utils.paths.resolve_allowed_directories",
