@@ -6,6 +6,7 @@ import openpyxl
 import pytest
 
 from excel_mcp.utils.sheet_utils import (
+    copy_range,
     copy_range_operation,
     copy_sheet,
     delete_range_operation,
@@ -14,6 +15,7 @@ from excel_mcp.utils.sheet_utils import (
     merge_range,
     rename_sheet,
     unmerge_range,
+    delete_range,
 )
 
 
@@ -33,6 +35,33 @@ def workbook_path(tmp_path):
 
 def test_format_range_string():
     assert format_range_string(1, 1, 5, 3) == "A1:C5"
+
+
+def test_copy_range_copies_values_and_styles(workbook_path):
+    workbook = openpyxl.load_workbook(workbook_path)
+    source = workbook["Data"]
+    target = workbook["Other"]
+    source["A1"].font = openpyxl.styles.Font(bold=True, color="FF0000")
+    source["A1"].fill = openpyxl.styles.PatternFill("solid", fgColor="00FF00")
+    source["A1"].number_format = "0.00"
+    source["A1"].alignment = openpyxl.styles.Alignment(horizontal="center")
+    copy_range(source, target, "A1:B2", "C3")
+
+    assert target["C3"].value == "Header"
+    assert target["D4"].value == 20
+    assert target["C3"].font.bold is True
+    assert target["C3"].number_format == "0.00"
+
+
+def test_delete_range_clears_values_and_styles(workbook_path):
+    workbook = openpyxl.load_workbook(workbook_path)
+    sheet = workbook["Data"]
+    sheet["A1"].font = openpyxl.styles.Font(bold=True)
+    delete_range(sheet, "A1:B2")
+
+    assert sheet["A1"].value is None
+    assert sheet["B2"].value is None
+    assert sheet["A1"].font.bold is False
 
 
 def test_copy_sheet_persists(workbook_path):
