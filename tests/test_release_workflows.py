@@ -85,3 +85,20 @@ def test_matrix_matches_classifiers() -> None:
         re.findall(r"Programming Language :: Python :: (3\.\d+)\"", pyproject)
     )
     assert versions == classifiers
+
+
+def test_release_commit_does_not_skip_ci() -> None:
+    # A squash-merged release PR reuses the bump commit message; "[skip ci]" in it
+    # would also suppress the push-triggered release workflow.
+    bump = _read("bump-and-release.yml")
+    assert "[skip ci]" not in bump
+    assert "[ci skip]" not in bump
+
+
+def test_release_pr_runs_ci_through_workflow_call() -> None:
+    bump = _read("bump-and-release.yml")
+    ci = _read("ci.yml")
+    assert "workflow_call:" in _triggers(ci)
+    assert "uses: ./.github/workflows/ci.yml" in bump
+    assert "create_pr" not in bump
+    assert "--tags" not in bump
