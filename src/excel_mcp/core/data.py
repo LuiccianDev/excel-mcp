@@ -15,6 +15,7 @@ from openpyxl.worksheet._write_only import WriteOnlyWorksheet
 from openpyxl.worksheet.worksheet import Worksheet
 
 from excel_mcp.core._io import atomic_save
+from excel_mcp.core.calculations import FormulaSecurityError, validate_cell_value_secure
 from excel_mcp.exceptions.exception_core import (
     DataError,
     InvalidCellReferenceError,
@@ -214,6 +215,11 @@ def _write_data_to_worksheet(
     for row_idx, row_data in enumerate(data):
         for col_idx, value in enumerate(row_data):
             if value is not None:  # Skip None values to preserve cell formatting
+                is_valid, msg = validate_cell_value_secure(value)
+                if not is_valid:
+                    raise FormulaSecurityError(
+                        f"Formula security validation failed at row offset {row_idx}, col offset {col_idx}: {msg}"
+                    )
                 worksheet.cell(
                     row=start_row + row_idx, column=start_col + col_idx, value=value
                 )
@@ -318,7 +324,11 @@ def write_data(
     except Exception as e:
         if not isinstance(
             e,
-            InvalidDataError | InvalidCellReferenceError | SheetError | WorkbookError,
+            InvalidDataError
+            | InvalidCellReferenceError
+            | SheetError
+            | WorkbookError
+            | FormulaSecurityError,
         ):
             raise WorkbookError(f"Failed to write data: {str(e)}") from e
         raise
