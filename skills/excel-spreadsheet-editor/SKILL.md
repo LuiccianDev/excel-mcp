@@ -19,7 +19,13 @@ Use this skill to modify, format, and enhance existing Microsoft Excel workbooks
 2. **Prefer Atomic Batch Operations:**
    - Use `excel_append_rows` to add new records below existing content automatically without manually tracking row indices.
    - Use `excel_batch_write_data` to update existing matrices in a single atomic pass.
-3. **Format Sheets Holistically:**
+3. **Preserve Uniform Typography:**
+   - Match the workbook's uniform font (default `Calibri 11pt` or `Arial 11pt`, or the user's explicitly requested font) via `excel_format_range`. Never introduce mixed font families or oversized (>12pt) cells.
+4. **Maintain Uncluttered Sheet Structure:**
+   - Do not cram unrelated tables or configuration blocks onto an already-crowded worksheet. Create a dedicated worksheet (`excel_create_worksheet`) or leave clear separator rows, and apply `freeze_panes` + `auto_filter` via `excel_format_sheet`.
+5. **100% Dynamic Calculations (Zero Hardcoded Results):**
+   - When adding or updating totals, subtotals, variances, or KPIs via `excel_batch_write_data`, `excel_append_rows`, or `excel_apply_formula`, always write live Excel formulas (`=SUM(...)`, `=IFERROR(...)`) instead of static numbers.
+6. **Format Sheets Holistically:**
    - Use `excel_format_sheet` to freeze headers, enable autofilters, and set column widths in one call.
    - Use `excel_create_table` to convert ranges into native Excel tables with banded styling and filter drop-downs.
 
