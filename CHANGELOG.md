@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **GitHub Actions Modernization**: Upgraded all pinned workflow actions (`actions/checkout` v7.0.1, `astral-sh/setup-uv` v10.3.3, `github/codeql-action` v4.39.3, `actions/upload-artifact` v7.0.2, `actions/download-artifact` v8.0.2, `actions/attest-build-provenance` v4.2.2) to resolve Node.js runtime deprecation warnings while preserving strict SHA pinning.
+- **Static Analysis & Security Linting**: Expanded Ruff rules in `pyproject.toml` to enforce `flake8-bugbear` (`B`), `flake8-bandit` (`S`), and `pyupgrade` (`UP`), and added `uv lock --check` to CI and release workflows.
+- **Configuration Validation**: Removed filesystem directory-creation side effects from `FileConfig.validate_directory`.
+
+### Fixed
+- **Formula & DDE Injection Hardening**: Added `validate_cell_value_secure` in `excel_mcp.core.calculations` and wired it across `write_data`, `batch_write_matrix`, `build_single_pass_sheet`, and `append_rows_to_sheet` to block leading-whitespace formulas (`" =..."`) and DDE command prefixes (`+cmd|`, `-cmd|`, `@...`).
+- **Active Worksheet Guards**: Added explicit `wb.active is None` checks in `batch_write_matrix` and `structure._get_sheet`.
+
 ---
 
 ## [2.1.5] - 2026-11-11

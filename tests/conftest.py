@@ -5,7 +5,7 @@ This module provides pytest fixtures and configuration for testing
 the MCP Excel Office Server functionality.
 """
 
-from typing import Generator
+from collections.abc import Generator
 import pytest
 
 from excel_mcp.config import ConfigurationManager

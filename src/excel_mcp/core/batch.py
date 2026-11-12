@@ -14,7 +14,10 @@ from openpyxl.chart import BarChart, LineChart, PieChart, Reference
 from openpyxl.utils import get_column_letter
 
 from excel_mcp.core._io import atomic_save
-from excel_mcp.core.calculations import FormulaSecurityError, validate_formula_secure
+from excel_mcp.core.calculations import (
+    FormulaSecurityError,
+    validate_cell_value_secure,
+)
 from excel_mcp.core.presets import (
     apply_data_cell_style,
     apply_header_style,
@@ -118,12 +121,11 @@ def build_single_pass_sheet(
     for r_idx, row_values in enumerate(rows, start=1):
         ws.row_dimensions[current_row].height = 20
         for col_idx, val in enumerate(row_values, start=1):
-            if isinstance(val, str) and val.startswith("="):
-                is_valid, msg = validate_formula_secure(val)
-                if not is_valid:
-                    raise FormulaSecurityError(
-                        f"Formula security validation failed in sheet '{ws.title}' row {current_row} col {col_idx}: {msg}"
-                    )
+            is_valid, msg = validate_cell_value_secure(val)
+            if not is_valid:
+                raise FormulaSecurityError(
+                    f"Formula security validation failed in sheet '{ws.title}' row {current_row} col {col_idx}: {msg}"
+                )
             cell = ws.cell(row=current_row, column=col_idx, value=val)
             is_curr = (col_idx - 1 in currency_cols) or (
                 headers
@@ -131,9 +133,7 @@ def build_single_pass_sheet(
                 and headers[col_idx - 1] in currency_cols
             )
             is_num = (
-                is_curr
-                or (col_idx - 1 in numeric_cols)
-                or isinstance(val, (int, float))
+                is_curr or (col_idx - 1 in numeric_cols) or isinstance(val, int | float)
             )
             apply_data_cell_style(
                 cell=cell,
@@ -379,6 +379,10 @@ def batch_write_matrix(
             ws = wb[sheet_name]
         else:
             ws = wb.active
+            if ws is None:
+                raise SheetNotFoundError(
+                    f"Workbook '{filename}' has no active worksheet."
+                )
 
         # Parse start cell coordinate (e.g., 'B3')
         from openpyxl.utils.cell import coordinate_to_tuple
@@ -391,12 +395,11 @@ def batch_write_matrix(
 
         for r_offset, row in enumerate(data_matrix):
             for c_offset, val in enumerate(row):
-                if isinstance(val, str) and val.startswith("="):
-                    is_valid, msg = validate_formula_secure(val)
-                    if not is_valid:
-                        raise FormulaSecurityError(
-                            f"Formula security validation failed at row offset {r_offset}, col offset {c_offset}: {msg}"
-                        )
+                is_valid, msg = validate_cell_value_secure(val)
+                if not is_valid:
+                    raise FormulaSecurityError(
+                        f"Formula security validation failed at row offset {r_offset}, col offset {c_offset}: {msg}"
+                    )
                 ws.cell(
                     row=start_row + r_offset, column=start_col + c_offset, value=val
                 )

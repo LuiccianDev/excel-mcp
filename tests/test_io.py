@@ -46,9 +46,9 @@ class TestAtomicSave(unittest.TestCase):
         wb = openpyxl.Workbook()
 
         with patch.object(
-            wb, "save", side_effect=IOError("Simulated disk write failure")
+            wb, "save", side_effect=OSError("Simulated disk write failure")
         ):
-            with self.assertRaises(IOError):
+            with self.assertRaises(OSError):
                 atomic_save(wb, self.target_file)
 
         # Destination file should not exist

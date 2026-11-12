@@ -194,7 +194,7 @@ def profile_worksheet(
                         stats["numeric_min"] = val
                     if stats["numeric_max"] is None or val > stats["numeric_max"]:
                         stats["numeric_max"] = val
-                elif isinstance(val, (datetime, date)):
+                elif isinstance(val, datetime | date):
                     stats["types"].add("datetime")
                 else:
                     stats["types"].add("string")

@@ -127,6 +127,37 @@ def validate_formula_secure(formula: str) -> tuple[bool, str]:
     return True, "Formula is valid and secure"
 
 
+def validate_cell_value_secure(value: Any) -> tuple[bool, str]:
+    """Validate an arbitrary cell value against formula and DDE injection.
+
+    Normal strings, numbers, and None values are permitted. Strings that begin
+    with '=' (even after leading whitespace) or use DDE/command-execution
+    prefixes ('+cmd|', '-cmd|', '@SUM(', etc.) are validated through
+    validate_formula_secure().
+    """
+    if not isinstance(value, str):
+        return True, "Non-string value is safe"
+
+    stripped = value.lstrip()
+    if not stripped:
+        return True, "Empty string is safe"
+
+    if stripped.startswith("="):
+        return validate_formula_secure(stripped)
+
+    if stripped[0] in "+-@" and (
+        "|" in stripped
+        or re.match(
+            r"^[+\-@]\s*(?:cmd|powershell|msexc|call|exec|run|system|shell|webservice)\b",
+            stripped,
+            re.IGNORECASE,
+        )
+    ):
+        return validate_formula_secure("=" + stripped[1:].lstrip())
+
+    return True, "String value is safe"
+
+
 def apply_formula_secure(
     filename: str | Path,
     sheet_name: str,

@@ -6,9 +6,10 @@ across all tools.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import functools
 import inspect
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 from excel_mcp.exceptions.exception_tools import ExceptionTool
 

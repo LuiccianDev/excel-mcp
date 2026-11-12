@@ -20,7 +20,10 @@ from openpyxl.utils.cell import (
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from excel_mcp.core._io import atomic_save
-from excel_mcp.core.calculations import FormulaSecurityError, validate_formula_secure
+from excel_mcp.core.calculations import (
+    FormulaSecurityError,
+    validate_cell_value_secure,
+)
 from excel_mcp.exceptions.exception_core import SheetNotFoundError
 from excel_mcp.exceptions.exception_tools import ValidationError
 
@@ -35,6 +38,8 @@ def _get_sheet(wb: openpyxl.Workbook, sheet_name: str | None = None) -> Any:
         if sheet_name not in wb.sheetnames:
             raise SheetNotFoundError(f"Worksheet '{sheet_name}' not found in workbook.")
         return wb[sheet_name]
+    if wb.active is None:
+        raise SheetNotFoundError("Workbook has no active worksheet.")
     return wb.active
 
 
@@ -85,12 +90,11 @@ def append_rows_to_sheet(
             curr_row = start_row + r_offset
             for c_offset, val in enumerate(row):
                 curr_col = start_column + c_offset
-                if isinstance(val, str) and val.startswith("="):
-                    is_valid, msg = validate_formula_secure(val)
-                    if not is_valid:
-                        raise FormulaSecurityError(
-                            f"Formula security validation failed at row {curr_row}, col {curr_col}: {msg}"
-                        )
+                is_valid, msg = validate_cell_value_secure(val)
+                if not is_valid:
+                    raise FormulaSecurityError(
+                        f"Formula security validation failed at row {curr_row}, col {curr_col}: {msg}"
+                    )
                 ws.cell(row=curr_row, column=curr_col, value=val)
 
         end_row = start_row + len(rows) - 1
@@ -401,7 +405,7 @@ def sort_worksheet_range(
             val = row[rel_idx] if rel_idx < len(row) else None
             if val is None:
                 return (2, "")
-            if isinstance(val, (int, float)):
+            if isinstance(val, int | float):
                 return (0, val)
             return (1, str(val).lower())
 

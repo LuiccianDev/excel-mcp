@@ -15,6 +15,7 @@ def _read(name: str) -> str:
 
 def test_ci_uses_uv_quality_gates_and_supported_python_matrix() -> None:
     ci = _read("ci.yml")
+    assert "uv lock --check" in ci
     assert "uv sync --all-groups" in ci
     assert "uv run ruff check" in ci
     assert "uv run ruff format --check" in ci
