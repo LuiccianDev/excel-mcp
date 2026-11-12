@@ -83,12 +83,21 @@ def get_preset(preset_name: str | None) -> dict[str, Any]:
     return PRESETS.get(key, PRESETS["corporate"])
 
 
-def apply_header_style(cell: Any, preset_name: str | None = None) -> None:
+def apply_header_style(
+    cell: Any,
+    preset_name: str | None = None,
+    font_name: str | None = None,
+    font_size: float | None = None,
+) -> None:
     """Apply standard high-contrast header formatting to a cell."""
     preset = get_preset(preset_name)
+    effective_font_name = font_name or preset["font_name"]
+    effective_font_size = (
+        font_size if font_size is not None else preset["header_font_size"]
+    )
     cell.font = Font(
-        name=preset["font_name"],
-        size=preset["header_font_size"],
+        name=effective_font_name,
+        size=effective_font_size,
         bold=True,
         color=preset["header_font_color"],
     )
@@ -110,16 +119,25 @@ def apply_data_cell_style(
     is_total: bool = False,
     is_numeric: bool = False,
     is_currency: bool = False,
+    font_name: str | None = None,
+    font_size: float | None = None,
 ) -> None:
     """Apply data cell typography, fill (with zebra striping), and borders."""
     preset = get_preset(preset_name)
-    font_name = preset["font_name"]
-    font_size = preset["data_font_size"]
+    effective_font_name = font_name or preset["font_name"]
+    effective_font_size = (
+        font_size if font_size is not None else preset["data_font_size"]
+    )
     border_color = preset["border_color"]
 
     if is_total:
         # Total / Summary row styling (Bold, total fill, accounting double bottom line)
-        cell.font = Font(name=font_name, size=font_size, bold=True, color="000000")
+        cell.font = Font(
+            name=effective_font_name,
+            size=effective_font_size,
+            bold=True,
+            color="000000",
+        )
         cell.fill = PatternFill(
             start_color=preset["total_fill"],
             end_color=preset["total_fill"],
@@ -130,7 +148,12 @@ def apply_data_cell_style(
         cell.border = Border(left=thin, right=thin, top=thin, bottom=double)
     else:
         # Standard data cell
-        cell.font = Font(name=font_name, size=font_size, bold=False, color="000000")
+        cell.font = Font(
+            name=effective_font_name,
+            size=effective_font_size,
+            bold=False,
+            color="000000",
+        )
         # Apply zebra striping on even rows
         if row_idx % 2 == 0:
             cell.fill = PatternFill(

@@ -248,6 +248,41 @@ class TestBatchTools(unittest.TestCase):
         self.assertEqual(res["status"], "error")
         self.assertIn("Security restriction", res["message"])
 
+    def test_build_workbook_uniform_font_override_and_navigation(self) -> None:
+        """Verify uniform font overrides, <=12pt banners, and freeze/filter settings."""
+        target = os.path.join(self.temp_dir.name, "uniform_arial.xlsx")
+        res = build_workbook(
+            filename=target,
+            preset="corporate",
+            font_name="Arial",
+            font_size=11,
+            sheets=[
+                {
+                    "name": "Ledger",
+                    "title": "MONTHLY LEDGER",
+                    "headers": ["Item", "Amount"],
+                    "rows": [["Hosting", 120.0], ["Domain", 20.0]],
+                    "auto_totals": [1],
+                    "freeze_panes": "A4",
+                    "auto_filter": True,
+                }
+            ],
+        )
+        self.assertEqual(res["status"], "success")
+        wb = openpyxl.load_workbook(target)
+        ws = wb["Ledger"]
+        self.assertEqual(ws["A1"].font.name, "Arial")
+        self.assertLessEqual(ws["A1"].font.size, 12)
+        self.assertEqual(ws["A3"].font.name, "Arial")
+        self.assertEqual(ws["A3"].font.size, 11)
+        self.assertEqual(ws["A4"].font.name, "Arial")
+        self.assertEqual(ws["A4"].font.size, 11)
+        self.assertEqual(ws["B6"].font.name, "Arial")
+        self.assertEqual(ws["B6"].font.size, 11)
+        self.assertEqual(ws.freeze_panes, "A4")
+        self.assertEqual(ws.auto_filter.ref, "A3:B5")
+        wb.close()
+
 
 if __name__ == "__main__":
     unittest.main()
