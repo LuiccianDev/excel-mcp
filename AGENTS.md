@@ -110,15 +110,17 @@ To preserve compute quotas and prevent unnecessary runner execution in GitHub Ac
    - Valid changelog subsections: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`.
 2. **Unreleased Section (`[Unreleased]`):**
    - Active developments not yet published with a git tag must be recorded under `## [Unreleased]`.
-3. **Release Execution Paths (Automated PR or Direct Commit):**
-   - Do not perform manual git tagging or ad-hoc PyPI publishing commands. Releases are triggered exclusively on `master` pushes that modify `pyproject.toml` (governed by `.github/workflows/release.yml` with `paths: ['pyproject.toml']`).
-   - **Path A (Automated PR Pipeline — Recommended):**
-     1. Run `.github/workflows/bump-and-release.yml` (specifying `bump_type`: `patch`, `minor`, or `major`).
+3. **Release Execution Paths (Tag-Driven Deployment):**
+   - Releases to PyPI and GitHub Releases are triggered exclusively by pushing an official Git tag `vX.Y.Z` (`push: tags: ['v[0-9]+.[0-9]+.[0-9]+']`), ensuring zero accidental PyPI deployments on ordinary `master` commits or PR merges.
+   - **PR Protection Guard:** Regular Pull Requests are strictly prohibited from bumping `version = ` in `pyproject.toml` (enforced by `ci.yml`). Version increments must only happen in official release branches (`release/v*`).
+   - **Path A (Automated Bump & Release PR — Recommended):**
+     1. Run `.github/workflows/bump-and-release.yml` (specifying `bump_type`: `patch`, `minor`, `major`, or `custom`).
      2. The workflow atomically bumps `pyproject.toml`, `manifest.json`, `uv.lock`, and `CHANGELOG.md`, runs full CI on the release branch (`workflow_call`), and opens a release PR.
      3. Review and merge the release PR to `master`.
-   - **Path B (Direct Commit to `master`):**
-     - A direct commit pushed to `master` that bumps the version in `pyproject.toml` (and synchronizes `manifest.json` and `CHANGELOG.md`) will trigger `.github/workflows/release.yml` identically.
+     4. Tag the verified `master` commit (`git tag vX.Y.Z && git push origin vX.Y.Z`) to trigger `.github/workflows/release.yml`.
+   - **Path B (Direct Tag Push):**
+     - Once `master` is verified and synchronized, creating and pushing the tag `vX.Y.Z` triggers `release.yml` directly.
    - **Execution Sequence:**
-     - The push to `master` triggers `release.yml`, which verifies the release via `scripts/release-state.py` (ensuring the version changed and no tag exists yet), executes multi-version test suites (Python 3.11–3.14), builds single-pass distributions, creates the GitHub Release tag `v*`, and automatically publishes to PyPI via Trusted Publishing OIDC.
+     - The tag push triggers `release.yml`, which verifies tag consistency against `pyproject.toml` via `scripts/check-repository-consistency.py --tag "$TAG"`, executes multi-version test suites (Python 3.11–3.14), builds single-pass distributions, creates the GitHub Release, and automatically publishes to PyPI via Trusted Publishing OIDC.
    - **Emergency Recovery:**
      - If PyPI upload fails after the GitHub Release tag already exists, use `.github/workflows/publish-pypi.yml` manually, specifying the existing tag.

@@ -30,9 +30,18 @@ def test_release_triggers_only_on_tags_and_dispatch() -> None:
     triggers = _triggers(_read("release.yml"))
     assert "push:" in triggers
     assert "tags:" in triggers
-    assert re.search(r"tags:\s*\n\s*-\s*['\"]?v\[0-9\]\+\.\[0-9\]\+\.\[0-9\]\+['\"]?", triggers)
+    assert re.search(
+        r"tags:\s*\n\s*-\s*['\"]?v\[0-9\]\+\.\[0-9\]\+\.\[0-9\]\+['\"]?", triggers
+    )
     assert "workflow_dispatch:" in triggers
-    for forbidden in ("branches:", "paths:", "paths-ignore:", "release:", "pull_request:", "schedule:"):
+    for forbidden in (
+        "branches:",
+        "paths:",
+        "paths-ignore:",
+        "release:",
+        "pull_request:",
+        "schedule:",
+    ):
         assert forbidden not in triggers
 
 
