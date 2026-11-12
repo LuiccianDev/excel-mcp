@@ -405,7 +405,7 @@ def sort_worksheet_range(
             val = row[rel_idx] if rel_idx < len(row) else None
             if val is None:
                 return (2, "")
-            if isinstance(val, (int, float)):
+            if isinstance(val, int | float):
                 return (0, val)
             return (1, str(val).lower())
 

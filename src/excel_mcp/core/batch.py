@@ -17,7 +17,6 @@ from excel_mcp.core._io import atomic_save
 from excel_mcp.core.calculations import (
     FormulaSecurityError,
     validate_cell_value_secure,
-    validate_formula_secure,
 )
 from excel_mcp.core.presets import (
     apply_data_cell_style,
@@ -134,9 +133,7 @@ def build_single_pass_sheet(
                 and headers[col_idx - 1] in currency_cols
             )
             is_num = (
-                is_curr
-                or (col_idx - 1 in numeric_cols)
-                or isinstance(val, (int, float))
+                is_curr or (col_idx - 1 in numeric_cols) or isinstance(val, int | float)
             )
             apply_data_cell_style(
                 cell=cell,

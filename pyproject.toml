@@ -95,15 +95,23 @@ select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
     "F",   # pyflakes
+    "B",   # flake8-bugbear
+    "S",   # flake8-bandit (security)
+    "UP",  # pyupgrade
 ]
 ignore = [
     "W291",  # trailing whitespace
     "E501",  # line too long, handled by black/formatter
     "B008",  # do not perform function calls in argument defaults
+    "S101",  # allow assert for type narrowing and tests
+    "S110",  # allow intentional try-except-pass cleanup blocks
+    "S112",  # allow intentional try-except-continue cell iteration
+    "S608",  # false-positive SQL heuristic on multiline server prompt strings
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"scripts/*" = ["E402"]
+"scripts/*" = ["E402", "S603", "S607"]
+"tests/*" = ["S101", "S105", "S106", "S108", "S603", "S607", "B017"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["excel_mcp"]

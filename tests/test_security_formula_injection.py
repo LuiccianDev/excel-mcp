@@ -8,9 +8,11 @@ import pytest
 from openpyxl import Workbook
 
 from excel_mcp.core.batch import batch_write_matrix
-from excel_mcp.core.calculations import FormulaSecurityError, validate_cell_value_secure
+from excel_mcp.core.calculations import (
+    FormulaSecurityError,
+    validate_cell_value_secure,
+)
 from excel_mcp.core.data import write_data
-from excel_mcp.exceptions.exception_core import SheetNotFoundError
 
 
 def test_validate_cell_value_secure_allows_normal_values() -> None:
@@ -24,7 +26,9 @@ def test_validate_cell_value_secure_allows_normal_values() -> None:
 def test_write_data_blocks_dangerous_formula(tmp_path: Path) -> None:
     target = tmp_path / "write_data_evil.xlsx"
     with pytest.raises(FormulaSecurityError):
-        write_data(target, "Sheet1", [["=CALL(\"Kernel32\",\"WinExec\",\"JJ\",\"calc.exe\",1)"]])
+        write_data(
+            target, "Sheet1", [['=CALL("Kernel32","WinExec","JJ","calc.exe",1)']]
+        )
 
 
 def test_batch_write_blocks_leading_whitespace_formula(tmp_path: Path) -> None:
@@ -36,7 +40,7 @@ def test_batch_write_blocks_leading_whitespace_formula(tmp_path: Path) -> None:
             str(target),
             None,
             "A1",
-            [["  =CALL(\"Kernel32\",\"WinExec\",\"JJ\",\"calc.exe\",1)"]],
+            [['  =CALL("Kernel32","WinExec","JJ","calc.exe",1)']],
         )
 
 
