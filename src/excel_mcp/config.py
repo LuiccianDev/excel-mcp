@@ -87,23 +87,16 @@ class FileConfig(BaseModel):
         ):
             raise ValueError(f"Invalid directory path: {path}")
 
-        # Security check: prevent directory traversal
+        # Security check: validate existing directory without mutating filesystem
         try:
-            # Only try to create directory if it's a reasonable path
             if path.exists():
-                # Directory already exists, check if it's actually a directory
                 if not path.is_dir():
                     raise ValueError(f"Path is not a directory: {path}")
-            else:
-                # Try to create directory if it doesn't exist
-                path.mkdir(parents=True, exist_ok=True)
-
-            # Check read/write permissions
-            if not os.access(path, os.R_OK | os.W_OK):
-                raise ValueError(f"Directory is not readable/writable: {path}")
+                if not os.access(path, os.R_OK | os.W_OK):
+                    raise ValueError(f"Directory is not readable/writable: {path}")
 
         except (OSError, PermissionError) as e:
-            raise ValueError(f"Cannot create or access directory '{path}': {e}")  # noqa: B904
+            raise ValueError(f"Cannot access directory '{path}': {e}")  # noqa: B904
 
         return str(path)
 
