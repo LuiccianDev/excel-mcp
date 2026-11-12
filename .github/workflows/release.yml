@@ -1,16 +1,20 @@
 name: Release - Tag, GitHub Release & PyPI
 
-# Single ordered pipeline. A push to master releases only when the pyproject.toml
-# version changed and the matching tag does not exist yet (see scripts/release-state.py).
-# Normal flow: run "Automated Version Bump" -> merge the release PR -> this workflow.
+# Tag-driven release pipeline. Releases are triggered exclusively when an official
+# semver Git tag (v*.*.*) is pushed (aligned with PyPA and VS Code practices).
+# Normal flow: prepare version in master -> tag commit (e.g. v2.1.6) -> push tag.
 # Recovery for a failed PyPI upload: run publish-pypi.yml manually with the tag.
 
 on:
   push:
-    branches: [ master ]
-    paths:
-      - 'pyproject.toml'
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to verify and publish (e.g. v2.1.6)'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -20,12 +24,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  detect:
-    name: Detect release
+  verify-tag:
+    name: Verify release tag
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      should_release: ${{ steps.state.outputs.should_release }}
       tag: ${{ steps.state.outputs.tag }}
       version: ${{ steps.state.outputs.version }}
     steps:
@@ -34,14 +37,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Compute release state
+      - name: Setup uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Validate tag consistency
         id: state
-        run: python3 scripts/release-state.py --previous-ref "${{ github.event.before }}" | tee -a "$GITHUB_OUTPUT"
+        run: |
+          TAG="${{ github.ref_name || inputs.tag }}"
+          uv run python scripts/check-repository-consistency.py --tag "$TAG"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
   verify:
     name: Verify (Python ${{ matrix.python-version }})
-    needs: detect
-    if: needs.detect.outputs.should_release == 'true'
+    needs: verify-tag
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -77,7 +89,7 @@ jobs:
         run: uv run pytest --cov --cov-report=term-missing
 
       - name: Verify repository consistency and tag
-        run: uv run python scripts/check-repository-consistency.py --tag "${{ needs.detect.outputs.tag }}"
+        run: uv run python scripts/check-repository-consistency.py --tag "${{ needs.verify-tag.outputs.tag }}"
 
   build:
     name: Build distributions
@@ -105,7 +117,7 @@ jobs:
 
   github-release:
     name: Create tag and GitHub Release
-    needs: [detect, build]
+    needs: [verify-tag, build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -121,22 +133,22 @@ jobs:
           path: dist
 
       - name: Extract release notes from CHANGELOG
-        run: python3 scripts/extract-release-notes.py --tag "${{ needs.detect.outputs.tag }}" --output release_body.md
+        run: python3 scripts/extract-release-notes.py --tag "${{ needs.verify-tag.outputs.tag }}" --output release_body.md
 
       - name: Create tag and release on the verified commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ needs.detect.outputs.tag }}" dist/* \
+          gh release create "${{ needs.verify-tag.outputs.tag }}" dist/* \
             --target "${{ github.sha }}" \
-            --title "Release ${{ needs.detect.outputs.tag }}" \
+            --title "Release ${{ needs.verify-tag.outputs.tag }}" \
             --notes-file release_body.md \
             --generate-notes \
             --latest
 
   publish-pypi:
     name: Publish to PyPI
-    needs: [detect, github-release]
+    needs: [verify-tag, github-release]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:

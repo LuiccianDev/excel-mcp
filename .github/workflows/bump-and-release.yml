@@ -1,9 +1,8 @@
 name: Automated Version Bump & Release Preparation
 
 # Opens the release PR and runs the full CI against its branch (workflow_call), so the
-# checks are visible before merging without a personal access token. Tag, GitHub Release
-# and PyPI publication are handled by release.yml after the PR is merged.
-# The bump commit message must not carry a CI-skip marker: a squash merge reuses it and`n# would suppress the push-triggered release workflow.
+# checks are visible before merging without a personal access token. After merging to master,
+# pushing the release tag (e.g. v2.1.6) triggers the deployment pipeline in release.yml.
 
 on:
   workflow_dispatch:

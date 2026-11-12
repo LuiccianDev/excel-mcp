@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
-RELEASE_JOBS = ["detect", "verify", "build", "github-release", "publish-pypi"]
+RELEASE_JOBS = ["verify-tag", "verify", "build", "github-release", "publish-pypi"]
 
 
 def _read(name: str) -> str:
@@ -26,13 +26,22 @@ def _triggers(text: str) -> str:
     return text.split("\njobs:", 1)[0].split("\non:\n", 1)[1]
 
 
-def test_release_triggers_only_on_master_push_and_dispatch() -> None:
+def test_release_triggers_only_on_tags_and_dispatch() -> None:
     triggers = _triggers(_read("release.yml"))
     assert "push:" in triggers
-    assert re.search(r"branches:\s*\[\s*master\s*\]", triggers)
+    assert "tags:" in triggers
+    assert re.search(
+        r"tags:\s*\n\s*-\s*['\"]?v\[0-9\]\+\.\[0-9\]\+\.\[0-9\]\+['\"]?", triggers
+    )
     assert "workflow_dispatch:" in triggers
-    assert re.search(r"paths:\s*\n\s*-\s*['\"]?pyproject\.toml['\"]?", triggers)
-    for forbidden in ("tags:", "release:", "pull_request:", "schedule:"):
+    for forbidden in (
+        "branches:",
+        "paths:",
+        "paths-ignore:",
+        "release:",
+        "pull_request:",
+        "schedule:",
+    ):
         assert forbidden not in triggers
 
 
