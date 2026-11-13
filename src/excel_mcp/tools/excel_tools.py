@@ -14,7 +14,9 @@ from excel_mcp.utils.file_utils import (
 # * Create a new Excel workbook
 async def create_excel_workbook(filename: str) -> dict[str, Any]:
     """
-    Create a new Excel workbook (.xlsx) in a secure, validated path.
+    Create an empty Excel workbook (.xlsx) in a secure, validated path.
+
+    Note: For new reports or formatted tables, prefer `excel_build_workbook` to create sheets, data, styles, and charts in one call.
 
     Context for LLM/AI: Use this tool when you need to programmatically generate a new Excel workbook file as the starting point for a reporting, data collection, or automation workflow. This is typically used to initialize new datasets or reports, ensuring that the file is created only within authorized directories for security and compliance. The tool will automatically add the `.xlsx` extension if missing and will validate the path to prevent unauthorized file creation.
 

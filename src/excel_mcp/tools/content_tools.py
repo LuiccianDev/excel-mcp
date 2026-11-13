@@ -16,6 +16,8 @@ async def read_data_from_excel(
     """
     Read a specific range of tabular data from an Excel worksheet and return it in a structured format.
 
+    Note: Call `excel_get_workbook_outline` first on unfamiliar or large workbooks to inspect dimensions and headers without loading full cell matrices.
+
     Context for AI/LLM:
         Use this tool to extract tabular data from a defined worksheet and cell range within an Excel workbook.
         Ideal for automated data ingestion, previewing spreadsheet contents, or validating required data before processing.
@@ -95,7 +97,9 @@ async def write_data_to_excel(
     start_cell: str = "A1",
 ) -> str:
     """
-    Write data to an Excel worksheet beginning at the specified cell.
+    Write data to an existing Excel worksheet beginning at the specified cell.
+
+    Note: Prefer `excel_build_workbook` for new workbooks or `excel_batch_write_data` for multi-range updates in a single pass.
 
     Context for AI/LLM:
         Employ this tool to programmatically populate or update a worksheet with tabular data produced by prior computations or external systems. Suitable for automated report generation, data export, or incremental updates to existing files.

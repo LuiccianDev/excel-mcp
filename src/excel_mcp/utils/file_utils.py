@@ -44,37 +44,26 @@ def _is_path_in_allowed_directories(file_path: str) -> tuple[bool, str | None]:
 
 def resolve_safe_path(filename: str | Path) -> Path:
     """Resolve file path to an allowed directory.
+
     Args:
         filename: File name or path to resolve.
+
     Returns:
         Path object pointing to an allowed directory.
-    Raises:
-        PermissionError: If no allowed directories are available.
-    """
-    path = Path(filename)
-    allowed_dirs = _get_allowed_directories()
 
+    Raises:
+        PermissionError: If no allowed directories are available or path escapes sandbox.
+    """
+    allowed_dirs = _get_allowed_directories()
     if not allowed_dirs:
         raise PermissionError("No allowed directories available for file operations")
 
-    # If absolute path, validate it's in an allowed directory
-    if path.is_absolute():
-        for allowed_dir in allowed_dirs:
-            try:
-                # Check if the path is within an allowed directory
-                resolved = path.resolve()
-                resolved.relative_to(Path(allowed_dir).resolve())
-                return resolved
-            except ValueError:
-                continue  # Path is not within this allowed directory
-
-        raise PermissionError(f"Path '{path}' is not in allowed directories")
-
-    # Resolve relative paths before returning them so traversal cannot escape.
-    resolved = (Path(allowed_dirs[0]) / path).resolve()
+    resolved = paths.resolve_target_path(filename)
     allowed, error = _is_path_in_allowed_directories(str(resolved))
     if not allowed:
-        raise PermissionError(error or f"Path '{path}' is not in allowed directories")
+        raise PermissionError(
+            error or f"Path '{filename}' is not in allowed directories"
+        )
     return resolved
 
 
@@ -97,8 +86,8 @@ def _check_file_writeable(filename: str) -> tuple[bool, str | None]:
             - error_message: Empty string if successful, otherwise contains error details
     """
     try:
-        # Normalize and get resolved path (resolves symlinks)
-        resolved_path = Path(filename).resolve()
+        # Normalize and get resolved path anchored to allowed root (resolves symlinks)
+        resolved_path = paths.resolve_target_path(filename)
         parent_dir = resolved_path.parent
 
         # Check if path is in allowed directories
@@ -261,7 +250,7 @@ def validate_file_access(param: str = "filename") -> Callable[[F], F]:
     def decorator(func: F) -> F:
         def _validate_file(
             args: tuple[Any, ...], kwargs: dict[str, Any]
-        ) -> str | dict[str, str]:
+        ) -> tuple[tuple[Any, ...], dict[str, Any], str] | dict[str, str]:
             try:
                 sig = inspect.signature(func)
                 bound = sig.bind(*args, **kwargs)
@@ -273,15 +262,32 @@ def validate_file_access(param: str = "filename") -> Callable[[F], F]:
                         "message": f"'{param}' parameter not found in function arguments",
                     }
 
-                # Use resolve() instead of abspath() to resolve symlinks and normalize path
-                file_path: str = str(Path(bound.arguments[param]).resolve())
+                raw_value = bound.arguments[param]
+                if not isinstance(raw_value, str | Path) or not str(raw_value).strip():
+                    return {
+                        "status": "error",
+                        "message": f"Access denied: '{param}' must be a non-empty file path",
+                    }
 
-                # Validate allowed directory
-                is_allowed, dir_error = _is_path_in_allowed_directories(file_path)
+                # Validate allowed directory and OS path hazards before resolving
+                is_allowed, dir_error = _is_path_in_allowed_directories(str(raw_value))
                 if not is_allowed:
                     return {
                         "status": "error",
                         "message": f"Access denied: {dir_error}",
+                        "path": str(raw_value),
+                    }
+
+                # Anchor relative paths to primary allowed root and resolve symlinks
+                resolved_obj = paths.resolve_target_path(raw_value)
+                file_path: str = str(resolved_obj)
+
+                # Enforce .xlsx extension and max_file_size
+                constraint_error = paths.validate_file_constraints(resolved_obj)
+                if constraint_error:
+                    return {
+                        "status": "error",
+                        "message": f"Access denied: {constraint_error}",
                         "path": file_path,
                     }
 
@@ -294,7 +300,8 @@ def validate_file_access(param: str = "filename") -> Callable[[F], F]:
                         "path": file_path,
                     }
 
-                return file_path
+                bound.arguments[param] = file_path
+                return bound.args, bound.kwargs, file_path
 
             except Exception as e:
                 return {
@@ -309,13 +316,14 @@ def validate_file_access(param: str = "filename") -> Callable[[F], F]:
                 result = _validate_file(args, kwargs)
                 if isinstance(result, dict):
                     return result
+                bound_args, bound_kwargs, resolved_path = result
                 try:
-                    return await func(*args, **kwargs)
+                    return await func(*bound_args, **bound_kwargs)
                 except Exception as e:
                     return {
                         "status": "error",
                         "message": f"Error in async function: {str(e)}",
-                        "path": result,
+                        "path": resolved_path,
                     }
 
             return cast(F, async_wrapper)
@@ -327,13 +335,14 @@ def validate_file_access(param: str = "filename") -> Callable[[F], F]:
                 result = _validate_file(args, kwargs)
                 if isinstance(result, dict):
                     return result
+                bound_args, bound_kwargs, resolved_path = result
                 try:
-                    return func(*args, **kwargs)
+                    return func(*bound_args, **bound_kwargs)
                 except Exception as e:
                     return {
                         "status": "error",
                         "message": f"Error in function: {str(e)}",
-                        "path": result,
+                        "path": resolved_path,
                     }
 
             return cast(F, sync_wrapper)

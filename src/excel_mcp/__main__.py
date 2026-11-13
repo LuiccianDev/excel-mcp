@@ -20,7 +20,7 @@ from typing import Annotated
 import typer
 
 from excel_mcp.config import ConfigurationError, config_manager
-from excel_mcp.server import run_server
+from excel_mcp.server import run_server, run_stdio
 
 
 # Configure logging for CLI operations
@@ -120,7 +120,7 @@ def run_mcp_server(
         # Start the MCP server with proper error handling
         try:
             server = run_server()
-            server.run(transport="stdio")
+            run_stdio(server)
         except ConfigurationError as config_error:
             typer.echo(f"Configuration error: {config_error}", err=True)
             logger.error(f"MCP server configuration failed: {config_error}")

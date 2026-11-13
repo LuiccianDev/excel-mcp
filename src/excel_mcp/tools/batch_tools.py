@@ -6,7 +6,6 @@ multiple tabular rows in a single pass, saving >90% tokens.
 
 from __future__ import annotations
 
-import os
 from typing import Any, cast
 
 from excel_mcp.core.batch import (
@@ -15,39 +14,7 @@ from excel_mcp.core.batch import (
     inspect_workbook_outline,
 )
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import is_path_in_allowed_directories
-
-
-def _resolve_and_check_path(
-    filename: str | None,
-    file_path: str | None = None,
-) -> tuple[str | None, dict[str, Any] | None]:
-    """Resolve target path and check security permissions."""
-    target = filename or file_path
-    if not target:
-        return None, {
-            "status": "error",
-            "message": "Missing required parameter 'filename' (or 'file_path').",
-        }
-
-    is_allowed, error_msg = is_path_in_allowed_directories(target)
-    if not is_allowed:
-        return None, {
-            "status": "error",
-            "message": f"Security restriction: {error_msg}",
-        }
-
-    directory = os.path.dirname(os.path.abspath(target))
-    if directory and not os.path.exists(directory):
-        try:
-            os.makedirs(directory, exist_ok=True)
-        except OSError as e:
-            return None, {
-                "status": "error",
-                "message": f"Cannot create directory '{directory}': {e}",
-            }
-
-    return target, None
+from excel_mcp.utils.security import resolve_and_check_path as _resolve_and_check_path
 
 
 def _dump(model: Any) -> dict[str, Any]:

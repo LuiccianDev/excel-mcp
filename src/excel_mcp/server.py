@@ -6,8 +6,15 @@ Provides the FastMCP server instance for Excel manipulation and single-pass crea
 from __future__ import annotations
 
 import logging
+import os
 import sys
+import warnings
 from typing import Any
+
+# Disable FastMCP PyPI update checks and ASCII banner on stdio startup by default
+# to prevent cold-start latency and client initialization timeouts.
+os.environ.setdefault("FASTMCP_CHECK_FOR_UPDATES", "off")
+os.environ.setdefault("FASTMCP_SHOW_SERVER_BANNER", "false")
 
 try:
     from fastmcp import FastMCP
@@ -85,15 +92,31 @@ Legacy unprefixed aliases are opt-in: set `EXCEL_MCP_LEGACY_ALIASES=1` to regist
     return mcp
 
 
+def configure_warning_filters() -> None:
+    """Suppress noisy openpyxl UserWarnings that would otherwise pollute stdio stderr."""
+    warnings.filterwarnings("ignore", category=UserWarning, module=r"openpyxl(\.|$)")
+
+
+configure_warning_filters()
+
+
 def run_server() -> FastMCP:
     """Backward-compatible helper to instantiate and return configured server."""
     return create_server()
 
 
+def run_stdio(server: Any) -> None:
+    """Run the MCP server over stdio with banner output disabled when supported."""
+    try:
+        server.run(transport="stdio", show_banner=False)
+    except TypeError:
+        server.run(transport="stdio")
+
+
 if __name__ == "__main__":
     try:
         server = create_server()
-        server.run(transport="stdio")
+        run_stdio(server)
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
         sys.exit(0)

@@ -44,7 +44,7 @@ def resolve_and_check_path(
 ) -> tuple[str | None, dict[str, Any] | None]:
     """Resolve target path, enforce allowed directory security, and ensure parent directory exists."""
     target = filename or file_path
-    if not target:
+    if not target or not target.strip():
         return None, {
             "status": "error",
             "message": "Missing required parameter 'filename' (or 'file_path').",
@@ -57,7 +57,15 @@ def resolve_and_check_path(
             "message": f"Security restriction: {error_msg}",
         }
 
-    resolved_target = str(Path(target).resolve())
+    resolved_path = paths.resolve_target_path(target)
+    constraint_err = paths.validate_file_constraints(resolved_path)
+    if constraint_err:
+        return None, {
+            "status": "error",
+            "message": f"Security restriction: {constraint_err}",
+        }
+
+    resolved_target = str(resolved_path)
     directory = os.path.dirname(resolved_target)
     if directory and not os.path.exists(directory):
         try:
