@@ -27,16 +27,6 @@ except ImportError:
         return type("Config", (), kwargs)
 
 
-# Load .env file automatically if available, but don't override existing env vars
-try:
-    from dotenv import load_dotenv
-
-    # Use override=False to prioritize existing environment variables (from DXT)
-    load_dotenv(override=False)
-except ImportError:
-    pass  # python-dotenv not available, continue without it
-
-
 logger = logging.getLogger(__name__)
 
 
@@ -141,8 +131,6 @@ class MCPExcelConfig(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
         case_sensitive=False,  # Set to False for broader compatibility
         extra="ignore",
         env_prefix="",  # No prefix for environment variables

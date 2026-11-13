@@ -15,7 +15,6 @@ on:
       - 'Dockerfile'
       - '.vscode/**'
       - '.python-version'
-      - '.env.example'
       - 'LICENSE'
   pull_request:
     branches: [ master, main ]
@@ -31,7 +30,6 @@ on:
       - 'Dockerfile'
       - '.vscode/**'
       - '.python-version'
-      - '.env.example'
       - 'LICENSE'
   workflow_dispatch:
   workflow_call:
