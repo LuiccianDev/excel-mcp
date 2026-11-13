@@ -18,19 +18,6 @@ on:
       - 'LICENSE'
   pull_request:
     branches: [ master, main ]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'skills/**'
-      - 'examples/**'
-      - '.gitignore'
-      - '.gitattributes'
-      - '.mcpbignore'
-      - '.dockerignore'
-      - 'Dockerfile'
-      - '.vscode/**'
-      - '.python-version'
-      - 'LICENSE'
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
