@@ -60,6 +60,8 @@ Extract column-level data types, min/max values, null counts, and distinct sampl
 - Are numbers stored as numeric types rather than strings?
 - Are there unexpected null values in required columns?
 - Do min and max bounds fall within plausible financial or operational thresholds?
+- Are derived columns and summary rows using live Excel formulas (`=`) rather than hardcoded static numbers?
+- Is the worksheet free of cluttered/overlapping tables and inconsistent or oversized (>12pt) fonts?
 
 ---
 
@@ -76,7 +78,10 @@ Extract column-level data types, min/max values, null counts, and distinct sampl
    ```
    **Tool:** `excel_find_cells`
 
-2. **Validate Formula Syntax:**
+2. **Audit Summary & Total Rows for Hardcoded Calculations:**
+   Inspect summary/total ranges (using `excel_read_data` on targeted total rows, e.g., `A25:F25`) to verify that totals, variances, and KPIs contain `=` formulas rather than static values.
+
+3. **Validate Formula Syntax:**
    Verify formula syntax before applying modifications:
    ```json
    {

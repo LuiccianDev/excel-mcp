@@ -74,6 +74,8 @@ def build_single_pass_sheet(
     preset_name: str = "corporate",
     auto_fit: bool = True,
     warnings: list[str] | None = None,
+    font_name: str | None = None,
+    font_size: float | None = None,
 ) -> int:
     """Build a complete formatted sheet from structured data."""
     headers = sheet_data.get("headers", [])
@@ -83,6 +85,14 @@ def build_single_pass_sheet(
     currency_cols = set(sheet_data.get("currency_columns", []))
     numeric_cols = set(sheet_data.get("numeric_columns", []))
     chart_config = sheet_data.get("chart")
+    freeze_panes = sheet_data.get("freeze_panes")
+    auto_filter = sheet_data.get("auto_filter", False)
+
+    preset = get_preset(preset_name)
+    effective_font_name = font_name or preset["font_name"]
+    effective_font_size = (
+        font_size if font_size is not None else preset["header_font_size"]
+    )
 
     current_row = 1
     num_cols = len(headers) if headers else (len(rows[0]) if rows else 1)
@@ -96,23 +106,33 @@ def build_single_pass_sheet(
             end_column=max(num_cols, 1),
         )
         banner_cell = ws.cell(row=current_row, column=1, value=title_banner)
-        apply_header_style(banner_cell, preset_name)
-        banner_cell.font = openpyxl.styles.Font(
-            name=get_preset(preset_name)["font_name"],
-            size=14,
-            bold=True,
-            color=get_preset(preset_name)["header_font_color"],
+        apply_header_style(
+            banner_cell,
+            preset_name,
+            font_name=font_name,
+            font_size=font_size,
         )
-        ws.row_dimensions[current_row].height = 28
+        banner_cell.font = openpyxl.styles.Font(
+            name=effective_font_name,
+            size=min(effective_font_size + 1, 12),
+            bold=True,
+            color=preset["header_font_color"],
+        )
+        ws.row_dimensions[current_row].height = 24
         current_row += 2
 
     # 2. Table Headers
     header_start_row = current_row
     if headers:
-        ws.row_dimensions[current_row].height = 24
+        ws.row_dimensions[current_row].height = 22
         for col_idx, header_text in enumerate(headers, start=1):
             cell = ws.cell(row=current_row, column=col_idx, value=header_text)
-            apply_header_style(cell, preset_name)
+            apply_header_style(
+                cell,
+                preset_name,
+                font_name=font_name,
+                font_size=font_size,
+            )
         current_row += 1
 
     data_start_row = current_row
@@ -142,6 +162,8 @@ def build_single_pass_sheet(
                 is_total=False,
                 is_numeric=is_num,
                 is_currency=is_curr,
+                font_name=font_name,
+                font_size=font_size,
             )
         current_row += 1
 
@@ -152,7 +174,12 @@ def build_single_pass_sheet(
         ws.row_dimensions[current_row].height = 22
         first_cell = ws.cell(row=current_row, column=1, value="Total")
         apply_data_cell_style(
-            first_cell, row_idx=1, preset_name=preset_name, is_total=True
+            first_cell,
+            row_idx=1,
+            preset_name=preset_name,
+            is_total=True,
+            font_name=font_name,
+            font_size=font_size,
         )
 
         # Detect numeric columns to sum
@@ -183,12 +210,28 @@ def build_single_pass_sheet(
                     is_total=True,
                     is_numeric=True,
                     is_currency=is_curr,
+                    font_name=font_name,
+                    font_size=font_size,
                 )
             else:
                 apply_data_cell_style(
-                    cell, row_idx=1, preset_name=preset_name, is_total=True
+                    cell,
+                    row_idx=1,
+                    preset_name=preset_name,
+                    is_total=True,
+                    font_name=font_name,
+                    font_size=font_size,
                 )
         current_row += 1
+
+    # 4.5 Optional Sheet Navigation (Freeze Panes & Auto-Filter)
+    if freeze_panes:
+        ws.freeze_panes = freeze_panes
+    if auto_filter and headers:
+        filter_end_row = max(data_end_row, header_start_row)
+        ws.auto_filter.ref = (
+            f"A{header_start_row}:{get_column_letter(num_cols)}{filter_end_row}"
+        )
 
     # 5. Optional Chart Generation
     if chart_config and rows:
@@ -217,6 +260,8 @@ def build_single_pass_workbook(
     sheets: list[dict[str, Any]],
     preset: str = "corporate",
     auto_fit: bool = True,
+    font_name: str | None = None,
+    font_size: float | None = None,
 ) -> BuildWorkbookResult:
     """Construct an entire Excel workbook in one atomic pass."""
     os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
@@ -243,6 +288,8 @@ def build_single_pass_workbook(
             preset_name=preset,
             auto_fit=auto_fit,
             warnings=warnings,
+            font_name=font_name,
+            font_size=font_size,
         )
         total_rows += rows_inserted
         if s_data.get("chart"):

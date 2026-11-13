@@ -50,7 +50,7 @@ flowchart TD
 1. **`excel_build_workbook`**
    - **Access Mode:** Write
    - **Purpose:** Construct complete, publication-ready workbooks with multiple sheets in a single atomic pass.
-   - **Arguments:** `filename`, `sheets` (list of sheet dicts with `name`, `title`, `headers`, `rows`, `auto_totals`, `currency_columns`, `chart`), `preset` (`"corporate"`, `"financial"`, `"modern"`, `"compact"`), `auto_fit` (`bool`).
+   - **Arguments:** `filename`, `sheets` (list of sheet dicts with `name`, `title`, `headers`, `rows`, `auto_totals`, `currency_columns`, `chart`, `freeze_panes`, `auto_filter`), `preset` (`"corporate"`, `"financial"`, `"modern"`, `"compact"`), `auto_fit` (`bool`), `font_name` (*optional*, e.g. `"Calibri"`, `"Arial"`), `font_size` (*optional*, e.g. `11`).
 
 2. **`excel_get_workbook_outline`**
    - **Access Mode:** Read-Only
@@ -156,3 +156,11 @@ flowchart TD
 - **Formula Injection Defense:** All formulas written via `excel_build_workbook`, `excel_batch_write_data`, `excel_append_rows`, or `excel_apply_formula` pass strict AST security validation blocking DDE commands (`cmd|`, `powershell|`, `|'`), external URLs, and dangerous functions (`EXEC`, `SHELL`, `CALL`).
 - **Crash-Safe Atomic Writes:** All mutating operations write to an isolated temporary file in the target directory and commit atomically via `atomic_save` (`os.replace`).
 - **Path Confinement:** Files must reside within paths permitted by `MCP_ALLOWED_DIRECTORIES`.
+
+---
+
+## 4. Spreadsheet Engineering Standards
+
+- **Uniform Typography:** Default to a clean, uniform `Calibri 11pt` or `Arial 11pt` across the workbook (or honor the user's explicit `font_name`/`font_size` preference). Avoid oversized (>12pt) or mixed fonts.
+- **Uncluttered Architecture:** Separate assumptions/parameters, raw data, and summary KPIs into dedicated tabs or clearly spaced sections with `freeze_panes` and `auto_filter`.
+- **100% Dynamic Calculations:** Every derived value (totals, subtotals, variances, percentages, cross-sheet summaries) MUST use live Excel formulas (`=SUM`, `=IFERROR`, `=SUMIF`), never hardcoded static numbers.
