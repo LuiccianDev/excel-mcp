@@ -60,7 +60,9 @@ def validate_path_safety(path: str | Path) -> str | None:
 
     remainder = _DRIVE_PREFIX_RE.sub("", raw, count=1)
     if ":" in remainder:
-        return f"Alternate data streams or invalid ':' in path are not permitted: '{path}'"
+        return (
+            f"Alternate data streams or invalid ':' in path are not permitted: '{path}'"
+        )
 
     for part in Path(raw).parts:
         stem = part.rstrip(".").split(".", 1)[0].upper()

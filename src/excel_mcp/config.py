@@ -40,7 +40,11 @@ def _default_documents_directory() -> str:
     """Return ~/Documents when writable (or when cwd is in WINDIR), else ./documents."""
     docs_dir = Path.home() / "Documents"
     try:
-        if docs_dir.exists() and docs_dir.is_dir() and os.access(docs_dir, os.R_OK | os.W_OK):
+        if (
+            docs_dir.exists()
+            and docs_dir.is_dir()
+            and os.access(docs_dir, os.R_OK | os.W_OK)
+        ):
             return str(docs_dir)
     except OSError:
         pass

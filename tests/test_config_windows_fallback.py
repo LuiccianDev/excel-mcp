@@ -53,7 +53,10 @@ def test_relative_filename_resolves_inside_allowed_root(
     resolved, err = resolve_and_check_path("reporte.xlsx")
     assert err is None
     assert resolved == str((docs_dir / "reporte.xlsx").resolve())
-    assert resolve_target_path("sub/enero.xlsx") == (docs_dir / "sub" / "enero.xlsx").resolve()
+    assert (
+        resolve_target_path("sub/enero.xlsx")
+        == (docs_dir / "sub" / "enero.xlsx").resolve()
+    )
 
 
 def test_relative_path_traversal_is_blocked(

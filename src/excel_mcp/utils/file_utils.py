@@ -61,7 +61,9 @@ def resolve_safe_path(filename: str | Path) -> Path:
     resolved = paths.resolve_target_path(filename)
     allowed, error = _is_path_in_allowed_directories(str(resolved))
     if not allowed:
-        raise PermissionError(error or f"Path '{filename}' is not in allowed directories")
+        raise PermissionError(
+            error or f"Path '{filename}' is not in allowed directories"
+        )
     return resolved
 
 
