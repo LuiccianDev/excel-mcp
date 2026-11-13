@@ -47,7 +47,7 @@
 ### `excel_build_workbook`
 
 - **Access Mode:** `Write`
-- **Signature:** `excel_build_workbook(filename: 'str | None' = None, file_path: 'str | None' = None, sheets: 'list[dict[str, Any]] | None' = None, preset: 'str' = 'corporate', auto_fit: 'bool' = True) -> 'dict[str, Any]'`
+- **Signature:** `excel_build_workbook(filename: 'str | None' = None, file_path: 'str | None' = None, sheets: 'list[dict[str, Any]] | None' = None, preset: 'str' = 'corporate', auto_fit: 'bool' = True, font_name: 'str | None' = None, font_size: 'float | None' = None) -> 'dict[str, Any]'`
 
 ```text
 Build a complete Excel workbook with typography, zebra striping, currency/date formats, formulas, and charts in a single pass.
@@ -63,8 +63,12 @@ Args:
         - 'auto_totals': bool or list of 0-based column indices to calculate SUM.
         - 'currency_columns': list of column names or 0-based indices for currency formatting ($#,##0.00).
         - 'chart': Optional chart definition {'type': 'bar'|'line'|'pie', 'title': '...', 'data_column': 2, 'label_column': 1}.
+        - 'freeze_panes': Optional cell coordinate to freeze panes (e.g. 'A2', 'A4').
+        - 'auto_filter': Optional bool to enable autofilter on the table header range.
     preset: Visual styling preset ('corporate', 'financial', 'modern', 'compact').
     auto_fit: If True, calculates optimal column widths automatically.
+    font_name: Optional uniform font family override across the entire workbook (e.g. 'Calibri', 'Arial').
+    font_size: Optional uniform font size override in points (e.g. 11).
 
 Returns:
     Structured result summary including sheets created and total rows.
