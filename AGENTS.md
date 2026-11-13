@@ -121,6 +121,6 @@ To preserve compute quotas and prevent unnecessary runner execution in GitHub Ac
    - **Path B (Direct Tag Push):**
      - Once `master` is verified and synchronized, creating and pushing the tag `vX.Y.Z` triggers `release.yml` directly.
    - **Execution Sequence:**
-     - The tag push triggers `release.yml`, which verifies tag consistency against `pyproject.toml` via `scripts/check-repository-consistency.py --tag "$TAG"`, executes multi-version test suites (Python 3.11–3.14), builds single-pass distributions, creates the GitHub Release, and automatically publishes to PyPI via Trusted Publishing OIDC.
+     - The tag push triggers `release.yml`, which verifies tag consistency against `pyproject.toml` via `scripts/check-repository-consistency.py --tag "$TAG"`, validates lockfile consistency, builds single-pass distributions, creates the GitHub Release, and automatically publishes to PyPI via Trusted Publishing OIDC (with the multi-version test suite across Python 3.11–3.14 strictly enforced upstream by CI on PRs and master).
    - **Emergency Recovery:**
      - If PyPI upload fails after the GitHub Release tag already exists, use `.github/workflows/publish-pypi.yml` manually, specifying the existing tag.
