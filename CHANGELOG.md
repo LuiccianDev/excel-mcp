@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Uniform Typography & Sheet Navigation in `excel_build_workbook`**: Added optional `font_name` and `font_size` overrides plus per-sheet `freeze_panes` and `auto_filter` support in `build_workbook` / `build_single_pass_workbook`, and capped title banner sizing at `12pt`.
+
 ### Changed
+- **Agent Skills Standardization (`skills/`)**: Updated `excel-spreadsheet-creator`, `excel-spreadsheet-editor`, `excel-spreadsheet-analyzer`, and `excel-tools-reference` to mandate uniform typography (defaulting to `Calibri 11pt` / `Arial 11pt` while honoring user-requested fonts), uncluttered multi-tab/spaced layouts, diverse structural templates, and 100% dynamic Excel formulas with zero hardcoded calculations.
 - **Tag-Driven Release Engineering**: Aligned release architecture with PyPA (`pip`) and VS Code standards. Deployment to PyPI and GitHub Releases is triggered exclusively by pushing semver Git tags (`v[0-9]+.[0-9]+.[0-9]+`), eliminating unintended deployments from direct commits on `master`.
 - **CI Version Guard**: Added automated check in `ci.yml` that blocks regular PRs attempting direct version bumps in `pyproject.toml`.
 - **GitHub Actions Modernization**: Upgraded all pinned workflow actions (`actions/checkout` v7.0.1, `astral-sh/setup-uv` v10.3.3, `github/codeql-action` v4.39.3, `actions/upload-artifact` v7.0.2, `actions/download-artifact` v8.0.2, `actions/attest-build-provenance` v4.2.2) to resolve Node.js runtime deprecation warnings while preserving strict SHA pinning.
