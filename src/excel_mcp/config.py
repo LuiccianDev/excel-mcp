@@ -36,6 +36,28 @@ class ConfigurationError(Exception):
     pass
 
 
+def _default_documents_directory() -> str:
+    """Return ~/Documents when writable (or when cwd is in WINDIR), else ./documents."""
+    docs_dir = Path.home() / "Documents"
+    try:
+        if docs_dir.exists() and docs_dir.is_dir() and os.access(docs_dir, os.R_OK | os.W_OK):
+            return str(docs_dir)
+    except OSError:
+        pass
+
+    windir = os.environ.get("WINDIR", "").strip()
+    if windir:
+        try:
+            cwd = Path.cwd().resolve()
+            win_root = Path(windir).resolve()
+            if cwd == win_root or cwd.is_relative_to(win_root):
+                return str(docs_dir)
+        except OSError:
+            pass
+
+    return "./documents"
+
+
 class FileConfig(BaseModel):
     """File operations configuration with validation."""
 
@@ -119,7 +141,7 @@ class MCPExcelConfig(BaseSettings):
 
     # File operations configuration
     directory: str = Field(
-        default="./documents",
+        default_factory=_default_documents_directory,
         description="Base directory for file operations",
     )
 

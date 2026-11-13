@@ -43,7 +43,9 @@ async def format_range_excel(
     protection: dict[str, Any] | None = None,
     conditional_format: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Apply a wide range of visual and data formatting styles to a specified cell range in an Excel worksheet.
+    """Apply visual and data formatting styles to a specified cell range in an existing Excel worksheet.
+
+    Note: For new workbooks, prefer `excel_build_workbook` (supports presets, headers, zebra striping, number formats, and charts in one call).
 
     Context for AI/LLM:
         Use this comprehensive tool to programmatically style reports, highlight data, or enforce a consistent visual layout in an Excel sheet. It is ideal for automating the final presentation layer of data generation workflows.
