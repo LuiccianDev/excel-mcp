@@ -1,6 +1,6 @@
 [project]
 name = "luiccian-excel-mcp"
-version = "2.1.5"
+version = "2.1.6"
 description = "High-performance Model Context Protocol (MCP) server for Excel (.xlsx) spreadsheet automation and generation"
 readme = "README.md"
 authors = [

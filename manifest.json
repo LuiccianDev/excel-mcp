@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "excel_mcp",
   "display_name": "Excel MCP",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "description": "High-performance Model Context Protocol (MCP) server for Excel (.xlsx) spreadsheet automation and generation.",
   "long_description": "Excel MCP provides token-optimized tools to create, edit, format, inspect, and analyze Excel spreadsheets. Features single-pass workbook building (saving >90% tokens), visual design presets (corporate, financial, modern, compact), lightweight outline inspection, formula automation, and native chart generation.",
   "author": {
