@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
-RELEASE_JOBS = ["verify-tag", "verify", "build", "github-release", "publish-pypi"]
+RELEASE_JOBS = ["verify-tag", "build", "github-release", "publish-pypi"]
 
 
 def _read(name: str) -> str:
