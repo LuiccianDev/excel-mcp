@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.1.6] - 2026-11-12
+
 ### Added
 - **Uniform Typography & Sheet Navigation in `excel_build_workbook`**: Added optional `font_name` and `font_size` overrides plus per-sheet `freeze_panes` and `auto_filter` support in `build_workbook` / `build_single_pass_workbook`, and capped title banner sizing at `12pt`.
 
