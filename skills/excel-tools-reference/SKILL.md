@@ -1,6 +1,6 @@
 ---
 name: excel-tools-reference
-description: "Authoritative toolkit encyclopedia and decision matrix for Excel MCP. Details exact canonical tool signatures, parameter schemas, format strings, formula rules, and error recovery across all 33 canonical tools."
+description: "Authoritative toolkit encyclopedia and decision matrix for Excel MCP. Details the default compose surface (8 tools), full-mode opt-in (33 canonical tools), parameter schemas, format strings, formula rules, and error recovery."
 argument-hint: "Tool name, functional category, or Excel task to look up"
 user-invocable: true
 disable-model-invocation: false
@@ -43,7 +43,21 @@ flowchart TD
 
 ---
 
-## 2. Complete Canonical Tool Inventory (33 Tools)
+## 2. Default Compose Mode (8 Tools) & Full Inventory (33 Tools)
+
+Starting in `v2.2.0`, `excel-mcp` defaults to `compose` mode (8 tools) to minimize tool-schema token overhead. All 5 domain dispatchers use the calling contract `(action: str, filename: str | None = None, params: dict | None = None)`, where `params` carries the underlying granular tool arguments:
+
+- **Single-Pass Tools (3):** `excel_build_workbook`, `excel_get_workbook_outline`, `excel_batch_write_data`.
+- **Action-Dispatched Domain Tools (5):**
+  - `excel_workbook`: `create`, `list`, `metadata`, `create_sheet`, `copy_sheet`, `delete_sheet`, `rename_sheet`
+  - `excel_data`: `read`, `write`, `append_rows`, `copy_range`, `delete_range`, `merge_cells`, `unmerge_cells`, `insert_rows_columns`, `delete_rows_columns`, `sort_range`, `validate_range`, `find_cells`, `profile_sheet`
+  - `excel_format`: `format_range`, `format_sheet`, `create_table`, `add_data_validation`, `protect_sheet`, `configure_page_setup`
+  - `excel_formula`: `validate`, `apply`
+  - `excel_analytics`: `create_chart`, `create_pivot_table`
+
+To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_MODE=full` or launch with `server --tool-mode full`.
+
+### Complete Canonical Tool Inventory (`full` Mode, 33 Tools)
 
 ### A. Batch & Single-Pass Tools (Priority 1)
 
