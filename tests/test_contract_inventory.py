@@ -28,7 +28,7 @@ class Collector:
 
 def registered_names() -> set[str]:
     collector = Collector()
-    register_all_tools(collector)
+    register_all_tools(collector, mode="full")
     return collector.names
 
 

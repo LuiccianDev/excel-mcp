@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 from typing import Any, Final
 
+from excel_mcp.core._io import atomic_save
 from excel_mcp.core.workbook import get_or_create_workbook
 from excel_mcp.exceptions.exception_core import FormulaError, ValidationError
 from excel_mcp.utils.cell_utils import validate_cell_reference
@@ -236,29 +237,32 @@ def apply_formula(
     # Load workbook and validate sheet
     # Use data_only=False to preserve existing formulas when modifying the file
     workbook = get_or_create_workbook(str(filename), data_only=False)
-    if sheet_name not in workbook.sheetnames:
-        raise ValidationError(f"Sheet '{sheet_name}' not found")
-    worksheet = workbook[sheet_name]
-
-    # Process and validate formula - ensure formula starts with '='
-    formula = formula if formula.startswith("=") else f"={formula}"
-
-    # Validate formula syntax
-    is_valid, message = validate_formula(formula)
-    if not is_valid:
-        raise FormulaError(f"Invalid formula syntax: {message}")
-
-    # Apply formula to the specified cell in the worksheet
     try:
-        worksheet[cell].value = formula
-    except Exception as e:
-        raise FormulaError(f"Failed to apply formula to cell: {str(e)}") from e
+        if sheet_name not in workbook.sheetnames:
+            raise ValidationError(f"Sheet '{sheet_name}' not found")
+        worksheet = workbook[sheet_name]
 
-    # Save the workbook to the specified file
-    try:
-        workbook.save(str(filename))
-    except Exception as e:
-        raise FormulaError(f"Failed to save workbook: {str(e)}") from e
+        # Process and validate formula - ensure formula starts with '='
+        formula = formula if formula.startswith("=") else f"={formula}"
+
+        # Validate formula syntax
+        is_valid, message = validate_formula(formula)
+        if not is_valid:
+            raise FormulaError(f"Invalid formula syntax: {message}")
+
+        # Apply formula to the specified cell in the worksheet
+        try:
+            worksheet[cell].value = formula
+        except Exception as e:
+            raise FormulaError(f"Failed to apply formula to cell: {str(e)}") from e
+
+        # Save the workbook atomically to the specified file
+        try:
+            atomic_save(workbook, str(filename))
+        except Exception as e:
+            raise FormulaError(f"Failed to save workbook: {str(e)}") from e
+    finally:
+        workbook.close()
 
     # Return success result
     result = {

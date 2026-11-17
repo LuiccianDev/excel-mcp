@@ -30,9 +30,18 @@ class MockFastMCP:
 class TestRegisterTools(unittest.TestCase):
     """Test suite for tool registration and legacy alias toggling."""
 
-    def test_default_only_registers_canonical_excel_names(self) -> None:
-        """Verify default configuration registers only canonical excel_* tools."""
+    def test_default_registers_compose_mode_and_full_mode_registers_canonical_names(
+        self,
+    ) -> None:
+        """Verify default is compose (8 tools) and EXCEL_MCP_MODE=full registers 33 canonical tools."""
         with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(should_register_legacy_aliases())
+
+            compose_mcp = MockFastMCP()
+            register_all_tools(compose_mcp)
+            self.assertEqual(len(compose_mcp.registered_tools), 8)
+
+        with patch.dict(os.environ, {"EXCEL_MCP_MODE": "full"}, clear=True):
             self.assertFalse(should_register_legacy_aliases())
 
             mock_mcp = MockFastMCP()

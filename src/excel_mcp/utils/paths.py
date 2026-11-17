@@ -75,7 +75,7 @@ def validate_file_constraints(
     target: Path, max_file_size: int = DEFAULT_MAX_FILE_SIZE
 ) -> str | None:
     """Enforce allowed .xlsx extension and maximum file size on existing files."""
-    if target.suffix and target.suffix.lower() != ".xlsx":
+    if target.suffix.lower() != ".xlsx":
         return f"Disallowed file extension '{target.suffix}': only '.xlsx' files are permitted."
     try:
         if target.exists() and target.is_file():

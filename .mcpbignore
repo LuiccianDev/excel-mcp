@@ -79,6 +79,8 @@ GEMINI.md
 tests/
 WARP.md
 .windsurf/
+.agents/
+graphify-out/
 ruff.toml
 pytest.ini
 mypy.ini

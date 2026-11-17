@@ -69,6 +69,8 @@ exclude = [
     "/.github",
     "/scratch",
     "/.vscode",
+    "/.agents",
+    "/graphify-out",
 ]
 
 [build-system]

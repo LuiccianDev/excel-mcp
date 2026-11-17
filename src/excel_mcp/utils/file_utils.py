@@ -108,13 +108,7 @@ def _check_file_writeable(filename: str) -> tuple[bool, str | None]:
             if not os.access(parent_dir, os.W_OK):
                 return False, f"Directory not writeable: {parent_dir}"
 
-        # Test actual write operation
-        try:
-            with open(resolved_path, "a"):
-                pass
-            return True, ""
-        except OSError as e:
-            return False, f"Write test failed: {str(e)}"
+        return True, ""
 
     except Exception as e:
         return False, f"Error checking file write permissions: {str(e)}"
@@ -161,7 +155,7 @@ def ensure_xlsx_extension(filename: str) -> str:
     Returns:
         Filename with .xlsx extension
     """
-    if not filename.endswith(".xlsx"):
+    if not filename.lower().endswith(".xlsx"):
         return filename + ".xlsx"
     return filename
 
@@ -234,14 +228,17 @@ def list_excel_files_in_directory() -> list[dict]:
 
 
 # * Decorator to validate file access
-def validate_file_access(param: str = "filename") -> Callable[[F], F]:
+def validate_file_access(
+    param: str = "filename", *, read_only: bool = False
+) -> Callable[[F], F]:
     """
     Decorator to validate file access before executing the decorated function.
     - Verifies that the file is in an allowed directory.
-    - Verifies that it has write permissions.
+    - Verifies read or write permissions without mutating files on disk.
 
     Args:
         param: Name of the parameter that contains the file path.
+        read_only: When True, checks read access instead of write access.
 
     Returns:
         A decorator function that can be applied to sync or async functions.
@@ -269,17 +266,22 @@ def validate_file_access(param: str = "filename") -> Callable[[F], F]:
                         "message": f"Access denied: '{param}' must be a non-empty file path",
                     }
 
+                raw_str = str(raw_value)
+                candidate = Path(raw_str)
+                if not candidate.suffix and not candidate.name.startswith("."):
+                    raw_str = ensure_xlsx_extension(raw_str)
+
                 # Validate allowed directory and OS path hazards before resolving
-                is_allowed, dir_error = _is_path_in_allowed_directories(str(raw_value))
+                is_allowed, dir_error = _is_path_in_allowed_directories(raw_str)
                 if not is_allowed:
                     return {
                         "status": "error",
                         "message": f"Access denied: {dir_error}",
-                        "path": str(raw_value),
+                        "path": raw_str,
                     }
 
                 # Anchor relative paths to primary allowed root and resolve symlinks
-                resolved_obj = paths.resolve_target_path(raw_value)
+                resolved_obj = paths.resolve_target_path(raw_str)
                 file_path: str = str(resolved_obj)
 
                 # Enforce .xlsx extension and max_file_size
@@ -291,14 +293,29 @@ def validate_file_access(param: str = "filename") -> Callable[[F], F]:
                         "path": file_path,
                     }
 
-                # Validate write permissions
-                is_writable, write_error = _check_file_writeable(file_path)
-                if not is_writable:
-                    return {
-                        "status": "error",
-                        "message": f"Write access denied: {write_error}",
-                        "path": file_path,
-                    }
+                if read_only:
+                    if resolved_obj.exists():
+                        if resolved_obj.is_dir():
+                            return {
+                                "status": "error",
+                                "message": f"Access denied: Path is a directory: {file_path}",
+                                "path": file_path,
+                            }
+                        if not os.access(resolved_obj, os.R_OK):
+                            return {
+                                "status": "error",
+                                "message": f"Read access denied: Permission denied: {file_path}",
+                                "path": file_path,
+                            }
+                else:
+                    # Validate write permissions
+                    is_writable, write_error = _check_file_writeable(file_path)
+                    if not is_writable:
+                        return {
+                            "status": "error",
+                            "message": f"Write access denied: {write_error}",
+                            "path": file_path,
+                        }
 
                 bound.arguments[param] = file_path
                 return bound.args, bound.kwargs, file_path

@@ -42,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     docs = (ROOT / "docs" / "TOOLS.md").read_text(encoding="utf-8")
 
     collector = Collector()
-    register_all_tools(collector)
+    register_all_tools(collector, mode="full")
     registered = collector.names
     manifest_names = {item["name"] for item in manifest["tools"]}
     missing_docs = sorted(name for name in registered if f"`{name}`" not in docs)

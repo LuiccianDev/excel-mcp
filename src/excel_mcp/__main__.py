@@ -62,6 +62,10 @@ def validate_and_apply_configuration(path: str | None = None) -> None:
 
         # Reload configuration with overrides
         config_manager.reload_configuration(**overrides)
+        if path is not None:
+            os.environ["MCP_ALLOWED_DIRECTORIES"] = (
+                config_manager.config.file_config.directory
+            )
 
         logger.info("Configuration validated and applied successfully")
 
@@ -84,6 +88,13 @@ def run_mcp_server(
             help="Base directory for file operations (overrides DIRECTORY env var)",
         ),
     ] = None,
+    tool_mode: Annotated[
+        str | None,
+        typer.Option(
+            "--tool-mode",
+            help="Tool registration mode: 'compose' (default, 8 compact tools) or 'full' (33 tools)",
+        ),
+    ] = None,
 ) -> None:
     """
     Start the MCP Excel Office server.
@@ -104,6 +115,15 @@ def run_mcp_server(
 
         # Validate and apply configuration
         validate_and_apply_configuration(path)
+        if tool_mode is not None:
+            normalized_mode = tool_mode.strip().lower()
+            if normalized_mode not in ("full", "compose"):
+                typer.echo(
+                    f"Invalid --tool-mode '{tool_mode}': expected 'full' or 'compose'.",
+                    err=True,
+                )
+                raise typer.Exit(1)
+            os.environ["EXCEL_MCP_MODE"] = normalized_mode
 
         # Get validated configuration
         config = config_manager.config
@@ -194,6 +214,8 @@ def list_excel_files(
                 size_mb = float(str(raw_size)) / (1024 * 1024)
                 typer.echo(f"  - {file_info['name']} ({size_mb:.2f} MB)")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         typer.echo(f"Error listing Excel files: {e}", err=True)
         sys.exit(1)

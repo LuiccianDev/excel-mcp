@@ -190,7 +190,7 @@ async def rename_worksheet(
         return {"status": "error", "message": f"Failed to rename worksheet: {str(e)}"}
 
 
-@validate_file_access("filename")
+@validate_file_access("filename", read_only=True)
 async def get_workbook_metadata(
     filename: str, include_ranges: bool = False
 ) -> dict[str, Any]:
@@ -356,7 +356,7 @@ async def delete_range(
         return {"status": "error", "message": f"Failed to delete range: {str(e)}"}
 
 
-@validate_file_access("filename")
+@validate_file_access("filename", read_only=True)
 async def validate_excel_range(
     filename: str, sheet_name: str, start_cell: str, end_cell: str | None = None
 ) -> dict[str, Any]:
@@ -377,12 +377,13 @@ async def validate_excel_range(
     filename = ensure_xlsx_extension(filename)
 
     try:
-        range_str = start_cell if not end_cell else f"{start_cell}:{end_cell}"
         from excel_mcp.utils.validation_utils import (
             validate_range_in_sheet_operation as validate_range_impl,
         )
 
-        result: dict[str, Any] = validate_range_impl(filename, sheet_name, range_str)
+        result: dict[str, Any] = validate_range_impl(
+            filename, sheet_name, start_cell, end_cell
+        )
         return result
     except ValidationError as e:
         return {"status": "error", "message": f"Error: {str(e)}"}

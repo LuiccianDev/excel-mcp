@@ -9,6 +9,7 @@ from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_acce
 from excel_mcp.utils.validation_utils import validate_formula_in_cell_operation
 
 
+@validate_file_access("filename", read_only=True)
 async def validate_formula_syntax(
     filename: str,
     sheet_name: str,

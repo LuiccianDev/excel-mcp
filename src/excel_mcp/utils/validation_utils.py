@@ -14,8 +14,9 @@ def validate_formula_in_cell_operation(
     # Quick validations
     if not validate_cell_reference(cell):
         return {"status": "error", "message": f"Invalid cell reference: {cell}"}
+    wb = None
     try:
-        wb = load_workbook(filepath)
+        wb = load_workbook(filepath, read_only=True)
         if sheet_name not in wb.sheetnames:
             return {"status": "error", "message": f"Sheet '{sheet_name}' not found"}
         # Validate formula syntax
@@ -52,6 +53,9 @@ def validate_formula_in_cell_operation(
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+    finally:
+        if wb is not None:
+            wb.close()
 
 
 def validate_range_in_sheet_operation(
@@ -67,8 +71,9 @@ def validate_range_in_sheet_operation(
         }
     if end_cell and not validate_cell_reference(end_cell):
         return {"status": "error", "message": f"Invalid end cell reference: {end_cell}"}
+    wb = None
     try:
-        wb = load_workbook(filepath)
+        wb = load_workbook(filepath, read_only=True)
         if sheet_name not in wb.sheetnames:
             return {"status": "error", "message": f"Sheet '{sheet_name}' not found"}
         worksheet = wb[sheet_name]
@@ -110,6 +115,9 @@ def validate_range_in_sheet_operation(
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+    finally:
+        if wb is not None:
+            wb.close()
 
 
 def validate_formula(formula: str) -> tuple[bool, str]:
@@ -126,12 +134,13 @@ def validate_formula(formula: str) -> tuple[bool, str]:
             return False, "Unmatched closing parenthesis"
     if parens > 0:
         return False, "Unclosed parenthesis"
-    func_pattern = r"([A-Z]+)\("
+    func_pattern = r"([A-Za-z]+)\("
     funcs = re.findall(func_pattern, formula)
     unsafe_funcs = {"INDIRECT", "HYPERLINK", "WEBSERVICE", "DGET", "RTD"}
     for func in funcs:
-        if func in unsafe_funcs:
-            return False, f"Unsafe function: {func}"
+        upper_func = func.upper()
+        if upper_func in unsafe_funcs:
+            return False, f"Unsafe function: {upper_func}"
     return True, "Formula is valid"
 
 
