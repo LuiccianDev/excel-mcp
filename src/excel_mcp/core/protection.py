@@ -7,22 +7,9 @@ explicit exceptions for the actions the recipient still needs.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
-import openpyxl
-
-from excel_mcp.core._io import atomic_save
-from excel_mcp.exceptions.exception_core import SheetNotFoundError
-
-
-def _get_sheet(wb: openpyxl.Workbook, sheet_name: str | None = None) -> Any:
-    """Return the target worksheet or the active sheet when no name is given."""
-    if sheet_name:
-        if sheet_name not in wb.sheetnames:
-            raise SheetNotFoundError(f"Worksheet '{sheet_name}' not found in workbook.")
-        return wb[sheet_name]
-    return wb.active
+from excel_mcp.core._io import resolve_sheet, workbook_session
 
 
 def protect_sheet(
@@ -81,12 +68,8 @@ def protect_sheet(
         FileNotFoundError: If the workbook does not exist.
         SheetNotFoundError: If ``sheet_name`` is not present.
     """
-    if not os.path.exists(filename):
-        raise FileNotFoundError(f"Workbook not found: {filename}")
-
-    wb = openpyxl.load_workbook(filename)
-    try:
-        ws = _get_sheet(wb, sheet_name)
+    with workbook_session(filename, mode="edit") as wb:
+        ws = resolve_sheet(wb, sheet_name)
         protection = ws.protection
 
         if not enabled:
@@ -116,12 +99,10 @@ def protect_sheet(
             protection.selectLockedCells = not allow_select_locked_cells
             protection.selectUnlockedCells = not allow_select_unlocked_cells
 
-        atomic_save(wb, filename)
-    finally:
-        wb.close()
+        title = ws.title
 
     return {
-        "sheet": ws.title,
+        "sheet": title,
         "protected": enabled,
         "password_protected": bool(password) and enabled,
     }

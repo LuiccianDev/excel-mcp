@@ -21,6 +21,7 @@ import typer
 
 from excel_mcp.config import ConfigurationError, config_manager
 from excel_mcp.server import run_server, run_stdio
+from excel_mcp.tools.register_tools import normalize_tool_mode
 
 
 # Configure logging for CLI operations
@@ -35,7 +36,6 @@ logger = logging.getLogger(__name__)
 app = typer.Typer(
     name="excel_mcp",
     help="Excel MCP Server - Excel manipulation through Model Context Protocol",
-    no_args_is_help=True,
 )
 
 
@@ -79,8 +79,74 @@ def validate_and_apply_configuration(path: str | None = None) -> None:
         raise typer.Exit(1) from e
 
 
+def _start_server(path: str | None = None, tool_mode: str | None = None) -> None:
+    """Validate configuration and start the MCP server on stdio."""
+    try:
+        logger.info("Initializing MCP Excel Office Server...")
+
+        validate_and_apply_configuration(path)
+        normalized_mode: str | None = None
+        if tool_mode is not None:
+            try:
+                normalized_mode = normalize_tool_mode(tool_mode)
+            except ValueError as exc:
+                typer.echo(str(exc), err=True)
+                raise typer.Exit(1) from exc
+
+        config = config_manager.config
+        logger.info("Starting MCP Excel Office Server...")
+        logger.info("Server Name: MCP Excel Office Server")
+        logger.info(f"File operations directory: {config.file_config.directory}")
+        logger.info("Server ready. Listening on stdio transport...")
+        logger.info("MCP server starting on stdio transport")
+
+        server = run_server(mode=normalized_mode)
+        run_stdio(server)
+
+    except KeyboardInterrupt:
+        typer.echo("\nServer stopped by user.", err=True)
+        logger.info("Server stopped by user interrupt")
+        sys.exit(0)
+    except typer.Exit:
+        raise
+    except ConfigurationError as config_error:
+        typer.echo(f"Configuration error: {config_error}", err=True)
+        logger.error(f"MCP server configuration failed: {config_error}")
+        raise typer.Exit(1) from config_error
+    except Exception as e:
+        typer.echo(f"Unexpected error starting server: {e}", err=True)
+        logger.error(f"Unexpected server startup error: {e}")
+        raise typer.Exit(1) from e
+
+
+@app.callback(invoke_without_command=True)
+def root_entrypoint(
+    ctx: typer.Context,
+    path: Annotated[
+        str | None,
+        typer.Option(
+            "--path",
+            help="Base directory for file operations (overrides DIRECTORY env var)",
+        ),
+    ] = None,
+    tool_mode: Annotated[
+        str | None,
+        typer.Option(
+            "--tool-mode",
+            help="Tool registration mode: 'compose' (default, 8 compact tools) or 'full' (33 tools)",
+        ),
+    ] = None,
+) -> None:
+    """Start the MCP server by default or forward root options to subcommands."""
+    if ctx.invoked_subcommand is None:
+        _start_server(path=path, tool_mode=tool_mode)
+    else:
+        ctx.ensure_object(dict).update({"path": path, "tool_mode": tool_mode})
+
+
 @app.command("server")
 def run_mcp_server(
+    ctx: typer.Context,
     path: Annotated[
         str | None,
         typer.Option(
@@ -102,69 +168,16 @@ def run_mcp_server(
     The server provides Excel manipulation capabilities through the Model Context Protocol.
     Configuration can be provided via command-line arguments or environment variables.
     Command-line arguments take precedence over environment variables.
-
-    Environment Variables:
-        DIRECTORY: Base directory for file operations (defaults to ./documents)
-
-    Examples:
-        python -m excel_mcp server
-        python -m excel_mcp server --path "/path/to/excel/files"
     """
-    try:
-        logger.info("Initializing MCP Excel Office Server...")
-
-        # Validate and apply configuration
-        validate_and_apply_configuration(path)
-        if tool_mode is not None:
-            normalized_mode = tool_mode.strip().lower()
-            if normalized_mode not in ("full", "compose"):
-                typer.echo(
-                    f"Invalid --tool-mode '{tool_mode}': expected 'full' or 'compose'.",
-                    err=True,
-                )
-                raise typer.Exit(1)
-            os.environ["EXCEL_MCP_MODE"] = normalized_mode
-
-        # Get validated configuration
-        config = config_manager.config
-
-        # Provide user feedback about configuration (stderr only: stdout is the
-        # JSON-RPC transport channel and must stay free of human-readable text).
-        logger.info("Starting MCP Excel Office Server...")
-        logger.info("Server Name: MCP Excel Office Server")
-        logger.info(f"File operations directory: {config.file_config.directory}")
-
-        logger.info("Server ready. Listening on stdio transport...")
-        logger.info("MCP server starting on stdio transport")
-
-        # Start the MCP server with proper error handling
-        try:
-            server = run_server()
-            run_stdio(server)
-        except ConfigurationError as config_error:
-            typer.echo(f"Configuration error: {config_error}", err=True)
-            logger.error(f"MCP server configuration failed: {config_error}")
-            raise typer.Exit(1) from config_error
-        except Exception as server_error:
-            typer.echo(f"Error initializing MCP server: {server_error}", err=True)
-            logger.error(f"MCP server initialization failed: {server_error}")
-            raise typer.Exit(1) from server_error
-
-    except KeyboardInterrupt:
-        typer.echo("\nServer stopped by user.", err=True)
-        logger.info("Server stopped by user interrupt")
-        sys.exit(0)
-    except typer.Exit:
-        # Re-raise typer.Exit to preserve exit codes
-        raise
-    except Exception as e:
-        typer.echo(f"Unexpected error starting server: {e}", err=True)
-        logger.error(f"Unexpected server startup error: {e}")
-        sys.exit(1)
+    root_opts = ctx.obj if isinstance(ctx.obj, dict) else {}
+    effective_path = path if path is not None else root_opts.get("path")
+    effective_mode = tool_mode if tool_mode is not None else root_opts.get("tool_mode")
+    _start_server(path=effective_path, tool_mode=effective_mode)
 
 
 @app.command("list")
 def list_excel_files(
+    ctx: typer.Context,
     path: Annotated[
         str | None,
         typer.Option(
@@ -179,8 +192,14 @@ def list_excel_files(
     This command provides a standalone way to discover Excel files without starting the MCP server.
     """
     try:
-        # Validate and apply configuration
-        validate_and_apply_configuration(path=path)
+        root_opts = ctx.obj if isinstance(ctx.obj, dict) else {}
+        if root_opts.get("tool_mode") is not None:
+            typer.echo(
+                "--tool-mode is only supported for the server command.", err=True
+            )
+            raise typer.Exit(1)
+        effective_path = path if path is not None else root_opts.get("path")
+        validate_and_apply_configuration(path=effective_path)
 
         # Get validated configuration
         config = config_manager.config
@@ -238,29 +257,16 @@ def main() -> None:
     """
     try:
         logger.info("MCP Excel Office CLI starting...")
+        logger.info(f"Processing command: {' '.join(sys.argv[1:])}")
+        app()
 
-        # If no arguments provided, default to server mode for backward compatibility
-        if len(sys.argv) == 1:
-            # Default behavior: start the MCP server. stdout is reserved for the
-            # JSON-RPC transport, so the notice goes to the log (stderr).
-            logger.info(
-                "No command specified. Starting MCP server (use --help for options)..."
-            )
-            logger.info("Defaulting to server mode - no command specified")
-            run_mcp_server()
-        else:
-            # Use Typer CLI for command parsing
-            logger.info(f"Processing command: {' '.join(sys.argv[1:])}")
-            app()
-
+    except SystemExit as exc:
+        if exc.code not in (None, 0):
+            raise
     except KeyboardInterrupt:
         typer.echo("\nOperation cancelled by user.", err=True)
         logger.info("Operation cancelled by user interrupt")
         sys.exit(0)
-    except typer.Exit as e:
-        # Re-raise typer.Exit to preserve exit codes
-        logger.info(f"CLI exited with code: {e.exit_code}")
-        raise
     except Exception as e:
         typer.echo(f"Unexpected error in MCP Excel CLI: {e}", err=True)
         logger.error(f"Unexpected CLI error: {e}", exc_info=True)
