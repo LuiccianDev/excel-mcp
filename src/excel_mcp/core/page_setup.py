@@ -7,14 +7,11 @@ headers and footers, and horizontal centering.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
-import openpyxl
 from openpyxl.worksheet.properties import PageSetupProperties
 
-from excel_mcp.core._io import atomic_save
-from excel_mcp.exceptions.exception_core import SheetNotFoundError
+from excel_mcp.core._io import resolve_sheet, workbook_session
 from excel_mcp.exceptions.exception_tools import ValidationError
 from excel_mcp.utils.cell_utils import parse_cell_range
 
@@ -23,15 +20,6 @@ VALID_ORIENTATIONS = frozenset({"portrait", "landscape"})
 
 #: Mapping from human-readable paper names to openpyxl paper size codes.
 PAPER_SIZES = {"A4": "9", "A3": "8", "Letter": "1", "Legal": "5"}
-
-
-def _get_sheet(wb: openpyxl.Workbook, sheet_name: str | None = None) -> Any:
-    """Return the target worksheet or the active sheet when no name is given."""
-    if sheet_name:
-        if sheet_name not in wb.sheetnames:
-            raise SheetNotFoundError(f"Worksheet '{sheet_name}' not found in workbook.")
-        return wb[sheet_name]
-    return wb.active
 
 
 def configure_page_setup(
@@ -70,9 +58,6 @@ def configure_page_setup(
         SheetNotFoundError: If ``sheet_name`` is not present.
         ValidationError: If the orientation, paper size or print area is invalid.
     """
-    if not os.path.exists(filename):
-        raise FileNotFoundError(f"Workbook not found: {filename}")
-
     if orientation not in VALID_ORIENTATIONS:
         raise ValidationError(
             f"Unsupported orientation '{orientation}'. "
@@ -91,9 +76,8 @@ def configure_page_setup(
         except ValueError as exc:
             raise ValidationError(f"Invalid print area '{print_area}': {exc}") from exc
 
-    wb = openpyxl.load_workbook(filename)
-    try:
-        ws = _get_sheet(wb, sheet_name)
+    with workbook_session(filename, mode="edit") as wb:
+        ws = resolve_sheet(wb, sheet_name)
 
         ws.page_setup.orientation = orientation
         ws.page_setup.paperSize = PAPER_SIZES[paper_size]
@@ -118,16 +102,15 @@ def configure_page_setup(
         if center_horizontally:
             ws.print_options.horizontalCentered = True
 
-        atomic_save(wb, filename)
-    finally:
-        wb.close()
+        title = ws.title
+        resulting_print_area = str(ws.print_area) if print_area else None
 
     return {
-        "sheet": ws.title,
+        "sheet": title,
         "orientation": orientation,
         "paper_size": paper_size,
         "fit_to_page": fit_to_width is not None or fit_to_height is not None,
-        "print_area": str(ws.print_area) if print_area else None,
+        "print_area": resulting_print_area,
         "print_title_rows": print_title_rows,
         "has_header": bool(header),
         "has_footer": bool(footer),

@@ -25,7 +25,7 @@ except ImportError:
         FastMCP = Any  # type: ignore
 
 from excel_mcp import __version__
-from excel_mcp.tools.register_tools import register_all_tools
+from excel_mcp.tools.register_tools import get_tool_mode, register_all_tools
 from excel_mcp.utils.security import get_allowed_directories
 
 logging.basicConfig(
@@ -36,12 +36,23 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def create_server() -> FastMCP:
-    """Create and configure the Excel MCP Server instance."""
-    allowed_dirs = get_allowed_directories()
+def build_server_instructions(mode: str, allowed_dirs: list[Any]) -> str:
+    """Build mode-aware MCP server instructions matching the active tool surface."""
     dirs_list = "\n".join([f"- `{d}`" for d in allowed_dirs])
+    if mode == "compose":
+        surface_section = """### Active Tool Surface (`compose` mode, 8 tools)
+- **`excel_workbook`**: Action-dispatched workbook & sheet management (`create`, `list`, `metadata`, `create_sheet`, `copy_sheet`, `delete_sheet`, `rename_sheet`).
+- **`excel_data`**: Action-dispatched data, range, row/column, search & profiling (`read`, `write`, `append_rows`, `copy_range`, `delete_range`, `merge_cells`, `unmerge_cells`, `insert_rows_columns`, `delete_rows_columns`, `sort_range`, `validate_range`, `find_cells`, `profile_sheet`).
+- **`excel_format`**: Action-dispatched styling, tables, validation, protection & print layout (`format_range`, `format_sheet`, `create_table`, `add_data_validation`, `protect_sheet`, `configure_page_setup`).
+- **`excel_formula`**: Action-dispatched formula validation & assignment (`validate`, `apply`).
+- **`excel_analytics`**: Action-dispatched charts & pivot tables (`create_chart`, `create_pivot_table`)."""
+    else:
+        surface_section = """### Active Tool Surface (`full` mode, 33 tools)
+- **Workbook & Sheet Management**: `excel_create_workbook`, `excel_list_documents`, `excel_get_workbook_metadata`, `excel_create_worksheet`, `excel_copy_worksheet`, `excel_delete_worksheet`, `excel_rename_worksheet`.
+- **Data, Structure & Search**: `excel_read_data`, `excel_write_data`, `excel_append_rows`, `excel_copy_range`, `excel_delete_range`, `excel_merge_cells`, `excel_unmerge_cells`, `excel_insert_rows_columns`, `excel_delete_rows_columns`, `excel_sort_range`, `excel_validate_range`, `excel_find_cells`, `excel_profile_sheet`.
+- **Formatting, Formulas & Analytics**: `excel_format_range`, `excel_format_sheet`, `excel_create_table`, `excel_add_data_validation`, `excel_protect_sheet`, `excel_configure_page_setup`, `excel_validate_formula_syntax`, `excel_apply_formula`, `excel_create_chart`, `excel_create_pivot_table`."""
 
-    instructions = f"""# Excel MCP Server
+    return f"""# Excel MCP Server
 
 High-performance Model Context Protocol (MCP) server for programmatic Excel (.xlsx) spreadsheet generation, analysis, and manipulation.
 
@@ -52,12 +63,7 @@ High-performance Model Context Protocol (MCP) server for programmatic Excel (.xl
 - **`excel_get_workbook_outline`**: Extract structural outlines (sheet names, dimensions, column headers, formula presence) without dumping full data grids into context.
 - **`excel_batch_write_data`**: Insert 2D matrices of values and formulas into worksheets in a single atomic pass.
 
-### Standard Spreadsheet Operations
-- **Workbook management**: Create, copy, rename, delete worksheets, and retrieve metadata.
-- **Data operations**: Read ranges, write cells, merge/unmerge cells, copy and delete cell ranges.
-- **Formatting**: Fonts, borders, background fills, number formats (accounting, currency, percent).
-- **Formulas**: Apply formulas (`SUM`, `AVERAGE`, `VLOOKUP`, etc.) and validate syntax.
-- **Graphics & Analytics**: Native bar/line/pie charts and pivot tables.
+{surface_section}
 
 ## Single-Pass Construction Directive (Mandatory for AI Assistants)
 
@@ -77,9 +83,19 @@ High-performance Model Context Protocol (MCP) server for programmatic Excel (.xl
 
 ## Tool Naming
 
-All tools use the `excel_` prefix for clarity (e.g., `excel_build_workbook`, `excel_create_excel_workbook`).
-Legacy unprefixed aliases are opt-in: set `EXCEL_MCP_LEGACY_ALIASES=1` to register them.
+All tools use the `excel_` prefix for clarity (e.g., `excel_build_workbook`, `excel_workbook`).
+Set `EXCEL_MCP_MODE=full` (or launch `server --tool-mode full`) for all 33 granular tools; legacy unprefixed aliases require `EXCEL_MCP_LEGACY_ALIASES=1`.
 """
+
+
+def create_server(mode: str | None = None) -> FastMCP:
+    """Create and configure the Excel MCP Server instance."""
+    resolved_mode = (mode if mode is not None else get_tool_mode()).strip().lower()
+    if resolved_mode not in ("compose", "full"):
+        raise ValueError(f"Invalid tool mode '{mode}': expected 'compose' or 'full'.")
+
+    allowed_dirs = get_allowed_directories()
+    instructions = build_server_instructions(resolved_mode, allowed_dirs)
 
     mcp = FastMCP(
         name="excel_mcp",
@@ -88,7 +104,7 @@ Legacy unprefixed aliases are opt-in: set `EXCEL_MCP_LEGACY_ALIASES=1` to regist
         on_duplicate="error",
     )
 
-    register_all_tools(mcp)
+    register_all_tools(mcp, mode=resolved_mode)
     return mcp
 
 
@@ -100,9 +116,9 @@ def configure_warning_filters() -> None:
 configure_warning_filters()
 
 
-def run_server() -> FastMCP:
+def run_server(mode: str | None = None) -> FastMCP:
     """Backward-compatible helper to instantiate and return configured server."""
-    return create_server()
+    return create_server(mode=mode)
 
 
 def run_stdio(server: Any) -> None:

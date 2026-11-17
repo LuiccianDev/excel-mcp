@@ -51,3 +51,28 @@ def test_instructions_describe_opt_in_aliases(monkeypatch):
     instructions = _Recorder.captured["instructions"]
     assert "also registered" not in instructions
     assert "EXCEL_MCP_LEGACY_ALIASES" in instructions
+
+
+def test_main_supports_root_tool_mode_flag(monkeypatch):
+    from excel_mcp import __main__ as cli
+
+    captured_modes: list[str | None] = []
+
+    def _fake_run_server(mode: str | None = None):
+        captured_modes.append(mode)
+        return _FakeServer()
+
+    monkeypatch.setattr(sys, "argv", ["excel-mcp", "--tool-mode", "full"])
+    monkeypatch.setattr(cli, "run_server", _fake_run_server)
+    cli.main()
+    assert captured_modes == ["full"]
+
+
+def test_main_rejects_invalid_root_tool_mode(monkeypatch):
+    import pytest
+    from excel_mcp import __main__ as cli
+
+    monkeypatch.setattr(sys, "argv", ["excel-mcp", "--tool-mode", "bogus"])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code != 0
