@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from excel_mcp.tools.compose_tools import COMPOSE_REGISTRY
 from excel_mcp.tools.register_tools import register_all_tools
 
 
@@ -60,7 +61,7 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
         for token in (
             "compose",
             "EXCEL_MCP_MODE=full",
-            "--tool-mode full",
+            "server --tool-mode full",
             "excel_workbook",
             "excel_data",
             "excel_format",
@@ -68,6 +69,26 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
             "excel_analytics",
         ):
             self.assertIn(token, readme, f"README.md missing '{token}' for v2.2.0")
+
+    def test_compose_docs_match_registry_and_cli_contract(self) -> None:
+        """Verify README.md and excel-tools-reference SKILL.md document exact CLI, env, and compose actions."""
+        readme = (self.repo_root / "README.md").read_text(encoding="utf-8")
+        skill_md = (
+            self.repo_root / "skills" / "excel-tools-reference" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("`EXCEL_MCP_MODE`", readme)
+        self.assertIn("server --tool-mode full", skill_md)
+        self.assertIn("params", readme)
+        self.assertIn("params", skill_md)
+
+        for actions in COMPOSE_REGISTRY.values():
+            for action_name in actions:
+                self.assertIn(
+                    f"`{action_name}`",
+                    skill_md,
+                    f"excel-tools-reference SKILL.md missing compose action '{action_name}'",
+                )
 
     def test_all_tools_documented_in_tools_md(self) -> None:
         """Verify every registered tool is documented in docs/TOOLS.md."""

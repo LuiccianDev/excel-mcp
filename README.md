@@ -23,7 +23,7 @@ Designed from the ground up for maximum token efficiency, it replaces chatty mic
 
 ## Key Architectural Highlights
 
-- **Compact Compose Mode by Default (v2.2.0)**: Registers 8 tools by default (3 single-pass tools plus 5 action-dispatched domain tools: `excel_workbook`, `excel_data`, `excel_format`, `excel_formula`, `excel_analytics`) to minimize tool-schema token overhead, with opt-in to all 33 granular tools via `EXCEL_MCP_MODE=full` or `--tool-mode full`.
+- **Compact Compose Mode by Default (v2.2.0)**: Registers 8 tools by default (3 single-pass tools plus 5 action-dispatched domain tools: `excel_workbook`, `excel_data`, `excel_format`, `excel_formula`, `excel_analytics`) to minimize tool-schema token overhead, with opt-in to all 33 granular tools via `EXCEL_MCP_MODE=full` or `server --tool-mode full`.
 - **Single-Pass Workbook Builder**: Create complete, multi-sheet, publication-ready workbooks (compact `<=12pt` title banners, table headers, alternating row colors, accounting borders, auto-calculated totals, currency formatting, per-sheet `freeze_panes` / `auto_filter`, and native charts) in **one single MCP call** (`excel_build_workbook`).
 - **Uniform Typography & Design Presets**: Built-in visual standards (`corporate`, `financial`, `modern`, `compact`) paired with optional `font_name` and `font_size` overrides to enforce uniform `Calibri 11pt`, `Arial 11pt`, or any user-requested font across the entire workbook.
 - **Dynamic Formula Discipline**: Native support for validated live Excel formulas (`SUM`, `AVERAGE`, `IFERROR`, `SUMIF`, cross-sheet references) without hardcoded static results.
@@ -46,7 +46,7 @@ uvx luiccian-excel-mcp
 
 ## MCP Client Configuration
 
-Configure your AI client by passing environment variables directly in the client's `env` block (no `.env` file is required). By default, the server starts in `compose` mode (8 tools); set `"EXCEL_MCP_MODE": "full"` in `env` or pass `--tool-mode full` in `args` to expose all 33 granular tools.
+Configure your AI client by passing environment variables directly in the client's `env` block (no `.env` file is required). By default, the server starts in `compose` mode (8 tools); set `"EXCEL_MCP_MODE": "full"` in `env` or use `"args": ["luiccian-excel-mcp", "server", "--tool-mode", "full"]` (`server --tool-mode full`) to expose all 33 granular tools.
 
 ### 1. Claude Desktop (`claude_desktop_config.json`)
 
@@ -170,8 +170,9 @@ All runtime configuration is supplied via standard OS environment variables or t
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `MCP_ALLOWED_DIRECTORIES` | *(current directory)* | Comma-separated list of allowed root directories for reading, writing, and listing `.xlsx` files. |
+| `EXCEL_MCP_MODE` | `compose` | Tool surface mode: `compose` (8 tools: 3 single-pass + 5 domain dispatchers) or `full` (all 33 granular tools). |
 | `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). |
-| `EXCEL_MCP_LEGACY_ALIASES` | `false` | Set to `true` or `1` to register unprefixed legacy tool aliases alongside canonical `excel_*` names. |
+| `EXCEL_MCP_LEGACY_ALIASES` | `false` | Set to `true` or `1` to register unprefixed legacy aliases alongside canonical `excel_*` names (implicitly selects `full` mode when `EXCEL_MCP_MODE` is unset; ignored in `compose` mode). |
 | `DEV_MODE` | `false` | Enables verbose development diagnostics when set to `true`. |
 
 ---
@@ -203,22 +204,22 @@ The repository includes pre-built agent skills under `skills/`:
 
 ## Tool Taxonomy
 
-Starting in `v2.2.0`, the server defaults to `compose` mode (8 tools) and exposes all 33 granular `excel_*` tools when `EXCEL_MCP_MODE=full` or `--tool-mode full` is set. For complete signatures and parameter schemas, see [docs/TOOLS.md](docs/TOOLS.md).
+Starting in `v2.2.0`, the server defaults to `compose` mode (8 tools) and exposes all 33 granular `excel_*` tools when `EXCEL_MCP_MODE=full` or `server --tool-mode full` is set. Each domain dispatcher accepts `(action, filename=None, params=None)`; for the underlying `full`-mode parameter schemas (`params` keys), see [docs/TOOLS.md](docs/TOOLS.md).
 
 ### Default `compose` Mode (8 Tools)
 
-| Category | Tool Name | Type | Purpose |
+| Category | Tool Name | Type | Actions / Purpose |
 | :--- | :--- | :--- | :--- |
 | **Single-Pass** | `excel_build_workbook` | `Write` | Build full multi-sheet workbooks with styles, uniform fonts, navigation, formulas, and charts in 1 call |
 | | `excel_get_workbook_outline` | `Read-Only` | Lightweight outline inspection without loading entire cell matrices |
 | | `excel_batch_write_data` | `Write` | Write 2D matrix of values or formulas into a sheet range atomically |
-| **Domain Dispatchers** | `excel_workbook` | `Write` / `Read-Only` | Action-dispatched workbook, worksheet, row/column, and page-setup operations |
-| | `excel_data` | `Write` / `Read-Only` | Action-dispatched read, write, append, copy, and delete data operations |
-| | `excel_format` | `Write` / `Read-Only` | Action-dispatched table, sheet, range formatting, merge, sort, and protection operations |
-| | `excel_formula` | `Write` / `Read-Only` | Action-dispatched formula validation, assignment, and data validation operations |
-| | `excel_analytics` | `Write` / `Read-Only` | Action-dispatched profiling, search, chart, and pivot table operations |
+| **Domain Dispatchers** | `excel_workbook` | `Write` / `Read-Only` | `create`, `list`, `metadata`, `create_sheet`, `copy_sheet`, `delete_sheet`, `rename_sheet` |
+| | `excel_data` | `Write` / `Read-Only` | `read`, `write`, `append_rows`, `copy_range`, `delete_range`, `merge_cells`, `unmerge_cells`, `insert_rows_columns`, `delete_rows_columns`, `sort_range`, `validate_range`, `find_cells`, `profile_sheet` |
+| | `excel_format` | `Write` | `format_range`, `format_sheet`, `create_table`, `add_data_validation`, `protect_sheet`, `configure_page_setup` |
+| | `excel_formula` | `Write` / `Read-Only` | `validate`, `apply` |
+| | `excel_analytics` | `Write` | `create_chart`, `create_pivot_table` |
 
-### Full Mode Granular Inventory (`EXCEL_MCP_MODE=full` / `--tool-mode full`, 33 Tools)
+### Full Mode Granular Inventory (`EXCEL_MCP_MODE=full` / `server --tool-mode full`, 33 Tools)
 
 | Category | Canonical Tool Name | Type | Description |
 | :--- | :--- | :--- | :--- |

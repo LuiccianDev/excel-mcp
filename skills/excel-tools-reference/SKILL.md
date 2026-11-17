@@ -45,17 +45,17 @@ flowchart TD
 
 ## 2. Default Compose Mode (8 Tools) & Full Inventory (33 Tools)
 
-Starting in `v2.2.0`, `excel-mcp` defaults to `compose` mode (8 tools) to minimize tool-schema token overhead:
+Starting in `v2.2.0`, `excel-mcp` defaults to `compose` mode (8 tools) to minimize tool-schema token overhead. All 5 domain dispatchers use the calling contract `(action: str, filename: str | None = None, params: dict | None = None)`, where `params` carries the underlying granular tool arguments:
 
 - **Single-Pass Tools (3):** `excel_build_workbook`, `excel_get_workbook_outline`, `excel_batch_write_data`.
 - **Action-Dispatched Domain Tools (5):**
-  - `excel_workbook` (workbook, worksheet, row/column, and page-setup actions)
-  - `excel_data` (read, write, append, copy, and delete range actions)
-  - `excel_format` (table, sheet, range styling, merge, sort, and protection actions)
-  - `excel_formula` (formula validation, assignment, and data validation actions)
-  - `excel_analytics` (sheet profiling, cell search, charts, and pivot tables)
+  - `excel_workbook`: `create`, `list`, `metadata`, `create_sheet`, `copy_sheet`, `delete_sheet`, `rename_sheet`
+  - `excel_data`: `read`, `write`, `append_rows`, `copy_range`, `delete_range`, `merge_cells`, `unmerge_cells`, `insert_rows_columns`, `delete_rows_columns`, `sort_range`, `validate_range`, `find_cells`, `profile_sheet`
+  - `excel_format`: `format_range`, `format_sheet`, `create_table`, `add_data_validation`, `protect_sheet`, `configure_page_setup`
+  - `excel_formula`: `validate`, `apply`
+  - `excel_analytics`: `create_chart`, `create_pivot_table`
 
-To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_MODE=full` or launch with `--tool-mode full`.
+To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_MODE=full` or launch with `server --tool-mode full`.
 
 ### Complete Canonical Tool Inventory (`full` Mode, 33 Tools)
 
