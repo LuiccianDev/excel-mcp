@@ -98,6 +98,9 @@ opencode.json
 # Superpowers & Benchmarks (local only)
 .superpowers/
 docs/superpowers/
+
+# Graphify Knowledge Graph (Generated Artifact)
+graphify-out/
 docs/benchmarks/
 tests/benchmarks/
 benchmarks/

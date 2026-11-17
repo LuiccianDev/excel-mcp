@@ -5,7 +5,7 @@ from excel_mcp.exceptions.exception_tools import DataError, ValidationError
 from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_access
 
 
-@validate_file_access("filename")
+@validate_file_access("filename", read_only=True)
 async def read_data_from_excel(
     filename: str,
     sheet_name: str,
@@ -132,8 +132,6 @@ async def write_data_to_excel(
         from excel_mcp.core.data import write_data
 
         result = write_data(filename, sheet_name, data, start_cell)
-        if isinstance(result, dict) and "error" in result:
-            return f"Error: {result['error']}"
         return str(result.get("message", "Data written successfully"))
     except (ValidationError, DataError) as e:
         return f"Error: {str(e)}"

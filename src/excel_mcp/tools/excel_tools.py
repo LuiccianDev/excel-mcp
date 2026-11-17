@@ -34,8 +34,20 @@ async def create_excel_workbook(filename: str) -> dict[str, Any]:
         On failure, returns an error dictionary with a descriptive message.
     """
     try:
-        filename = str(resolve_safe_path(filename))
-        result: dict[str, Any] = create_workbook(filename)
+        from pathlib import Path
+
+        from excel_mcp.utils import paths
+
+        candidate = Path(filename)
+        if not candidate.suffix and not candidate.name.startswith("."):
+            filename = ensure_xlsx_extension(filename)
+
+        resolved_path = resolve_safe_path(filename)
+        constraint_error = paths.validate_file_constraints(resolved_path)
+        if constraint_error:
+            return {"error": f"Access denied: {constraint_error}"}
+
+        result: dict[str, Any] = create_workbook(str(resolved_path))
         return result
     except WorkbookError as e:
         return {"error": f"Error: {str(e)}"}

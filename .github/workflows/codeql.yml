@@ -16,6 +16,7 @@ on:
       - '.vscode/**'
       - '.python-version'
       - 'LICENSE'
+      - '.agents/**'
   pull_request:
     branches: [ master, main ]
   schedule:

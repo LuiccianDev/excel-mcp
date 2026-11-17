@@ -65,7 +65,7 @@ async def create_pivot_table(
     rows: list[str],
     values: list[str],
     columns: list[str] | None = None,
-    agg_func: str = "mean",
+    agg_func: str = "sum",
 ) -> dict[str, Any]:
     """Create a pivot table in a worksheet to summarize and analyze data from a given range.
 
@@ -79,7 +79,7 @@ async def create_pivot_table(
         rows (list[str]): A list of column headers from the data range to use as rows in the pivot table.
         values (list[str]): A list of column headers to use for aggregation in the pivot table.
         columns (list[str] | None, optional): A list of column headers to use as columns. Defaults to None.
-        agg_func (str, optional): The aggregation function to apply to the values (e.g., 'sum', 'mean', 'count'). Defaults to "mean".
+        agg_func (str, optional): The aggregation function to apply to the values ('sum', 'average', 'count', 'min', 'max'). Defaults to "sum".
 
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure, with a descriptive message.

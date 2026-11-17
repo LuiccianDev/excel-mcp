@@ -36,7 +36,7 @@ def _package_version() -> str:
 
 def _canonical_tools() -> set[str]:
     collector = _Collector()
-    register_all_tools(collector)
+    register_all_tools(collector, mode="full")
     return set(collector.tools)
 
 

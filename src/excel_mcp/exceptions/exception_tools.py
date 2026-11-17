@@ -9,37 +9,19 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from excel_mcp.exceptions.exception_core import (
+    CoreError,
+    DataError,
+    PivotError,
+    SheetError,
+    ValidationError,
+    WorkbookError,
+)
+
 logger = logging.getLogger(__name__)
 
-
-class ExcelMCPError(Exception):
-    """Base exception for Excel MCP errors."""
-
-    pass
-
-
-class WorkbookError(ExcelMCPError):
-    """Raised when workbook operations fail."""
-
-    pass
-
-
-class SheetError(ExcelMCPError):
-    """Raised when sheet operations fail."""
-
-    pass
-
-
-class DataError(ExcelMCPError):
-    """Raised when data operations fail."""
-
-    pass
-
-
-class ValidationError(ExcelMCPError):
-    """Raised when validation fails."""
-
-    pass
+# Unify tool and core exception hierarchies so legacy tool handlers catch core errors.
+ExcelMCPError = CoreError
 
 
 class FormattingError(ExcelMCPError):
@@ -54,16 +36,24 @@ class CalculationError(ExcelMCPError):
     pass
 
 
-class PivotError(ExcelMCPError):
-    """Raised when pivot table operations fail."""
-
-    pass
-
-
 class ChartError(ExcelMCPError):
     """Raised when chart operations fail."""
 
     pass
+
+
+__all__ = [
+    "ExcelMCPError",
+    "WorkbookError",
+    "SheetError",
+    "DataError",
+    "ValidationError",
+    "FormattingError",
+    "CalculationError",
+    "PivotError",
+    "ChartError",
+    "ExceptionTool",
+]
 
 
 class ExceptionTool:

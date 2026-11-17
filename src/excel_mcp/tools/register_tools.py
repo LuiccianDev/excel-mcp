@@ -22,6 +22,7 @@ except ImportError:
 from excel_mcp.tools import (
     analysis_tools,
     batch_tools,
+    compose_tools,
     content_tools,
     excel_tools,
     format_tools,
@@ -42,12 +43,27 @@ def should_register_legacy_aliases() -> bool:
     return val in ("1", "true", "yes")
 
 
-def register_all_tools(mcp: Any) -> None:
-    """Register canonical Excel MCP tools with the server, with optional legacy aliases."""
+def get_tool_mode() -> str:
+    """Return the configured MCP tool surface mode ('compose' default or 'full')."""
+    raw = os.environ.get("EXCEL_MCP_MODE", "").strip().lower()
+    if raw in ("full", "compose"):
+        return raw
+    if raw:
+        logger.warning("Unrecognized EXCEL_MCP_MODE=%r; defaulting to 'compose'.", raw)
+    if should_register_legacy_aliases():
+        return "full"
+    return "compose"
+
+
+def register_all_tools(mcp: Any, mode: str | None = None) -> None:
+    """Register Excel MCP tools with the server in 'compose' or 'full' mode."""
     read_only = ToolAnnotations(read_only_hint=True)
     write = ToolAnnotations(read_only_hint=False)
     destructive = ToolAnnotations(read_only_hint=False, destructive_hint=True)
 
+    resolved_mode = (mode if mode is not None else get_tool_mode()).strip().lower()
+    if resolved_mode not in ("compose", "full"):
+        raise ValueError(f"Invalid tool mode '{mode}': expected 'compose' or 'full'.")
     include_aliases = should_register_legacy_aliases()
 
     def _reg(
@@ -63,7 +79,7 @@ def register_all_tools(mcp: Any) -> None:
             mcp.tool(name=canonical_name)(fn)
 
         # Register legacy aliases if enabled via EXCEL_MCP_LEGACY_ALIASES=1
-        if include_aliases and legacy_aliases:
+        if include_aliases and legacy_aliases and resolved_mode != "compose":
             for alias in legacy_aliases:
                 if alias == canonical_name:
                     continue
@@ -72,7 +88,7 @@ def register_all_tools(mcp: Any) -> None:
                 except TypeError:
                     mcp.tool(name=alias)(fn)
 
-    # 1. BATCH & SINGLE-PASS TOOLS
+    # 1. BATCH & SINGLE-PASS TOOLS (always registered in both modes)
     _reg("excel_build_workbook", batch_tools.build_workbook, write, ["build_workbook"])
     _reg(
         "excel_get_workbook_outline",
@@ -86,6 +102,16 @@ def register_all_tools(mcp: Any) -> None:
         write,
         ["batch_write_data"],
     )
+
+    if resolved_mode == "compose":
+        _reg("excel_workbook", compose_tools.excel_workbook, write)
+        _reg("excel_data", compose_tools.excel_data, write)
+        _reg("excel_format", compose_tools.excel_format, write)
+        _reg("excel_formula", compose_tools.excel_formula, write)
+        _reg("excel_analytics", compose_tools.excel_analytics, write)
+        logger.info("Excel MCP tools registered in compact compose mode (8 tools).")
+        return
+
     _reg("excel_append_rows", structure_tools.append_rows, write, ["append_rows"])
 
     # 2. WORKBOOK & WORKSHEET TOOLS
