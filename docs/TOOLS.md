@@ -19,13 +19,13 @@
 | [`excel_create_chart`](#excel-create-chart) | `Write` | Create a chart in a worksheet based on a specified data range. |
 | [`excel_create_pivot_table`](#excel-create-pivot-table) | `Write` | Create a pivot table in a worksheet to summarize and analyze data from a given range. |
 | [`excel_create_table`](#excel-create-table) | `Write` | Convert a range of cells into a native, styled Excel Table. |
-| [`excel_create_workbook`](#excel-create-workbook) | `Write` | Create a new Excel workbook (.xlsx) in a secure, validated path. |
+| [`excel_create_workbook`](#excel-create-workbook) | `Write` | Create an empty Excel workbook (.xlsx) in a secure, validated path. |
 | [`excel_create_worksheet`](#excel-create-worksheet) | `Write` | Add a new worksheet to an existing Excel workbook. |
 | [`excel_delete_range`](#excel-delete-range) | `Destructive` | Delete a range of cells and optionally shift the surrounding cells to fill the gap. |
 | [`excel_delete_rows_columns`](#excel-delete-rows-columns) | `Destructive` | Delete rows or columns starting at the specified 1-based index in a worksheet. |
 | [`excel_delete_worksheet`](#excel-delete-worksheet) | `Destructive` | Permanently delete a worksheet from a workbook. |
 | [`excel_find_cells`](#excel-find-cells) | `Read-Only` | Search for cells containing text or regular expression patterns across sheets. |
-| [`excel_format_range`](#excel-format-range) | `Write` | Apply a wide range of visual and data formatting styles to a specified cell range in an Excel worksheet. |
+| [`excel_format_range`](#excel-format-range) | `Write` | Apply visual and data formatting styles to a specified cell range in an existing Excel worksheet. |
 | [`excel_format_sheet`](#excel-format-sheet) | `Write` | Configure worksheet-level display settings and layout properties. |
 | [`excel_get_workbook_metadata`](#excel-get-workbook-metadata) | `Read-Only` | Retrieve metadata about an Excel workbook, including a list of all worksheets and optional details about named ranges. |
 | [`excel_get_workbook_outline`](#excel-get-workbook-outline) | `Read-Only` | Inspect structural outline of an Excel workbook without dumping massive cell grids into LLM context. |
@@ -40,7 +40,7 @@
 | [`excel_unmerge_cells`](#excel-unmerge-cells) | `Write` | Unmerge a previously merged cell range, reverting it to individual cells. |
 | [`excel_validate_formula_syntax`](#excel-validate-formula-syntax) | `Read-Only` | Validate the syntax of an Excel formula without writing it to a cell. |
 | [`excel_validate_range`](#excel-validate-range) | `Read-Only` | Validate that a given cell range is valid within a specific worksheet. |
-| [`excel_write_data`](#excel-write-data) | `Write` | Write data to an Excel worksheet beginning at the specified cell. |
+| [`excel_write_data`](#excel-write-data) | `Write` | Write data to an existing Excel worksheet beginning at the specified cell. |
 
 ## Batch & Single-Pass Tools
 
@@ -140,7 +140,9 @@ Returns:
 - **Signature:** `excel_create_workbook(filename: str) -> dict[str, typing.Any]`
 
 ```text
-Create a new Excel workbook (.xlsx) in a secure, validated path.
+Create an empty Excel workbook (.xlsx) in a secure, validated path.
+
+Note: For new reports or formatted tables, prefer `excel_build_workbook` to create sheets, data, styles, and charts in one call.
 
 Context for LLM/AI: Use this tool when you need to programmatically generate a new Excel workbook file as the starting point for a reporting, data collection, or automation workflow. This is typically used to initialize new datasets or reports, ensuring that the file is created only within authorized directories for security and compliance. The tool will automatically add the `.xlsx` extension if missing and will validate the path to prevent unauthorized file creation.
 
@@ -337,7 +339,9 @@ Returns:
 - **Signature:** `excel_format_range(filename: str, sheet_name: str, start_cell: str, end_cell: str | None = None, bold: bool = False, italic: bool = False, underline: bool = False, font_size: int | None = None, font_color: str | None = None, bg_color: str | None = None, border_style: Literal['dashDot', 'dashDotDot', 'dashed', 'dotted', 'double', 'hair', 'medium', 'mediumDashDot', 'mediumDashDotDot', 'mediumDashed', 'slantDashDot', 'thick', 'thin', 'none', None] = None, border_color: str | None = None, number_format: str | None = None, alignment: str | None = None, wrap_text: bool = False, merge_cells: bool = False, protection: dict[str, typing.Any] | None = None, conditional_format: dict[str, typing.Any] | None = None) -> dict[str, typing.Any]`
 
 ```text
-Apply a wide range of visual and data formatting styles to a specified cell range in an Excel worksheet.
+Apply visual and data formatting styles to a specified cell range in an existing Excel worksheet.
+
+Note: For new workbooks, prefer `excel_build_workbook` (supports presets, headers, zebra striping, number formats, and charts in one call).
 
 Context for AI/LLM:
     Use this comprehensive tool to programmatically style reports, highlight data, or enforce a consistent visual layout in an Excel sheet. It is ideal for automating the final presentation layer of data generation workflows.
@@ -680,7 +684,7 @@ Returns:
 ### `excel_create_pivot_table`
 
 - **Access Mode:** `Write`
-- **Signature:** `excel_create_pivot_table(filename: str, sheet_name: str, data_range: str, rows: list[str], values: list[str], columns: list[str] | None = None, agg_func: str = 'mean') -> dict[str, typing.Any]`
+- **Signature:** `excel_create_pivot_table(filename: str, sheet_name: str, data_range: str, rows: list[str], values: list[str], columns: list[str] | None = None, agg_func: str = 'sum') -> dict[str, typing.Any]`
 
 ```text
 Create a pivot table in a worksheet to summarize and analyze data from a given range.
@@ -695,7 +699,7 @@ Args:
     rows (list[str]): A list of column headers from the data range to use as rows in the pivot table.
     values (list[str]): A list of column headers to use for aggregation in the pivot table.
     columns (list[str] | None, optional): A list of column headers to use as columns. Defaults to None.
-    agg_func (str, optional): The aggregation function to apply to the values (e.g., 'sum', 'mean', 'count'). Defaults to "mean".
+    agg_func (str, optional): The aggregation function to apply to the values ('sum', 'average', 'count', 'min', 'max'). Defaults to "sum".
 
 Returns:
     dict[str, Any]: A status dictionary indicating success or failure, with a descriptive message.
@@ -710,6 +714,8 @@ Returns:
 
 ```text
 Read a specific range of tabular data from an Excel worksheet and return it in a structured format.
+
+Note: Call `excel_get_workbook_outline` first on unfamiliar or large workbooks to inspect dimensions and headers without loading full cell matrices.
 
 Context for AI/LLM:
     Use this tool to extract tabular data from a defined worksheet and cell range within an Excel workbook.
@@ -748,7 +754,9 @@ Notes:
 - **Signature:** `excel_write_data(filename: str, sheet_name: str, data: list[list[typing.Any]], start_cell: str = 'A1') -> str`
 
 ```text
-Write data to an Excel worksheet beginning at the specified cell.
+Write data to an existing Excel worksheet beginning at the specified cell.
+
+Note: Prefer `excel_build_workbook` for new workbooks or `excel_batch_write_data` for multi-range updates in a single pass.
 
 Context for AI/LLM:
     Employ this tool to programmatically populate or update a worksheet with tabular data produced by prior computations or external systems. Suitable for automated report generation, data export, or incremental updates to existing files.

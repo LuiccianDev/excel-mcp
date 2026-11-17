@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.2.0] - 2026-11-17
+
 ### Changed
 - **Lightweight Release Pipeline**: Streamlined `release.yml` by removing redundant multi-version test execution during tag deployment, relying on the mandatory CI quality gate on PRs and `master`, reducing release jobs from 8 to 4.
 
