@@ -6,10 +6,7 @@ import os
 from unittest.mock import patch
 import unittest
 
-from excel_mcp.tools.register_tools import (
-    register_all_tools,
-    should_register_legacy_aliases,
-)
+from excel_mcp.tools.register_tools import register_all_tools
 
 
 class MockFastMCP:
@@ -28,22 +25,18 @@ class MockFastMCP:
 
 
 class TestRegisterTools(unittest.TestCase):
-    """Test suite for tool registration and legacy alias toggling."""
+    """Test suite for canonical tool registration."""
 
     def test_default_registers_compose_mode_and_full_mode_registers_canonical_names(
         self,
     ) -> None:
         """Verify default is compose (8 tools) and EXCEL_MCP_MODE=full registers 33 canonical tools."""
         with patch.dict(os.environ, {}, clear=True):
-            self.assertFalse(should_register_legacy_aliases())
-
             compose_mcp = MockFastMCP()
             register_all_tools(compose_mcp)
             self.assertEqual(len(compose_mcp.registered_tools), 8)
 
         with patch.dict(os.environ, {"EXCEL_MCP_MODE": "full"}, clear=True):
-            self.assertFalse(should_register_legacy_aliases())
-
             mock_mcp = MockFastMCP()
             register_all_tools(mock_mcp)
 
@@ -69,24 +62,6 @@ class TestRegisterTools(unittest.TestCase):
             self.assertIn("excel_find_cells", tool_names)
             self.assertIn("excel_profile_sheet", tool_names)
             self.assertNotIn("create_excel_workbook", tool_names)
-
-    def test_legacy_aliases_enabled(self) -> None:
-        """Verify EXCEL_MCP_LEGACY_ALIASES=1 enables legacy aliases."""
-        with patch.dict(os.environ, {"EXCEL_MCP_LEGACY_ALIASES": "1"}, clear=True):
-            self.assertTrue(should_register_legacy_aliases())
-
-            mock_mcp = MockFastMCP()
-            register_all_tools(mock_mcp)
-
-            tool_names = list(mock_mcp.registered_tools.keys())
-            self.assertGreater(len(tool_names), 33)
-
-            # Both canonical and legacy aliases must exist
-            self.assertIn("excel_create_workbook", tool_names)
-            self.assertIn("create_excel_workbook", tool_names)
-            self.assertIn("excel_create_excel_workbook", tool_names)
-            self.assertIn("format_range_excel", tool_names)
-            self.assertIn("build_workbook", tool_names)
 
 
 if __name__ == "__main__":

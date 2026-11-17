@@ -35,7 +35,6 @@ class ComposeActionSpec:
     read_only: bool = False
     full_name: str = ""
     destructive: bool = False
-    legacy_aliases: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.read_only and self.destructive:
@@ -54,46 +53,39 @@ COMPOSE_REGISTRY: dict[str, dict[str, ComposeActionSpec]] = {
             excel_tools.create_excel_workbook,
             "Create a new empty .xlsx workbook.",
             full_name="excel_create_workbook",
-            legacy_aliases=("create_excel_workbook", "excel_create_excel_workbook"),
         ),
         "list": ComposeActionSpec(
             excel_tools.list_excel_documents,
             "List .xlsx files in allowed directories.",
             read_only=True,
             full_name="excel_list_documents",
-            legacy_aliases=("list_excel_documents", "excel_list_excel_documents"),
         ),
         "metadata": ComposeActionSpec(
             format_tools.get_workbook_metadata,
             "Inspect workbook sheets, dimensions, and optional used ranges.",
             read_only=True,
             full_name="excel_get_workbook_metadata",
-            legacy_aliases=("get_workbook_metadata",),
         ),
         "create_sheet": ComposeActionSpec(
             excel_tools.create_excel_worksheet,
             "Add a new worksheet to an existing workbook.",
             full_name="excel_create_worksheet",
-            legacy_aliases=("create_excel_worksheet", "excel_create_excel_worksheet"),
         ),
         "copy_sheet": ComposeActionSpec(
             format_tools.copy_worksheet,
             "Duplicate an existing worksheet within a workbook.",
             full_name="excel_copy_worksheet",
-            legacy_aliases=("copy_worksheet",),
         ),
         "delete_sheet": ComposeActionSpec(
             format_tools.delete_worksheet,
             "Delete a worksheet from a workbook.",
             full_name="excel_delete_worksheet",
             destructive=True,
-            legacy_aliases=("delete_worksheet",),
         ),
         "rename_sheet": ComposeActionSpec(
             format_tools.rename_worksheet,
             "Rename an existing worksheet.",
             full_name="excel_rename_worksheet",
-            legacy_aliases=("rename_worksheet",),
         ),
     },
     "data": {
@@ -102,84 +94,71 @@ COMPOSE_REGISTRY: dict[str, dict[str, ComposeActionSpec]] = {
             "Read cell values or formatted metadata from a worksheet range.",
             read_only=True,
             full_name="excel_read_data",
-            legacy_aliases=("read_data_from_excel", "excel_read_data_from_excel"),
         ),
         "write": ComposeActionSpec(
             content_tools.write_data_to_excel,
             "Write a 2D matrix of values to a worksheet starting at start_cell.",
             full_name="excel_write_data",
-            legacy_aliases=("write_data_to_excel", "excel_write_data_to_excel"),
         ),
         "append_rows": ComposeActionSpec(
             structure_tools.append_rows,
             "Append rows after the last populated row of a worksheet.",
             full_name="excel_append_rows",
-            legacy_aliases=("append_rows",),
         ),
         "copy_range": ComposeActionSpec(
             format_tools.copy_range,
             "Copy a cell range (values and formatting) to another location.",
             full_name="excel_copy_range",
-            legacy_aliases=("copy_range",),
         ),
         "delete_range": ComposeActionSpec(
             format_tools.delete_range,
             "Delete a cell range and shift remaining cells.",
             full_name="excel_delete_range",
             destructive=True,
-            legacy_aliases=("delete_range",),
         ),
         "merge_cells": ComposeActionSpec(
             format_tools.merge_cells,
             "Merge a rectangular cell range.",
             full_name="excel_merge_cells",
-            legacy_aliases=("merge_cells",),
         ),
         "unmerge_cells": ComposeActionSpec(
             format_tools.unmerge_cells,
             "Unmerge a previously merged cell range.",
             full_name="excel_unmerge_cells",
-            legacy_aliases=("unmerge_cells",),
         ),
         "insert_rows_columns": ComposeActionSpec(
             structure_tools.insert_rows_columns,
             "Insert rows or columns at a given index.",
             full_name="excel_insert_rows_columns",
-            legacy_aliases=("insert_rows_columns",),
         ),
         "delete_rows_columns": ComposeActionSpec(
             structure_tools.delete_rows_columns,
             "Delete rows or columns starting at a given index.",
             full_name="excel_delete_rows_columns",
             destructive=True,
-            legacy_aliases=("delete_rows_columns",),
         ),
         "sort_range": ComposeActionSpec(
             structure_tools.sort_range,
             "Sort a range by one or more columns.",
             full_name="excel_sort_range",
-            legacy_aliases=("sort_range",),
         ),
         "validate_range": ComposeActionSpec(
             format_tools.validate_excel_range,
             "Validate that a cell range is within worksheet bounds.",
             read_only=True,
             full_name="excel_validate_range",
-            legacy_aliases=("validate_excel_range", "excel_validate_excel_range"),
         ),
         "find_cells": ComposeActionSpec(
             analysis_tools.find_cells,
             "Search for matching cell values or regex patterns.",
             read_only=True,
             full_name="excel_find_cells",
-            legacy_aliases=("find_cells",),
         ),
         "profile_sheet": ComposeActionSpec(
             analysis_tools.profile_sheet,
             "Compute column types, non-null counts, and summary statistics.",
             read_only=True,
             full_name="excel_profile_sheet",
-            legacy_aliases=("profile_sheet",),
         ),
     },
     "format": {
@@ -187,37 +166,31 @@ COMPOSE_REGISTRY: dict[str, dict[str, ComposeActionSpec]] = {
             format_tools.format_range_excel,
             "Apply font, fill, border, alignment, and number formatting to a range.",
             full_name="excel_format_range",
-            legacy_aliases=("format_range_excel", "excel_format_range_excel"),
         ),
         "format_sheet": ComposeActionSpec(
             structure_tools.format_sheet,
             "Apply sheet-level styling, column widths, row heights, or freeze panes.",
             full_name="excel_format_sheet",
-            legacy_aliases=("format_sheet",),
         ),
         "create_table": ComposeActionSpec(
             structure_tools.create_table,
             "Convert a cell range into a native Excel Table.",
             full_name="excel_create_table",
-            legacy_aliases=("create_table",),
         ),
         "add_data_validation": ComposeActionSpec(
             validation_tools.add_data_validation,
             "Attach dropdown, numeric, or custom data validation rules.",
             full_name="excel_add_data_validation",
-            legacy_aliases=("add_data_validation",),
         ),
         "protect_sheet": ComposeActionSpec(
             protection_tools.protect_sheet,
             "Enable or disable worksheet protection.",
             full_name="excel_protect_sheet",
-            legacy_aliases=("protect_sheet",),
         ),
         "configure_page_setup": ComposeActionSpec(
             page_tools.configure_page_setup,
             "Configure print orientation, paper size, margins, and scaling.",
             full_name="excel_configure_page_setup",
-            legacy_aliases=("configure_page_setup",),
         ),
     },
     "formula": {
@@ -226,13 +199,11 @@ COMPOSE_REGISTRY: dict[str, dict[str, ComposeActionSpec]] = {
             "Validate Excel formula syntax without modifying the workbook.",
             read_only=True,
             full_name="excel_validate_formula_syntax",
-            legacy_aliases=("validate_formula_syntax",),
         ),
         "apply": ComposeActionSpec(
             formulas_excel_tools.apply_formula_excel,
             "Validate and write a formula into a target cell.",
             full_name="excel_apply_formula",
-            legacy_aliases=("apply_formula_excel", "excel_apply_formula_excel"),
         ),
     },
     "analytics": {
@@ -240,13 +211,11 @@ COMPOSE_REGISTRY: dict[str, dict[str, ComposeActionSpec]] = {
             graphics_tools.create_chart,
             "Create a native bar, line, pie, or scatter chart.",
             full_name="excel_create_chart",
-            legacy_aliases=("create_chart",),
         ),
         "create_pivot_table": ComposeActionSpec(
             graphics_tools.create_pivot_table,
             "Create a pivot table summary from a source range.",
             full_name="excel_create_pivot_table",
-            legacy_aliases=("create_pivot_table",),
         ),
     },
 }
