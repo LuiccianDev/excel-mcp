@@ -19,7 +19,7 @@ def test_default_directory_uses_user_documents(
     (fake_home / "Documents").mkdir(parents=True)
 
     monkeypatch.delenv("DIRECTORY", raising=False)
-    monkeypatch.delenv("MCP_ALLOWED_DIRECTORIES", raising=False)
+    monkeypatch.delenv("EXCEL_MCP_DIRS", raising=False)
     monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
 
     expected = str(fake_home / "Documents")
@@ -47,7 +47,7 @@ def test_relative_filename_resolves_inside_allowed_root(
     other_cwd = tmp_path / "System32"
     other_cwd.mkdir(parents=True)
 
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
     monkeypatch.setattr(Path, "cwd", staticmethod(lambda: other_cwd))
 
     resolved, err = resolve_and_check_path("reporte.xlsx")
@@ -65,7 +65,7 @@ def test_relative_path_traversal_is_blocked(
     """Relative path traversal escaping the allowed root must still be rejected."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     allowed, msg = is_path_allowed("../../Windows/System32/evil.xlsx")
     assert not allowed

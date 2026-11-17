@@ -22,7 +22,7 @@ def test_multiple_roots_and_trailing_separators_are_normalized(
     second = tmp_path / "second"
     first.mkdir()
     second.mkdir()
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", f"{first}, {second}{os.sep}")
+    monkeypatch.setenv("EXCEL_MCP_DIRS", f"{first}, {second}{os.sep}")
     monkeypatch.delenv("DIRECTORY", raising=False)
 
     roots = resolve_allowed_directories()
@@ -36,7 +36,7 @@ def test_relative_traversal_is_rejected_without_creating_directories(
 ) -> None:
     allowed = tmp_path / "allowed"
     allowed.mkdir()
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(allowed))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(allowed))
     outside = tmp_path / "outside"
 
     target, error = resolve_and_check_path("../outside/book.xlsx")
@@ -50,7 +50,7 @@ def test_absolute_external_path_is_rejected(tmp_path: Path, monkeypatch) -> None
     allowed = tmp_path / "allowed"
     allowed.mkdir()
     external = tmp_path / "external.xlsx"
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(allowed))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(allowed))
 
     target, error = resolve_and_check_path(str(external))
 
@@ -65,7 +65,7 @@ def test_public_format_tool_rejects_external_path_without_mutation(
     allowed = tmp_path / "allowed"
     allowed.mkdir()
     external = tmp_path / "external.xlsx"
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(allowed))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(allowed))
 
     result = asyncio.run(
         format_range_excel(
@@ -90,7 +90,7 @@ def test_symlink_escape_is_rejected(tmp_path: Path, monkeypatch) -> None:
         link.symlink_to(outside, target_is_directory=True)
     except (OSError, NotImplementedError) as exc:
         pytest.skip(f"symlink creation unavailable: {exc}")
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(allowed))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(allowed))
 
     target, error = resolve_and_check_path(str(link / "book.xlsx"))
 

@@ -87,7 +87,7 @@ def test_main_list_honors_root_path_and_rejects_tool_mode(
     from excel_mcp.config import config_manager
 
     original_config = config_manager._config
-    original_allowed = os.environ.get("MCP_ALLOWED_DIRECTORIES")
+    original_allowed = os.environ.get("EXCEL_MCP_DIRS")
     try:
         sample = tmp_path / "report.xlsx"
         sample.write_bytes(b"")
@@ -107,6 +107,6 @@ def test_main_list_honors_root_path_and_rejects_tool_mode(
     finally:
         config_manager._config = original_config
         if original_allowed is None:
-            os.environ.pop("MCP_ALLOWED_DIRECTORIES", None)
+            os.environ.pop("EXCEL_MCP_DIRS", None)
         else:
-            os.environ["MCP_ALLOWED_DIRECTORIES"] = original_allowed
+            os.environ["EXCEL_MCP_DIRS"] = original_allowed

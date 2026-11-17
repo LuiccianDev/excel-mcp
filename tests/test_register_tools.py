@@ -27,16 +27,16 @@ class MockFastMCP:
 class TestRegisterTools(unittest.TestCase):
     """Test suite for canonical tool registration."""
 
-    def test_default_registers_compose_mode_and_full_mode_registers_canonical_names(
+    def test_default_registers_compound_mode_and_full_mode_registers_canonical_names(
         self,
     ) -> None:
-        """Verify default is compose (8 tools) and EXCEL_MCP_MODE=full registers 33 canonical tools."""
+        """Verify default is compound (8 tools) and EXCEL_MCP_TOOLS=full registers 33 canonical tools."""
         with patch.dict(os.environ, {}, clear=True):
             compound_mcp = MockFastMCP()
             register_all_tools(compound_mcp)
             self.assertEqual(len(compound_mcp.registered_tools), 8)
 
-        with patch.dict(os.environ, {"EXCEL_MCP_MODE": "full"}, clear=True):
+        with patch.dict(os.environ, {"EXCEL_MCP_TOOLS": "full"}, clear=True):
             mock_mcp = MockFastMCP()
             register_all_tools(mock_mcp)
 

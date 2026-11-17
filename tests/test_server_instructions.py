@@ -6,7 +6,7 @@ from excel_mcp.server import create_server
 from excel_mcp.tools.compound_tools import COMPOUND_REGISTRY
 
 
-def test_create_server_compose_instructions_describe_dispatchers() -> None:
+def test_create_server_compound_instructions_describe_dispatchers() -> None:
     mcp = create_server(mode="compound")
     instructions = mcp.instructions or ""
     assert "compound" in instructions.lower()

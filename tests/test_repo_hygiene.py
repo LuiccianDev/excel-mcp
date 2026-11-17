@@ -24,7 +24,7 @@ def test_documentation_uses_supported_uv_workflow() -> None:
     security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
     assert "uvx luiccian-excel-mcp" in readme
     assert "uv sync --all-groups" in readme
-    assert "MCP_ALLOWED_DIRECTORIES" in security
+    assert "EXCEL_MCP_DIRS" in security
     assert "2.1.x" in security
 
 

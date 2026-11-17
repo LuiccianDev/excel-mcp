@@ -20,7 +20,7 @@ def test_validate_file_access_anchors_relative_path_to_allowed_dir(
     other_cwd = tmp_path / "System32"
     other_cwd.mkdir(parents=True)
 
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
     monkeypatch.chdir(other_cwd)
 
     @validate_file_access("filename")
@@ -38,7 +38,7 @@ def test_validate_file_access_blocks_relative_traversal(
     """validate_file_access must reject relative path traversal escaping the sandbox."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     @validate_file_access("filename")
     def dummy_tool(filename: str) -> dict[str, str]:
@@ -55,7 +55,7 @@ def test_resolve_safe_path_blocks_traversal(
     """resolve_safe_path must raise PermissionError on relative traversal."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     with pytest.raises(PermissionError):
         resolve_safe_path("../outside.xlsx")
@@ -67,7 +67,7 @@ def test_resolve_and_check_path_rejects_empty_and_whitespace(
     """resolve_and_check_path must reject empty or whitespace-only filenames."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     for bad in ("", "   "):
         resolved, err = resolve_and_check_path(bad)
@@ -96,7 +96,7 @@ def test_os_path_hazards_are_blocked(
     """Null bytes, UNC paths, Windows ADS, and reserved device names must be rejected."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     allowed, msg = is_path_allowed(hazardous_path)
     assert not allowed
@@ -113,7 +113,7 @@ def test_disallowed_extensions_are_blocked(
     """Non-.xlsx extensions such as .xlsm or .exe must be rejected."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     for bad_ext in ("macro.xlsm", "payload.exe", "script.py"):
         resolved, err = resolve_and_check_path(bad_ext)
@@ -137,7 +137,7 @@ def test_max_file_size_is_enforced(
     big_file = docs_dir / "huge.xlsx"
     big_file.write_bytes(b"x" * 2048)
 
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     err_msg = validate_file_constraints(big_file, max_file_size=1024)
     assert err_msg is not None and "exceeds maximum allowed size" in err_msg

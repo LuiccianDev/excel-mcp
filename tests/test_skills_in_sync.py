@@ -32,13 +32,13 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.repo_root = Path(__file__).resolve().parent.parent
 
-        # Capture canonical registered tools (full mode) and compose-mode tools
-        with patch.dict(os.environ, {"EXCEL_MCP_MODE": "full"}):
+        # Capture canonical registered tools (full mode) and compound-mode tools
+        with patch.dict(os.environ, {"EXCEL_MCP_TOOLS": "full"}):
             mcp = MockMCP()
             register_all_tools(mcp)
             cls.registered_tools = mcp.tools
 
-        with patch.dict(os.environ, {"EXCEL_MCP_MODE": "compound"}):
+        with patch.dict(os.environ, {"EXCEL_MCP_TOOLS": "compound"}):
             compound_mcp = MockMCP()
             register_all_tools(compound_mcp)
             cls.compound_tools = compound_mcp.tools
@@ -52,11 +52,11 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
         self.assertEqual(len(self.compound_tools), 8)
 
     def test_readme_documents_v220_tool_modes(self) -> None:
-        """Verify README.md documents compose default mode and full opt-in."""
+        """Verify README.md documents compound default mode and full opt-in."""
         readme = (self.repo_root / "README.md").read_text(encoding="utf-8")
         for token in (
             "compound",
-            "EXCEL_MCP_MODE=full",
+            "EXCEL_MCP_TOOLS=full",
             "server --tool-mode full",
             "excel_workbook",
             "excel_data",
@@ -73,7 +73,7 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
             self.repo_root / "skills" / "excel-tools-reference" / "SKILL.md"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("`EXCEL_MCP_MODE`", readme)
+        self.assertIn("`EXCEL_MCP_TOOLS`", readme)
         self.assertIn("server --tool-mode full", skill_md)
         self.assertIn("params", readme)
         self.assertIn("params", skill_md)

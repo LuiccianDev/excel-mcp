@@ -28,7 +28,7 @@ Use this skill to create complete, cleanly structured, and visually uniform Micr
    - Every derived value MUST be a live Excel formula (`=SUM(...)`, `=AVERAGE(...)`, `=IFERROR(...)`, `=SUMIF(...)`, `='Operations'!C8`, etc.).
 5. **Adapt Layout to Purpose:**
    - Choose the structural pattern below that best fits the user's domain instead of repeating a single merged-banner template for every workbook.
-6. **Paths:** Always use absolute paths located within `MCP_ALLOWED_DIRECTORIES`.
+6. **Paths:** Always use absolute paths located within `EXCEL_MCP_DIRS`.
 
 ---
 

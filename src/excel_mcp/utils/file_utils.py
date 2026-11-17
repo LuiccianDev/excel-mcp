@@ -166,7 +166,7 @@ def list_excel_files_in_directory() -> list[dict]:
     Retrieve metadata for all Excel (.xlsx) files in the allowed directories.
 
     Every root returned by :func:`excel_mcp.utils.paths.resolve_allowed_directories`
-    is scanned, so ``MCP_ALLOWED_DIRECTORIES`` governs discovery exactly as it
+    is scanned, so ``EXCEL_MCP_DIRS`` governs discovery exactly as it
     governs access.
 
     Returns:

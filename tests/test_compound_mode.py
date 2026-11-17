@@ -1,4 +1,4 @@
-"""Tests for compact compose tool-surface mode."""
+"""Tests for compact compound tool-surface mode."""
 
 from __future__ import annotations
 
@@ -34,8 +34,8 @@ class _ToolCollector:
 
 
 def test_compound_mode_registers_eight_tools(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Default compound mode exposes 8 tools and EXCEL_MCP_MODE=full switches to 33."""
-    monkeypatch.delenv("EXCEL_MCP_MODE", raising=False)
+    """Default compound mode exposes 8 tools and EXCEL_MCP_TOOLS=full switches to 33."""
+    monkeypatch.delenv("EXCEL_MCP_TOOLS", raising=False)
     assert get_tool_mode() == "compound"
 
     collector = _ToolCollector()
@@ -52,7 +52,7 @@ def test_compound_mode_registers_eight_tools(monkeypatch: pytest.MonkeyPatch) ->
         "excel_analytics",
     }
 
-    monkeypatch.setenv("EXCEL_MCP_MODE", "full")
+    monkeypatch.setenv("EXCEL_MCP_TOOLS", "full")
     assert get_tool_mode() == "full"
     full_collector = _ToolCollector()
     register_all_tools(full_collector)
@@ -80,6 +80,17 @@ def test_compound_registry_covers_all_granular_tools() -> None:
     assert compound_handlers == full_handlers
 
 
+def test_compound_dispatcher_literals_match_registry() -> None:
+    """Every compound dispatcher's Literal action annotation must match COMPOUND_REGISTRY."""
+    from typing import get_args, get_type_hints
+    from excel_mcp.tools import compound_tools
+
+    for group, actions in COMPOUND_REGISTRY.items():
+        fn = getattr(compound_tools, f"excel_{group}")
+        hints = get_type_hints(fn)
+        assert set(get_args(hints["action"])) == set(actions.keys())
+
+
 def test_invalid_mode_raises_value_error() -> None:
     """Explicit invalid mode passed to register_all_tools must fail loudly."""
     collector = _ToolCollector()
@@ -93,7 +104,7 @@ def test_compound_tools_end_to_end(
     """Compound tools must execute real workbook, data, formula, and format flows."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     res_create = asyncio.run(excel_workbook("create", "sales.xlsx"))
     assert res_create.get("status") == "success"

@@ -27,8 +27,8 @@ We take the security of `excel-mcp` seriously. If you discover a potential vulne
 
 ## Security Boundaries & Best Practices
 
-- **Allowed Directories (`MCP_ALLOWED_DIRECTORIES`):**
-  The server strictly validates all file operations against permitted directories configured in `MCP_ALLOWED_DIRECTORIES`. Attempted path traversals (`../`) or operations outside permitted roots are rejected.
+- **Allowed Directories (`EXCEL_MCP_DIRS`):**
+  The server strictly validates all file operations against permitted directories configured in `EXCEL_MCP_DIRS`. Attempted path traversals (`../`) or operations outside permitted roots are rejected.
 - **Formula Security:**
   All formulas are sanitized and validated against malicious payload injection before application to spreadsheet cells.
 - **Trusted Publishing (OIDC):**

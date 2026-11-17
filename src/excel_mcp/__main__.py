@@ -63,9 +63,7 @@ def validate_and_apply_configuration(path: str | None = None) -> None:
         # Reload configuration with overrides
         config_manager.reload_configuration(**overrides)
         if path is not None:
-            os.environ["MCP_ALLOWED_DIRECTORIES"] = (
-                config_manager.config.file_config.directory
-            )
+            os.environ["EXCEL_MCP_DIRS"] = config_manager.config.file_config.directory
 
         logger.info("Configuration validated and applied successfully")
 

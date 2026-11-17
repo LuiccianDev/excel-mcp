@@ -10,7 +10,7 @@ from excel_mcp.tools.page_tools import configure_page_setup
 
 @pytest.fixture(autouse=True)
 def allow_tmp_path(monkeypatch, tmp_path):
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(tmp_path))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(tmp_path))
     monkeypatch.delenv("DIRECTORY", raising=False)
 
 

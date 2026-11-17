@@ -50,7 +50,7 @@ def test_manifest_version_matches_package_metadata() -> None:
 
 
 def test_malformed_tool_input_returns_structured_error(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(tmp_path))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(tmp_path))
     result = add_data_validation(
         filename=str(tmp_path / "missing.xlsx"),
         cell_range=None,

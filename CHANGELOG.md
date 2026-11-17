@@ -14,9 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Root CLI `--tool-mode` Support**: Added root Typer callback support for `--tool-mode` and `--path` forwarding across `server` and `list` commands in `excel_mcp.__main__`.
 
 ### Changed
-- **Compound Tool Mode Naming (`compound`)**: Renamed default `compose` mode (`compose_tools.py`, `COMPOSE_REGISTRY`, `ToolMode.COMPOSE`) to `compound` (`compound_tools.py`, `COMPOUND_REGISTRY`, `ToolMode.COMPOUND`), while accepting `compose` as a deprecated input alias.
-- **Single-Source Tool Registry & Mode-Aware Instructions**: Consolidated `full` and `compose` tool metadata into `COMPOSE_REGISTRY` (`ComposeActionSpec`) with `ToolMode` (`StrEnum`), removed duplicated registration tables from `register_tools.py`, and derived `server.py` MCP instructions dynamically from `COMPOSE_REGISTRY`.
-- **Documentation & Skill Synchronization**: Updated `README.md` and `skills/excel-tools-reference/SKILL.md` to document `v2.2.0` `compose` mode (8 default tools) and `full` mode opt-in (`EXCEL_MCP_MODE=full`, `server --tool-mode full`), and extended `tests/test_skills_in_sync.py` to guard both tool surfaces.
+- **Standardized Environment Variables (`EXCEL_MCP_DIRS`, `EXCEL_MCP_TOOLS`)**: Renamed `MCP_ALLOWED_DIRECTORIES` to `EXCEL_MCP_DIRS` and `EXCEL_MCP_MODE` to `EXCEL_MCP_TOOLS` across runtime, CLI, manifests, docs, and tests with no legacy fallback.
+- **Compound Tool Mode Naming (`compound`)**: Renamed default `compose` mode (`compose_tools.py`, `COMPOSE_REGISTRY`, `ToolMode.COMPOSE`) to `compound` (`compound_tools.py`, `COMPOUND_REGISTRY`, `ToolMode.COMPOUND`) with no legacy fallback.
+- **Single-Source Tool Registry & Mode-Aware Instructions**: Consolidated `full` and `compound` tool metadata into `COMPOUND_REGISTRY` (`CompoundActionSpec`) with `ToolMode` (`StrEnum`), removed duplicated registration tables from `register_tools.py`, and derived `server.py` MCP instructions dynamically from `COMPOUND_REGISTRY`.
+- **Documentation & Skill Synchronization**: Updated `README.md` and `skills/excel-tools-reference/SKILL.md` to document `compound` mode (8 default tools) and `full` mode opt-in (`EXCEL_MCP_TOOLS=full`, `server --tool-mode full`), and extended `tests/test_skills_in_sync.py` to guard both tool surfaces.
 
 ### Removed
 - **Legacy Unprefixed Tool Aliases**: Removed `EXCEL_MCP_LEGACY_ALIASES`, `should_register_legacy_aliases()`, and `legacy_aliases` metadata so only canonical `excel_*` tool names are registered.

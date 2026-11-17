@@ -32,14 +32,13 @@ class ToolMode(StrEnum):
     FULL = "full"
 
 
-def normalize_tool_mode(mode: str | None) -> ToolMode:
+def normalize_tool_mode(mode: ToolMode | str | None) -> ToolMode:
     """Normalize and validate an explicit tool mode string."""
     if mode is None:
         return get_tool_mode()
+    if isinstance(mode, ToolMode):
+        return mode
     normalized = mode.strip().lower()
-    if normalized == "compose":
-        logger.warning("Tool mode 'compose' is deprecated; use 'compound'.")
-        return ToolMode.COMPOUND
     try:
         return ToolMode(normalized)
     except ValueError as exc:
@@ -50,14 +49,13 @@ def normalize_tool_mode(mode: str | None) -> ToolMode:
 
 def get_tool_mode() -> ToolMode:
     """Return the configured MCP tool surface mode ('compound' default or 'full')."""
-    raw = os.environ.get("EXCEL_MCP_MODE", "").strip().lower()
-    if raw == "compose":
-        logger.warning("EXCEL_MCP_MODE='compose' is deprecated; use 'compound'.")
-        return ToolMode.COMPOUND
+    raw = os.environ.get("EXCEL_MCP_TOOLS", "").strip().lower()
     if raw in (ToolMode.FULL, ToolMode.COMPOUND):
         return ToolMode(raw)
     if raw:
-        logger.warning("Unrecognized EXCEL_MCP_MODE=%r; defaulting to 'compound'.", raw)
+        logger.warning(
+            "Unrecognized EXCEL_MCP_TOOLS=%r; defaulting to 'compound'.", raw
+        )
     return ToolMode.COMPOUND
 
 
@@ -84,7 +82,7 @@ def register_all_tools(mcp: Any, mode: str | None = None) -> None:
     _reg("excel_get_workbook_outline", batch_tools.get_workbook_outline, read_only)
     _reg("excel_batch_write_data", batch_tools.batch_write_data, write)
 
-    if resolved_mode == "compound":
+    if resolved_mode == ToolMode.COMPOUND:
         _reg("excel_workbook", compound_tools.excel_workbook, write)
         _reg("excel_data", compound_tools.excel_data, write)
         _reg("excel_format", compound_tools.excel_format, write)

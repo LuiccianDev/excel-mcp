@@ -168,7 +168,7 @@ class TestStructureOperations(unittest.TestCase):
     def test_structure_tools_guards(self) -> None:
         with patch.dict(
             os.environ,
-            {"MCP_ALLOWED_DIRECTORIES": os.path.dirname(self.sample_workbook)},
+            {"EXCEL_MCP_DIRS": os.path.dirname(self.sample_workbook)},
         ):
             r1 = append_rows(
                 filename=self.sample_workbook,

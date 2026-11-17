@@ -23,7 +23,7 @@ Designed from the ground up for maximum token efficiency, it replaces chatty mic
 
 ## Key Architectural Highlights
 
-- **Compact Compound Mode by Default (v2.2.0)**: Registers 8 tools by default (3 single-pass tools plus 5 action-dispatched domain tools: `excel_workbook`, `excel_data`, `excel_format`, `excel_formula`, `excel_analytics`) to minimize tool-schema token overhead, with opt-in to all 33 granular tools via `EXCEL_MCP_MODE=full` or `server --tool-mode full`.
+- **Compact Compound Mode by Default**: Registers 8 tools by default (3 single-pass tools plus 5 action-dispatched domain tools: `excel_workbook`, `excel_data`, `excel_format`, `excel_formula`, `excel_analytics`) to minimize tool-schema token overhead, with opt-in to all 33 granular tools via `EXCEL_MCP_TOOLS=full` or `server --tool-mode full`.
 - **Single-Pass Workbook Builder**: Create complete, multi-sheet, publication-ready workbooks (compact `<=12pt` title banners, table headers, alternating row colors, accounting borders, auto-calculated totals, currency formatting, per-sheet `freeze_panes` / `auto_filter`, and native charts) in **one single MCP call** (`excel_build_workbook`).
 - **Uniform Typography & Design Presets**: Built-in visual standards (`corporate`, `financial`, `modern`, `compact`) paired with optional `font_name` and `font_size` overrides to enforce uniform `Calibri 11pt`, `Arial 11pt`, or any user-requested font across the entire workbook.
 - **Dynamic Formula Discipline**: Native support for validated live Excel formulas (`SUM`, `AVERAGE`, `IFERROR`, `SUMIF`, cross-sheet references) without hardcoded static results.
@@ -46,7 +46,7 @@ uvx luiccian-excel-mcp
 
 ## MCP Client Configuration
 
-Configure your AI client by passing environment variables directly in the client's `env` block (no `.env` file is required). By default, the server starts in `compound` mode (8 tools); set `"EXCEL_MCP_MODE": "full"` in `env` or pass `--tool-mode full` (e.g., `["luiccian-excel-mcp", "--tool-mode", "full"]` or `server --tool-mode full`) to expose all 33 granular tools.
+Configure your AI client by passing environment variables directly in the client's `env` block (no `.env` file is required). By default, the server starts in `compound` mode (8 tools); set `"EXCEL_MCP_TOOLS": "full"` in `env` or pass `--tool-mode full` (e.g., `["luiccian-excel-mcp", "--tool-mode", "full"]` or `server --tool-mode full`) to expose all 33 granular tools.
 
 ### 1. Claude Desktop (`claude_desktop_config.json`)
 
@@ -57,7 +57,7 @@ Configure your AI client by passing environment variables directly in the client
       "command": "uvx",
       "args": ["luiccian-excel-mcp"],
       "env": {
-        "MCP_ALLOWED_DIRECTORIES": "/path/to/your/spreadsheets"
+        "EXCEL_MCP_DIRS": "/path/to/your/spreadsheets"
       }
     }
   }
@@ -75,7 +75,7 @@ Configure your AI client by passing environment variables directly in the client
 >       "command": "uv",
 >       "args": ["run", "--directory", "/path/to/excel-mcp", "excel-mcp"],
 >       "env": {
->         "MCP_ALLOWED_DIRECTORIES": "/path/to/your/spreadsheets"
+>         "EXCEL_MCP_DIRS": "/path/to/your/spreadsheets"
 >       }
 >     }
 >   }
@@ -91,7 +91,7 @@ Configure your AI client by passing environment variables directly in the client
       "command": "uvx",
       "args": ["luiccian-excel-mcp"],
       "env": {
-        "MCP_ALLOWED_DIRECTORIES": "${workspaceFolder}"
+        "EXCEL_MCP_DIRS": "${workspaceFolder}"
       }
     }
   }
@@ -110,7 +110,7 @@ VS Code uses a top-level `"servers"` key and explicit `"type": "stdio"`:
       "command": "uvx",
       "args": ["luiccian-excel-mcp"],
       "env": {
-        "MCP_ALLOWED_DIRECTORIES": "${workspaceFolder}"
+        "EXCEL_MCP_DIRS": "${workspaceFolder}"
       }
     }
   }
@@ -126,7 +126,7 @@ VS Code uses a top-level `"servers"` key and explicit `"type": "stdio"`:
       "command": "uvx",
       "args": ["luiccian-excel-mcp"],
       "env": {
-        "MCP_ALLOWED_DIRECTORIES": "/path/to/your/spreadsheets"
+        "EXCEL_MCP_DIRS": "/path/to/your/spreadsheets"
       }
     }
   }
@@ -142,7 +142,7 @@ VS Code uses a top-level `"servers"` key and explicit `"type": "stdio"`:
       "command": "uvx",
       "args": ["luiccian-excel-mcp"],
       "env": {
-        "MCP_ALLOWED_DIRECTORIES": "/path/to/your/spreadsheets"
+        "EXCEL_MCP_DIRS": "/path/to/your/spreadsheets"
       }
     }
   }
@@ -153,7 +153,7 @@ VS Code uses a top-level `"servers"` key and explicit `"type": "stdio"`:
 
 ```bash
 claude mcp add excel-mcp \
-  -e MCP_ALLOWED_DIRECTORIES="/path/to/your/spreadsheets" \
+  -e EXCEL_MCP_DIRS="/path/to/your/spreadsheets" \
   -- uvx luiccian-excel-mcp
 ```
 
@@ -169,8 +169,8 @@ All runtime configuration is supplied via standard OS environment variables or t
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `MCP_ALLOWED_DIRECTORIES` | *(current directory)* | Comma-separated list of allowed root directories for reading, writing, and listing `.xlsx` files. |
-| `EXCEL_MCP_MODE` | `compound` | Tool surface mode: `compound` (8 tools: 3 single-pass + 5 domain dispatchers) or `full` (all 33 granular tools). |
+| `EXCEL_MCP_DIRS` | *(current directory)* | Comma-separated list of allowed root directories for reading, writing, and listing `.xlsx` files. |
+| `EXCEL_MCP_TOOLS` | `compound` | Tool surface mode: `compound` (8 tools: 3 single-pass + 5 domain dispatchers) or `full` (all 33 granular tools). |
 | `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). |
 | `DEV_MODE` | `false` | Enables verbose development diagnostics when set to `true`. |
 
@@ -203,7 +203,7 @@ The repository includes pre-built agent skills under `skills/`:
 
 ## Tool Taxonomy
 
-Starting in `v2.2.0`, the server defaults to `compound` mode (8 tools) and exposes all 33 granular `excel_*` tools when `EXCEL_MCP_MODE=full` or `server --tool-mode full` is set. Each domain dispatcher accepts `(action, filename=None, params=None)`; for the underlying `full`-mode parameter schemas (`params` keys), see [docs/TOOLS.md](docs/TOOLS.md).
+The server defaults to `compound` mode (8 tools) and exposes all 33 granular `excel_*` tools when `EXCEL_MCP_TOOLS=full` or `server --tool-mode full` is set. Each domain dispatcher accepts `(action, filename=None, params=None)`; for the underlying `full`-mode parameter schemas (`params` keys), see [docs/TOOLS.md](docs/TOOLS.md).
 
 ### Default `compound` Mode (8 Tools)
 
@@ -218,7 +218,7 @@ Starting in `v2.2.0`, the server defaults to `compound` mode (8 tools) and expos
 | | `excel_formula` | `Write` / `Read-Only` | `validate`, `apply` |
 | | `excel_analytics` | `Write` | `create_chart`, `create_pivot_table` |
 
-### Full Mode Granular Inventory (`EXCEL_MCP_MODE=full` / `server --tool-mode full`, 33 Tools)
+### Full Mode Granular Inventory (`EXCEL_MCP_TOOLS=full` / `server --tool-mode full`, 33 Tools)
 
 | Category | Canonical Tool Name | Type | Description |
 | :--- | :--- | :--- | :--- |
@@ -260,7 +260,7 @@ Starting in `v2.2.0`, the server defaults to `compound` mode (8 tools) and expos
 
 ## Security
 
-- **Restricted Directories**: Access is strictly limited to paths listed in `MCP_ALLOWED_DIRECTORIES` (supporting multiple comma-separated roots and symlink traversal protection).
+- **Restricted Directories**: Access is strictly limited to paths listed in `EXCEL_MCP_DIRS` (supporting multiple comma-separated roots and symlink traversal protection).
 - **Formula & DDE Sanitization**: All formula inputs pass strict AST validation (`validate_cell_value_secure`) blocking leading-whitespace formula smuggling, DDE command prefixes (`cmd|`, `powershell|`), and dangerous functions.
 - **Crash-Safe Atomic Writes**: Mutating operations write to isolated temporary files and commit atomically via `os.replace`.
 - **Trusted Publishing**: Tag-driven PyPI releases (`v*.*.*`) use GitHub Actions OIDC and PEP 740 artifact attestation.
