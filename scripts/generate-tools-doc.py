@@ -119,7 +119,7 @@ def categorize_tools(tool_names: list[str]) -> dict[str, list[str]]:
 def generate_tools_markdown() -> str:
     collector = DocCollectorMCP()
     os.environ["EXCEL_MCP_LEGACY_ALIASES"] = "0"
-    register_all_tools(collector)
+    register_all_tools(collector, mode="full")
 
     lines: list[str] = [
         "# Excel MCP Tools Reference",
