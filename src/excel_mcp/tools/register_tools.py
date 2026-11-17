@@ -49,9 +49,7 @@ def get_tool_mode() -> str:
     if raw in ("full", "compose"):
         return raw
     if raw:
-        logger.warning(
-            "Unrecognized EXCEL_MCP_MODE=%r; defaulting to 'compose'.", raw
-        )
+        logger.warning("Unrecognized EXCEL_MCP_MODE=%r; defaulting to 'compose'.", raw)
     if should_register_legacy_aliases():
         return "full"
     return "compose"
@@ -65,9 +63,7 @@ def register_all_tools(mcp: Any, mode: str | None = None) -> None:
 
     resolved_mode = (mode if mode is not None else get_tool_mode()).strip().lower()
     if resolved_mode not in ("compose", "full"):
-        raise ValueError(
-            f"Invalid tool mode '{mode}': expected 'compose' or 'full'."
-        )
+        raise ValueError(f"Invalid tool mode '{mode}': expected 'compose' or 'full'.")
     include_aliases = should_register_legacy_aliases()
 
     def _reg(

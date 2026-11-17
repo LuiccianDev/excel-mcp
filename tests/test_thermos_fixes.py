@@ -24,7 +24,9 @@ def test_exception_hierarchies_are_unified() -> None:
     assert issubclass(exception_core.SheetError, exception_tools.SheetError)
     assert issubclass(exception_core.DataError, exception_tools.DataError)
     assert issubclass(exception_core.PivotError, exception_tools.PivotError)
-    assert issubclass(exception_core.WorkbookNotFoundError, exception_tools.WorkbookError)
+    assert issubclass(
+        exception_core.WorkbookNotFoundError, exception_tools.WorkbookError
+    )
 
 
 def test_validate_file_access_does_not_create_ghost_file(
@@ -61,9 +63,7 @@ def test_validate_formula_syntax_blocks_traversal(
     monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
 
     result = asyncio.run(
-        validate_formula_syntax(
-            "../../outside.xlsx", "Sheet1", "A1", "=SUM(B1:B5)"
-        )
+        validate_formula_syntax("../../outside.xlsx", "Sheet1", "A1", "=SUM(B1:B5)")
     )
     assert result["status"] == "error"
     assert "Access denied" in result["message"]

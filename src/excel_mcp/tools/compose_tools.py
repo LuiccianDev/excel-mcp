@@ -223,8 +223,7 @@ async def dispatch_composed_action(
             return {
                 "status": "error",
                 "message": (
-                    f"Unknown parameter(s) for '{group}.{action}': "
-                    f"{', '.join(unknown)}"
+                    f"Unknown parameter(s) for '{group}.{action}': {', '.join(unknown)}"
                 ),
                 "accepted_parameters": list(sig.parameters.keys()),
             }

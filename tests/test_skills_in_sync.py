@@ -32,7 +32,9 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
         cls.repo_root = Path(__file__).resolve().parent.parent
 
         # Capture canonical registered tools
-        with patch.dict(os.environ, {"EXCEL_MCP_LEGACY_ALIASES": "0", "EXCEL_MCP_MODE": "full"}):
+        with patch.dict(
+            os.environ, {"EXCEL_MCP_LEGACY_ALIASES": "0", "EXCEL_MCP_MODE": "full"}
+        ):
             mcp = MockMCP()
             register_all_tools(mcp)
             cls.registered_tools = mcp.tools

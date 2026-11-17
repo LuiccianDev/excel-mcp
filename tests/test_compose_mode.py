@@ -162,9 +162,7 @@ def test_compose_tools_reject_invalid_actions_and_params() -> None:
     assert bad_action["status"] == "error"
     assert "available_actions" in bad_action
 
-    bad_param = asyncio.run(
-        excel_formula("validate", "a.xlsx", {"not_a_param": 1})
-    )
+    bad_param = asyncio.run(excel_formula("validate", "a.xlsx", {"not_a_param": 1}))
     assert bad_param["status"] == "error"
     assert "Unknown parameter" in bad_param["message"]
 
