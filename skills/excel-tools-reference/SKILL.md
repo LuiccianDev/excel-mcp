@@ -43,9 +43,9 @@ flowchart TD
 
 ---
 
-## 2. Default Compose Mode (8 Tools) & Full Inventory (33 Tools)
+## 2. Default Compound Mode (8 Tools) & Full Inventory (33 Tools)
 
-Starting in `v2.2.0`, `excel-mcp` defaults to `compose` mode (8 tools) to minimize tool-schema token overhead. All 5 domain dispatchers use the calling contract `(action: str, filename: str | None = None, params: dict | None = None)`, where `params` carries the underlying granular tool arguments:
+Starting in `v2.2.0`, `excel-mcp` defaults to `compound` mode (8 tools) to minimize tool-schema token overhead. All 5 domain dispatchers use the calling contract `(action: str, filename: str | None = None, params: dict | None = None)`, where `params` carries the underlying granular tool arguments:
 
 - **Single-Pass Tools (3):** `excel_build_workbook`, `excel_get_workbook_outline`, `excel_batch_write_data`.
 - **Action-Dispatched Domain Tools (5):**

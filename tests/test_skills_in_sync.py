@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from excel_mcp.tools.compose_tools import COMPOSE_REGISTRY
+from excel_mcp.tools.compound_tools import COMPOUND_REGISTRY
 from excel_mcp.tools.register_tools import register_all_tools
 
 
@@ -38,24 +38,24 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
             register_all_tools(mcp)
             cls.registered_tools = mcp.tools
 
-        with patch.dict(os.environ, {"EXCEL_MCP_MODE": "compose"}):
-            compose_mcp = MockMCP()
-            register_all_tools(compose_mcp)
-            cls.compose_tools = compose_mcp.tools
+        with patch.dict(os.environ, {"EXCEL_MCP_MODE": "compound"}):
+            compound_mcp = MockMCP()
+            register_all_tools(compound_mcp)
+            cls.compound_tools = compound_mcp.tools
 
     def test_canonical_tool_count(self) -> None:
         """Verify exactly 33 canonical tools are registered in full mode."""
         self.assertEqual(len(self.registered_tools), 33)
 
-    def test_compose_tool_count(self) -> None:
-        """Verify exactly 8 tools are registered in default compose mode."""
-        self.assertEqual(len(self.compose_tools), 8)
+    def test_compound_tool_count(self) -> None:
+        """Verify exactly 8 tools are registered in default compound mode."""
+        self.assertEqual(len(self.compound_tools), 8)
 
     def test_readme_documents_v220_tool_modes(self) -> None:
         """Verify README.md documents compose default mode and full opt-in."""
         readme = (self.repo_root / "README.md").read_text(encoding="utf-8")
         for token in (
-            "compose",
+            "compound",
             "EXCEL_MCP_MODE=full",
             "server --tool-mode full",
             "excel_workbook",
@@ -66,8 +66,8 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
         ):
             self.assertIn(token, readme, f"README.md missing '{token}' for v2.2.0")
 
-    def test_compose_docs_match_registry_and_cli_contract(self) -> None:
-        """Verify README.md and excel-tools-reference SKILL.md document exact CLI, env, and compose actions."""
+    def test_compound_docs_match_registry_and_cli_contract(self) -> None:
+        """Verify README.md and excel-tools-reference SKILL.md document exact CLI, env, and compound actions."""
         readme = (self.repo_root / "README.md").read_text(encoding="utf-8")
         skill_md = (
             self.repo_root / "skills" / "excel-tools-reference" / "SKILL.md"
@@ -78,12 +78,12 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
         self.assertIn("params", readme)
         self.assertIn("params", skill_md)
 
-        for actions in COMPOSE_REGISTRY.values():
+        for actions in COMPOUND_REGISTRY.values():
             for action_name in actions:
                 self.assertIn(
                     f"`{action_name}`",
                     skill_md,
-                    f"excel-tools-reference SKILL.md missing compose action '{action_name}'",
+                    f"excel-tools-reference SKILL.md missing compound action '{action_name}'",
                 )
 
     def test_all_tools_documented_in_tools_md(self) -> None:
@@ -107,7 +107,7 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
 
         excel_tool_pattern = re.compile(r"\b(excel_[a-z0-9_]+)\b")
 
-        valid_tools = self.registered_tools | self.compose_tools
+        valid_tools = self.registered_tools | self.compound_tools
         for skill_file in skill_files:
             text = skill_file.read_text(encoding="utf-8")
             matches = set(excel_tool_pattern.findall(text))

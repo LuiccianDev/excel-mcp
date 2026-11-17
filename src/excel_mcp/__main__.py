@@ -133,7 +133,7 @@ def root_entrypoint(
         str | None,
         typer.Option(
             "--tool-mode",
-            help="Tool registration mode: 'compose' (default, 8 compact tools) or 'full' (33 tools)",
+            help="Tool registration mode: 'compound' (default, 8 compact tools) or 'full' (33 tools)",
         ),
     ] = None,
 ) -> None:
@@ -158,7 +158,7 @@ def run_mcp_server(
         str | None,
         typer.Option(
             "--tool-mode",
-            help="Tool registration mode: 'compose' (default, 8 compact tools) or 'full' (33 tools)",
+            help="Tool registration mode: 'compound' (default, 8 compact tools) or 'full' (33 tools)",
         ),
     ] = None,
 ) -> None:

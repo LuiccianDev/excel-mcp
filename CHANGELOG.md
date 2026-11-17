@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Root CLI `--tool-mode` Support**: Added root Typer callback support for `--tool-mode` and `--path` forwarding across `server` and `list` commands in `excel_mcp.__main__`.
 
 ### Changed
+- **Compound Tool Mode Naming (`compound`)**: Renamed default `compose` mode (`compose_tools.py`, `COMPOSE_REGISTRY`, `ToolMode.COMPOSE`) to `compound` (`compound_tools.py`, `COMPOUND_REGISTRY`, `ToolMode.COMPOUND`), while accepting `compose` as a deprecated input alias.
 - **Single-Source Tool Registry & Mode-Aware Instructions**: Consolidated `full` and `compose` tool metadata into `COMPOSE_REGISTRY` (`ComposeActionSpec`) with `ToolMode` (`StrEnum`), removed duplicated registration tables from `register_tools.py`, and derived `server.py` MCP instructions dynamically from `COMPOSE_REGISTRY`.
 - **Documentation & Skill Synchronization**: Updated `README.md` and `skills/excel-tools-reference/SKILL.md` to document `v2.2.0` `compose` mode (8 default tools) and `full` mode opt-in (`EXCEL_MCP_MODE=full`, `server --tool-mode full`), and extended `tests/test_skills_in_sync.py` to guard both tool surfaces.
 

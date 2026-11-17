@@ -1,4 +1,4 @@
-"""Composed domain-grouped MCP tools for compact tool-surface mode.
+"""Compound domain-grouped MCP tools for compact tool-surface mode.
 
 Groups the 30 granular Excel operations into 5 action-dispatched domain tools
 (`excel_workbook`, `excel_data`, `excel_format`, `excel_formula`, `excel_analytics`)
@@ -27,8 +27,8 @@ from excel_mcp.tools import (
 
 
 @dataclass(frozen=True)
-class ComposeActionSpec:
-    """Metadata and target handler for a composed tool action."""
+class CompoundActionSpec:
+    """Metadata and target handler for a compound tool action."""
 
     handler: Callable[..., Any]
     summary: str
@@ -39,122 +39,122 @@ class ComposeActionSpec:
     def __post_init__(self) -> None:
         if self.read_only and self.destructive:
             raise ValueError(
-                f"ComposeActionSpec '{self.full_name}' cannot be both read_only and destructive."
+                f"CompoundActionSpec '{self.full_name}' cannot be both read_only and destructive."
             )
         if not self.full_name.startswith("excel_"):
             raise ValueError(
-                f"ComposeActionSpec full_name '{self.full_name}' must start with 'excel_'."
+                f"CompoundActionSpec full_name '{self.full_name}' must start with 'excel_'."
             )
 
 
-COMPOSE_REGISTRY: dict[str, dict[str, ComposeActionSpec]] = {
+COMPOUND_REGISTRY: dict[str, dict[str, CompoundActionSpec]] = {
     "workbook": {
-        "create": ComposeActionSpec(
+        "create": CompoundActionSpec(
             excel_tools.create_excel_workbook,
             "Create a new empty .xlsx workbook.",
             full_name="excel_create_workbook",
         ),
-        "list": ComposeActionSpec(
+        "list": CompoundActionSpec(
             excel_tools.list_excel_documents,
             "List .xlsx files in allowed directories.",
             read_only=True,
             full_name="excel_list_documents",
         ),
-        "metadata": ComposeActionSpec(
+        "metadata": CompoundActionSpec(
             format_tools.get_workbook_metadata,
             "Inspect workbook sheets, dimensions, and optional used ranges.",
             read_only=True,
             full_name="excel_get_workbook_metadata",
         ),
-        "create_sheet": ComposeActionSpec(
+        "create_sheet": CompoundActionSpec(
             excel_tools.create_excel_worksheet,
             "Add a new worksheet to an existing workbook.",
             full_name="excel_create_worksheet",
         ),
-        "copy_sheet": ComposeActionSpec(
+        "copy_sheet": CompoundActionSpec(
             format_tools.copy_worksheet,
             "Duplicate an existing worksheet within a workbook.",
             full_name="excel_copy_worksheet",
         ),
-        "delete_sheet": ComposeActionSpec(
+        "delete_sheet": CompoundActionSpec(
             format_tools.delete_worksheet,
             "Delete a worksheet from a workbook.",
             full_name="excel_delete_worksheet",
             destructive=True,
         ),
-        "rename_sheet": ComposeActionSpec(
+        "rename_sheet": CompoundActionSpec(
             format_tools.rename_worksheet,
             "Rename an existing worksheet.",
             full_name="excel_rename_worksheet",
         ),
     },
     "data": {
-        "read": ComposeActionSpec(
+        "read": CompoundActionSpec(
             content_tools.read_data_from_excel,
             "Read cell values or formatted metadata from a worksheet range.",
             read_only=True,
             full_name="excel_read_data",
         ),
-        "write": ComposeActionSpec(
+        "write": CompoundActionSpec(
             content_tools.write_data_to_excel,
             "Write a 2D matrix of values to a worksheet starting at start_cell.",
             full_name="excel_write_data",
         ),
-        "append_rows": ComposeActionSpec(
+        "append_rows": CompoundActionSpec(
             structure_tools.append_rows,
             "Append rows after the last populated row of a worksheet.",
             full_name="excel_append_rows",
         ),
-        "copy_range": ComposeActionSpec(
+        "copy_range": CompoundActionSpec(
             format_tools.copy_range,
             "Copy a cell range (values and formatting) to another location.",
             full_name="excel_copy_range",
         ),
-        "delete_range": ComposeActionSpec(
+        "delete_range": CompoundActionSpec(
             format_tools.delete_range,
             "Delete a cell range and shift remaining cells.",
             full_name="excel_delete_range",
             destructive=True,
         ),
-        "merge_cells": ComposeActionSpec(
+        "merge_cells": CompoundActionSpec(
             format_tools.merge_cells,
             "Merge a rectangular cell range.",
             full_name="excel_merge_cells",
         ),
-        "unmerge_cells": ComposeActionSpec(
+        "unmerge_cells": CompoundActionSpec(
             format_tools.unmerge_cells,
             "Unmerge a previously merged cell range.",
             full_name="excel_unmerge_cells",
         ),
-        "insert_rows_columns": ComposeActionSpec(
+        "insert_rows_columns": CompoundActionSpec(
             structure_tools.insert_rows_columns,
             "Insert rows or columns at a given index.",
             full_name="excel_insert_rows_columns",
         ),
-        "delete_rows_columns": ComposeActionSpec(
+        "delete_rows_columns": CompoundActionSpec(
             structure_tools.delete_rows_columns,
             "Delete rows or columns starting at a given index.",
             full_name="excel_delete_rows_columns",
             destructive=True,
         ),
-        "sort_range": ComposeActionSpec(
+        "sort_range": CompoundActionSpec(
             structure_tools.sort_range,
             "Sort a range by one or more columns.",
             full_name="excel_sort_range",
         ),
-        "validate_range": ComposeActionSpec(
+        "validate_range": CompoundActionSpec(
             format_tools.validate_excel_range,
             "Validate that a cell range is within worksheet bounds.",
             read_only=True,
             full_name="excel_validate_range",
         ),
-        "find_cells": ComposeActionSpec(
+        "find_cells": CompoundActionSpec(
             analysis_tools.find_cells,
             "Search for matching cell values or regex patterns.",
             read_only=True,
             full_name="excel_find_cells",
         ),
-        "profile_sheet": ComposeActionSpec(
+        "profile_sheet": CompoundActionSpec(
             analysis_tools.profile_sheet,
             "Compute column types, non-null counts, and summary statistics.",
             read_only=True,
@@ -162,57 +162,57 @@ COMPOSE_REGISTRY: dict[str, dict[str, ComposeActionSpec]] = {
         ),
     },
     "format": {
-        "format_range": ComposeActionSpec(
+        "format_range": CompoundActionSpec(
             format_tools.format_range_excel,
             "Apply font, fill, border, alignment, and number formatting to a range.",
             full_name="excel_format_range",
         ),
-        "format_sheet": ComposeActionSpec(
+        "format_sheet": CompoundActionSpec(
             structure_tools.format_sheet,
             "Apply sheet-level styling, column widths, row heights, or freeze panes.",
             full_name="excel_format_sheet",
         ),
-        "create_table": ComposeActionSpec(
+        "create_table": CompoundActionSpec(
             structure_tools.create_table,
             "Convert a cell range into a native Excel Table.",
             full_name="excel_create_table",
         ),
-        "add_data_validation": ComposeActionSpec(
+        "add_data_validation": CompoundActionSpec(
             validation_tools.add_data_validation,
             "Attach dropdown, numeric, or custom data validation rules.",
             full_name="excel_add_data_validation",
         ),
-        "protect_sheet": ComposeActionSpec(
+        "protect_sheet": CompoundActionSpec(
             protection_tools.protect_sheet,
             "Enable or disable worksheet protection.",
             full_name="excel_protect_sheet",
         ),
-        "configure_page_setup": ComposeActionSpec(
+        "configure_page_setup": CompoundActionSpec(
             page_tools.configure_page_setup,
             "Configure print orientation, paper size, margins, and scaling.",
             full_name="excel_configure_page_setup",
         ),
     },
     "formula": {
-        "validate": ComposeActionSpec(
+        "validate": CompoundActionSpec(
             formulas_excel_tools.validate_formula_syntax,
             "Validate Excel formula syntax without modifying the workbook.",
             read_only=True,
             full_name="excel_validate_formula_syntax",
         ),
-        "apply": ComposeActionSpec(
+        "apply": CompoundActionSpec(
             formulas_excel_tools.apply_formula_excel,
             "Validate and write a formula into a target cell.",
             full_name="excel_apply_formula",
         ),
     },
     "analytics": {
-        "create_chart": ComposeActionSpec(
+        "create_chart": CompoundActionSpec(
             graphics_tools.create_chart,
             "Create a native bar, line, pie, or scatter chart.",
             full_name="excel_create_chart",
         ),
-        "create_pivot_table": ComposeActionSpec(
+        "create_pivot_table": CompoundActionSpec(
             graphics_tools.create_pivot_table,
             "Create a pivot table summary from a source range.",
             full_name="excel_create_pivot_table",
@@ -234,18 +234,18 @@ def _normalize_result(result: Any) -> dict[str, Any]:
     return {"status": "success", "data": result}
 
 
-async def dispatch_composed_action(
+async def dispatch_compound_action(
     group: str,
     action: str,
     filename: str | None = None,
     params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Validate and dispatch a composed tool action directly to its handler."""
-    group_actions = COMPOSE_REGISTRY.get(group)
+    """Validate and dispatch a compound tool action directly to its handler."""
+    group_actions = COMPOUND_REGISTRY.get(group)
     if group_actions is None:
         return {
             "status": "error",
-            "message": f"Unknown compose group '{group}'.",
+            "message": f"Unknown compound group '{group}'.",
         }
 
     spec = group_actions.get(action)
@@ -342,7 +342,7 @@ async def excel_workbook(
         - `delete_sheet`: Delete a worksheet (`filename`, `sheet_name`).
         - `rename_sheet`: Rename a worksheet (`filename`, `old_name`, `new_name`).
     """
-    return await dispatch_composed_action("workbook", action, filename, params)
+    return await dispatch_compound_action("workbook", action, filename, params)
 
 
 async def excel_data(
@@ -371,7 +371,7 @@ async def excel_data(
         - `merge_cells`, `unmerge_cells`, `insert_rows_columns`, `delete_rows_columns`
         - `sort_range`, `validate_range`, `find_cells`, `profile_sheet`
     """
-    return await dispatch_composed_action("data", action, filename, params)
+    return await dispatch_compound_action("data", action, filename, params)
 
 
 async def excel_format(
@@ -392,7 +392,7 @@ async def excel_format(
         - `format_range`, `format_sheet`, `create_table`
         - `add_data_validation`, `protect_sheet`, `configure_page_setup`
     """
-    return await dispatch_composed_action("format", action, filename, params)
+    return await dispatch_compound_action("format", action, filename, params)
 
 
 async def excel_formula(
@@ -406,7 +406,7 @@ async def excel_formula(
         - `validate`: Check formula syntax without writing (`filename`, `sheet_name`, `cell`, `formula`).
         - `apply`: Validate and write formula (`filename`, `sheet_name`, `cell`, `formula`).
     """
-    return await dispatch_composed_action("formula", action, filename, params)
+    return await dispatch_compound_action("formula", action, filename, params)
 
 
 async def excel_analytics(
@@ -420,4 +420,4 @@ async def excel_analytics(
         - `create_chart`: Add a bar, line, pie, or scatter chart.
         - `create_pivot_table`: Summarize a data range into a pivot table.
     """
-    return await dispatch_composed_action("analytics", action, filename, params)
+    return await dispatch_compound_action("analytics", action, filename, params)

@@ -32,9 +32,9 @@ class TestRegisterTools(unittest.TestCase):
     ) -> None:
         """Verify default is compose (8 tools) and EXCEL_MCP_MODE=full registers 33 canonical tools."""
         with patch.dict(os.environ, {}, clear=True):
-            compose_mcp = MockFastMCP()
-            register_all_tools(compose_mcp)
-            self.assertEqual(len(compose_mcp.registered_tools), 8)
+            compound_mcp = MockFastMCP()
+            register_all_tools(compound_mcp)
+            self.assertEqual(len(compound_mcp.registered_tools), 8)
 
         with patch.dict(os.environ, {"EXCEL_MCP_MODE": "full"}, clear=True):
             mock_mcp = MockFastMCP()

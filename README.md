@@ -23,7 +23,7 @@ Designed from the ground up for maximum token efficiency, it replaces chatty mic
 
 ## Key Architectural Highlights
 
-- **Compact Compose Mode by Default (v2.2.0)**: Registers 8 tools by default (3 single-pass tools plus 5 action-dispatched domain tools: `excel_workbook`, `excel_data`, `excel_format`, `excel_formula`, `excel_analytics`) to minimize tool-schema token overhead, with opt-in to all 33 granular tools via `EXCEL_MCP_MODE=full` or `server --tool-mode full`.
+- **Compact Compound Mode by Default (v2.2.0)**: Registers 8 tools by default (3 single-pass tools plus 5 action-dispatched domain tools: `excel_workbook`, `excel_data`, `excel_format`, `excel_formula`, `excel_analytics`) to minimize tool-schema token overhead, with opt-in to all 33 granular tools via `EXCEL_MCP_MODE=full` or `server --tool-mode full`.
 - **Single-Pass Workbook Builder**: Create complete, multi-sheet, publication-ready workbooks (compact `<=12pt` title banners, table headers, alternating row colors, accounting borders, auto-calculated totals, currency formatting, per-sheet `freeze_panes` / `auto_filter`, and native charts) in **one single MCP call** (`excel_build_workbook`).
 - **Uniform Typography & Design Presets**: Built-in visual standards (`corporate`, `financial`, `modern`, `compact`) paired with optional `font_name` and `font_size` overrides to enforce uniform `Calibri 11pt`, `Arial 11pt`, or any user-requested font across the entire workbook.
 - **Dynamic Formula Discipline**: Native support for validated live Excel formulas (`SUM`, `AVERAGE`, `IFERROR`, `SUMIF`, cross-sheet references) without hardcoded static results.
@@ -46,7 +46,7 @@ uvx luiccian-excel-mcp
 
 ## MCP Client Configuration
 
-Configure your AI client by passing environment variables directly in the client's `env` block (no `.env` file is required). By default, the server starts in `compose` mode (8 tools); set `"EXCEL_MCP_MODE": "full"` in `env` or pass `--tool-mode full` (e.g., `["luiccian-excel-mcp", "--tool-mode", "full"]` or `server --tool-mode full`) to expose all 33 granular tools.
+Configure your AI client by passing environment variables directly in the client's `env` block (no `.env` file is required). By default, the server starts in `compound` mode (8 tools); set `"EXCEL_MCP_MODE": "full"` in `env` or pass `--tool-mode full` (e.g., `["luiccian-excel-mcp", "--tool-mode", "full"]` or `server --tool-mode full`) to expose all 33 granular tools.
 
 ### 1. Claude Desktop (`claude_desktop_config.json`)
 
@@ -170,7 +170,7 @@ All runtime configuration is supplied via standard OS environment variables or t
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `MCP_ALLOWED_DIRECTORIES` | *(current directory)* | Comma-separated list of allowed root directories for reading, writing, and listing `.xlsx` files. |
-| `EXCEL_MCP_MODE` | `compose` | Tool surface mode: `compose` (8 tools: 3 single-pass + 5 domain dispatchers) or `full` (all 33 granular tools). |
+| `EXCEL_MCP_MODE` | `compound` | Tool surface mode: `compound` (8 tools: 3 single-pass + 5 domain dispatchers) or `full` (all 33 granular tools). |
 | `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). |
 | `DEV_MODE` | `false` | Enables verbose development diagnostics when set to `true`. |
 
@@ -194,7 +194,7 @@ All runtime configuration is supplied via standard OS environment variables or t
 
 The repository includes pre-built agent skills under `skills/`:
 
-- **`excel-tools-reference`**: Authoritative encyclopedia and decision matrix covering the default `compose` surface (8 tools) and all 33 canonical tools in `full` mode, signatures, spreadsheet engineering standards, and safety rules.
+- **`excel-tools-reference`**: Authoritative encyclopedia and decision matrix covering the default `compound` surface (8 tools) and all 33 canonical tools in `full` mode, signatures, spreadsheet engineering standards, and safety rules.
 - **`excel-spreadsheet-creator`**: Single-pass synthesis featuring 3 distinct layout patterns (Operations Ledger, Multi-Tab Model with `Assumptions`, and KPI Dashboard), uniform `11pt` default typography (honoring user font overrides), uncluttered layouts, and 100% dynamic Excel formulas.
 - **`excel-spreadsheet-editor`**: Lightweight structural inspection, atomic batch matrix writes, row appending, typography preservation, uncluttered organization, and in-place sorting.
 - **`excel-spreadsheet-analyzer`**: Context-efficient sampling, statistical column profiling (`excel_profile_sheet`), targeted cell discovery (`excel_find_cells`), and hardcoded-calculation / layout hygiene audits.
@@ -203,9 +203,9 @@ The repository includes pre-built agent skills under `skills/`:
 
 ## Tool Taxonomy
 
-Starting in `v2.2.0`, the server defaults to `compose` mode (8 tools) and exposes all 33 granular `excel_*` tools when `EXCEL_MCP_MODE=full` or `server --tool-mode full` is set. Each domain dispatcher accepts `(action, filename=None, params=None)`; for the underlying `full`-mode parameter schemas (`params` keys), see [docs/TOOLS.md](docs/TOOLS.md).
+Starting in `v2.2.0`, the server defaults to `compound` mode (8 tools) and exposes all 33 granular `excel_*` tools when `EXCEL_MCP_MODE=full` or `server --tool-mode full` is set. Each domain dispatcher accepts `(action, filename=None, params=None)`; for the underlying `full`-mode parameter schemas (`params` keys), see [docs/TOOLS.md](docs/TOOLS.md).
 
-### Default `compose` Mode (8 Tools)
+### Default `compound` Mode (8 Tools)
 
 | Category | Tool Name | Type | Actions / Purpose |
 | :--- | :--- | :--- | :--- |
