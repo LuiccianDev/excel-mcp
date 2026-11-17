@@ -25,7 +25,12 @@ except ImportError:
         FastMCP = Any  # type: ignore
 
 from excel_mcp import __version__
-from excel_mcp.tools.register_tools import register_all_tools
+from excel_mcp.tools.compose_tools import COMPOSE_REGISTRY
+from excel_mcp.tools.register_tools import (
+    ToolMode,
+    normalize_tool_mode,
+    register_all_tools,
+)
 from excel_mcp.utils.security import get_allowed_directories
 
 logging.basicConfig(
@@ -36,12 +41,35 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def create_server() -> FastMCP:
-    """Create and configure the Excel MCP Server instance."""
-    allowed_dirs = get_allowed_directories()
+def build_server_instructions(mode: str, allowed_dirs: list[Any]) -> str:
+    """Build mode-aware MCP server instructions derived from COMPOSE_REGISTRY."""
+    resolved_mode = normalize_tool_mode(mode)
     dirs_list = "\n".join([f"- `{d}`" for d in allowed_dirs])
+    single_pass_count = 3
+    if resolved_mode == ToolMode.COMPOSE:
+        total_tools = single_pass_count + len(COMPOSE_REGISTRY)
+        lines = [
+            f"- **`excel_{group}`**: Action-dispatched ({', '.join(f'`{action}`' for action in actions)})."
+            for group, actions in COMPOSE_REGISTRY.items()
+        ]
+        surface_section = (
+            f"### Active Tool Surface (`compose` mode, {total_tools} tools)\n"
+            + "\n".join(lines)
+        )
+    else:
+        total_tools = single_pass_count + sum(
+            len(actions) for actions in COMPOSE_REGISTRY.values()
+        )
+        lines = [
+            f"- **`{group}`**: {', '.join(f'`{spec.full_name}`' for spec in actions.values())}."
+            for group, actions in COMPOSE_REGISTRY.items()
+        ]
+        surface_section = (
+            f"### Active Tool Surface (`full` mode, {total_tools} tools)\n"
+            + "\n".join(lines)
+        )
 
-    instructions = f"""# Excel MCP Server
+    return f"""# Excel MCP Server
 
 High-performance Model Context Protocol (MCP) server for programmatic Excel (.xlsx) spreadsheet generation, analysis, and manipulation.
 
@@ -52,12 +80,7 @@ High-performance Model Context Protocol (MCP) server for programmatic Excel (.xl
 - **`excel_get_workbook_outline`**: Extract structural outlines (sheet names, dimensions, column headers, formula presence) without dumping full data grids into context.
 - **`excel_batch_write_data`**: Insert 2D matrices of values and formulas into worksheets in a single atomic pass.
 
-### Standard Spreadsheet Operations
-- **Workbook management**: Create, copy, rename, delete worksheets, and retrieve metadata.
-- **Data operations**: Read ranges, write cells, merge/unmerge cells, copy and delete cell ranges.
-- **Formatting**: Fonts, borders, background fills, number formats (accounting, currency, percent).
-- **Formulas**: Apply formulas (`SUM`, `AVERAGE`, `VLOOKUP`, etc.) and validate syntax.
-- **Graphics & Analytics**: Native bar/line/pie charts and pivot tables.
+{surface_section}
 
 ## Single-Pass Construction Directive (Mandatory for AI Assistants)
 
@@ -77,9 +100,17 @@ High-performance Model Context Protocol (MCP) server for programmatic Excel (.xl
 
 ## Tool Naming
 
-All tools use the `excel_` prefix for clarity (e.g., `excel_build_workbook`, `excel_create_excel_workbook`).
-Legacy unprefixed aliases are opt-in: set `EXCEL_MCP_LEGACY_ALIASES=1` to register them.
+All tools use the `excel_` prefix for clarity (e.g., `excel_build_workbook`, `excel_workbook`).
+Set `EXCEL_MCP_MODE=full` (or launch `server --tool-mode full`) for all 33 granular tools; legacy unprefixed aliases require `EXCEL_MCP_LEGACY_ALIASES=1`.
 """
+
+
+def create_server(mode: str | None = None) -> FastMCP:
+    """Create and configure the Excel MCP Server instance."""
+    resolved_mode = normalize_tool_mode(mode)
+
+    allowed_dirs = get_allowed_directories()
+    instructions = build_server_instructions(resolved_mode, allowed_dirs)
 
     mcp = FastMCP(
         name="excel_mcp",
@@ -88,7 +119,7 @@ Legacy unprefixed aliases are opt-in: set `EXCEL_MCP_LEGACY_ALIASES=1` to regist
         on_duplicate="error",
     )
 
-    register_all_tools(mcp)
+    register_all_tools(mcp, mode=resolved_mode)
     return mcp
 
 
@@ -100,9 +131,9 @@ def configure_warning_filters() -> None:
 configure_warning_filters()
 
 
-def run_server() -> FastMCP:
+def run_server(mode: str | None = None) -> FastMCP:
     """Backward-compatible helper to instantiate and return configured server."""
-    return create_server()
+    return create_server(mode=mode)
 
 
 def run_stdio(server: Any) -> None:

@@ -8,14 +8,11 @@ checks.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
-import openpyxl
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from excel_mcp.core._io import atomic_save
-from excel_mcp.exceptions.exception_core import SheetNotFoundError
+from excel_mcp.core._io import resolve_sheet, workbook_session
 from excel_mcp.exceptions.exception_tools import ValidationError
 from excel_mcp.utils.cell_utils import parse_cell_range
 
@@ -37,15 +34,6 @@ VALID_OPERATORS = frozenset(
         "lessThanOrEqual",
     }
 )
-
-
-def _get_sheet(wb: openpyxl.Workbook, sheet_name: str | None = None) -> Any:
-    """Return the target worksheet or the active sheet when no name is given."""
-    if sheet_name:
-        if sheet_name not in wb.sheetnames:
-            raise SheetNotFoundError(f"Worksheet '{sheet_name}' not found in workbook.")
-        return wb[sheet_name]
-    return wb.active
 
 
 def add_data_validation(
@@ -87,9 +75,6 @@ def add_data_validation(
         SheetNotFoundError: If ``sheet_name`` is not present.
         ValidationError: If the type, operator, range or formulas are invalid.
     """
-    if not os.path.exists(filename):
-        raise FileNotFoundError(f"Workbook not found: {filename}")
-
     if validation_type not in VALID_VALIDATION_TYPES:
         raise ValidationError(
             f"Unsupported validation type '{validation_type}'. "
@@ -121,9 +106,8 @@ def add_data_validation(
     except ValueError as exc:
         raise ValidationError(f"Invalid cell range '{cell_range}': {exc}") from exc
 
-    wb = openpyxl.load_workbook(filename)
-    try:
-        ws = _get_sheet(wb, sheet_name)
+    with workbook_session(filename, mode="edit") as wb:
+        ws = resolve_sheet(wb, sheet_name)
 
         validation = DataValidation(
             type=validation_type,
@@ -144,12 +128,10 @@ def add_data_validation(
             validation.showErrorMessage = True
 
         ws.add_data_validation(validation)
-        atomic_save(wb, filename)
-    finally:
-        wb.close()
+        title = ws.title
 
     return {
-        "sheet": ws.title,
+        "sheet": title,
         "range": cell_range,
         "validation_type": validation_type,
         "operator": None if validation_type == "list" else operator,
