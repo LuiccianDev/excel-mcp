@@ -46,7 +46,7 @@ uvx luiccian-excel-mcp
 
 ## MCP Client Configuration
 
-Configure your AI client by passing environment variables directly in the client's `env` block (no `.env` file is required). By default, the server starts in `compose` mode (8 tools); set `"EXCEL_MCP_MODE": "full"` in `env` or use `"args": ["luiccian-excel-mcp", "server", "--tool-mode", "full"]` (`server --tool-mode full`) to expose all 33 granular tools.
+Configure your AI client by passing environment variables directly in the client's `env` block (no `.env` file is required). By default, the server starts in `compose` mode (8 tools); set `"EXCEL_MCP_MODE": "full"` in `env` or pass `--tool-mode full` (e.g., `["luiccian-excel-mcp", "--tool-mode", "full"]` or `server --tool-mode full`) to expose all 33 granular tools.
 
 ### 1. Claude Desktop (`claude_desktop_config.json`)
 

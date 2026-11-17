@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Unified Workbook Session Lifecycle**: Added `workbook_session` and `resolve_sheet` in `excel_mcp.core._io` with atomic save on clean write exits, strict guards against `mode="read", save=True` and `data_only=True` writes, and sheet-name validation; migrated `protection`, `page_setup`, `data_validation`, and `workbook` context managers.
+- **Root CLI `--tool-mode` Support**: Added root Typer callback support for `--tool-mode` and `--path` forwarding across `server` and `list` commands in `excel_mcp.__main__`.
+
 ### Changed
-- **Documentation & Skill Synchronization**: Updated `README.md` and `skills/excel-tools-reference/SKILL.md` to document `v2.2.0` `compose` mode (8 default tools) and `full` mode opt-in (`EXCEL_MCP_MODE=full`, `--tool-mode full`), and extended `tests/test_skills_in_sync.py` to guard both tool surfaces.
+- **Single-Source Tool Registry & Mode-Aware Instructions**: Consolidated `full` and `compose` tool metadata into `COMPOSE_REGISTRY` (`ComposeActionSpec`) with `ToolMode` (`StrEnum`), removed duplicated registration tables from `register_tools.py`, and derived `server.py` MCP instructions dynamically from `COMPOSE_REGISTRY`.
+- **Documentation & Skill Synchronization**: Updated `README.md` and `skills/excel-tools-reference/SKILL.md` to document `v2.2.0` `compose` mode (8 default tools) and `full` mode opt-in (`EXCEL_MCP_MODE=full`, `server --tool-mode full`), and extended `tests/test_skills_in_sync.py` to guard both tool surfaces.
 
 ---
 
