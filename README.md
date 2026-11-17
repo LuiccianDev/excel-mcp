@@ -172,7 +172,6 @@ All runtime configuration is supplied via standard OS environment variables or t
 | `MCP_ALLOWED_DIRECTORIES` | *(current directory)* | Comma-separated list of allowed root directories for reading, writing, and listing `.xlsx` files. |
 | `EXCEL_MCP_MODE` | `compose` | Tool surface mode: `compose` (8 tools: 3 single-pass + 5 domain dispatchers) or `full` (all 33 granular tools). |
 | `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). |
-| `EXCEL_MCP_LEGACY_ALIASES` | `false` | Set to `true` or `1` to register unprefixed legacy aliases alongside canonical `excel_*` names (implicitly selects `full` mode when `EXCEL_MCP_MODE` is unset; ignored in `compose` mode). |
 | `DEV_MODE` | `false` | Enables verbose development diagnostics when set to `true`. |
 
 ---

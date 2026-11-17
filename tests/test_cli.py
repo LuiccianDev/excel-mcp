@@ -45,12 +45,12 @@ def test_create_server_reports_package_version(monkeypatch):
     assert _Recorder.captured["name"] == "excel_mcp"
 
 
-def test_instructions_describe_opt_in_aliases(monkeypatch):
+def test_instructions_omit_legacy_aliases(monkeypatch):
     monkeypatch.setattr(server_module, "FastMCP", _Recorder)
     server_module.create_server()
     instructions = _Recorder.captured["instructions"]
     assert "also registered" not in instructions
-    assert "EXCEL_MCP_LEGACY_ALIASES" in instructions
+    assert "EXCEL_MCP_LEGACY_ALIASES" not in instructions
 
 
 def test_main_supports_root_tool_mode_flag(monkeypatch):

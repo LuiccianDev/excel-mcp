@@ -36,7 +36,6 @@ class _ToolCollector:
 def test_compose_mode_registers_eight_tools(monkeypatch: pytest.MonkeyPatch) -> None:
     """Default compose mode exposes 8 tools and EXCEL_MCP_MODE=full switches to 33."""
     monkeypatch.delenv("EXCEL_MCP_MODE", raising=False)
-    monkeypatch.delenv("EXCEL_MCP_LEGACY_ALIASES", raising=False)
     assert get_tool_mode() == "compose"
 
     collector = _ToolCollector()

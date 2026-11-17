@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Single-Source Tool Registry & Mode-Aware Instructions**: Consolidated `full` and `compose` tool metadata into `COMPOSE_REGISTRY` (`ComposeActionSpec`) with `ToolMode` (`StrEnum`), removed duplicated registration tables from `register_tools.py`, and derived `server.py` MCP instructions dynamically from `COMPOSE_REGISTRY`.
 - **Documentation & Skill Synchronization**: Updated `README.md` and `skills/excel-tools-reference/SKILL.md` to document `v2.2.0` `compose` mode (8 default tools) and `full` mode opt-in (`EXCEL_MCP_MODE=full`, `server --tool-mode full`), and extended `tests/test_skills_in_sync.py` to guard both tool surfaces.
 
+### Removed
+- **Legacy Unprefixed Tool Aliases**: Removed `EXCEL_MCP_LEGACY_ALIASES`, `should_register_legacy_aliases()`, and `legacy_aliases` metadata so only canonical `excel_*` tool names are registered.
+
 ---
 
 ## [2.2.0] - 2026-11-16

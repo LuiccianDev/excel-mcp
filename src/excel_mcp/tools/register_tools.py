@@ -6,7 +6,6 @@ and inspection tools with the FastMCP server.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from enum import StrEnum
 import logging
 import os
@@ -46,24 +45,11 @@ def normalize_tool_mode(mode: str | None) -> ToolMode:
         ) from exc
 
 
-def should_register_legacy_aliases() -> bool:
-    """Check if legacy unprefixed and redundant aliases should be registered."""
-    val = os.environ.get("EXCEL_MCP_LEGACY_ALIASES", "").strip().lower()
-    return val in ("1", "true", "yes")
-
-
 def get_tool_mode() -> ToolMode:
     """Return the configured MCP tool surface mode ('compose' default or 'full')."""
     raw = os.environ.get("EXCEL_MCP_MODE", "").strip().lower()
     if raw in (ToolMode.FULL, ToolMode.COMPOSE):
         return ToolMode(raw)
-    if should_register_legacy_aliases():
-        if raw:
-            logger.warning(
-                "Unrecognized EXCEL_MCP_MODE=%r; using 'full' because EXCEL_MCP_LEGACY_ALIASES is enabled.",
-                raw,
-            )
-        return ToolMode.FULL
     if raw:
         logger.warning("Unrecognized EXCEL_MCP_MODE=%r; defaulting to 'compose'.", raw)
     return ToolMode.COMPOSE
@@ -76,44 +62,21 @@ def register_all_tools(mcp: Any, mode: str | None = None) -> None:
     destructive = ToolAnnotations(read_only_hint=False, destructive_hint=True)
 
     resolved_mode = normalize_tool_mode(mode)
-    include_aliases = should_register_legacy_aliases()
 
     def _reg(
         canonical_name: str,
         fn: Any,
         annotations: ToolAnnotations,
-        legacy_aliases: Sequence[str] | None = None,
     ) -> None:
-        # Register canonical tool
         try:
             mcp.tool(name=canonical_name, annotations=annotations)(fn)
         except TypeError:
             mcp.tool(name=canonical_name)(fn)
 
-        # Register legacy aliases if enabled via EXCEL_MCP_LEGACY_ALIASES=1
-        if include_aliases and legacy_aliases and resolved_mode != "compose":
-            for alias in legacy_aliases:
-                if alias == canonical_name:
-                    continue
-                try:
-                    mcp.tool(name=alias, annotations=annotations)(fn)
-                except TypeError:
-                    mcp.tool(name=alias)(fn)
-
     # 1. BATCH & SINGLE-PASS TOOLS (always registered in both modes)
-    _reg("excel_build_workbook", batch_tools.build_workbook, write, ["build_workbook"])
-    _reg(
-        "excel_get_workbook_outline",
-        batch_tools.get_workbook_outline,
-        read_only,
-        ["get_workbook_outline"],
-    )
-    _reg(
-        "excel_batch_write_data",
-        batch_tools.batch_write_data,
-        write,
-        ["batch_write_data"],
-    )
+    _reg("excel_build_workbook", batch_tools.build_workbook, write)
+    _reg("excel_get_workbook_outline", batch_tools.get_workbook_outline, read_only)
+    _reg("excel_batch_write_data", batch_tools.batch_write_data, write)
 
     if resolved_mode == "compose":
         _reg("excel_workbook", compose_tools.excel_workbook, write)
@@ -135,9 +98,6 @@ def register_all_tools(mcp: Any, mode: str | None = None) -> None:
                 spec.full_name,
                 spec.handler,
                 annotations,
-                spec.legacy_aliases,
             )
 
-    logger.info(
-        f"Excel MCP tools registered in full mode (legacy_aliases_enabled={include_aliases})."
-    )
+    logger.info("Excel MCP tools registered in full mode (33 canonical tools).")

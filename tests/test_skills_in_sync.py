@@ -33,16 +33,12 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
         cls.repo_root = Path(__file__).resolve().parent.parent
 
         # Capture canonical registered tools (full mode) and compose-mode tools
-        with patch.dict(
-            os.environ, {"EXCEL_MCP_LEGACY_ALIASES": "0", "EXCEL_MCP_MODE": "full"}
-        ):
+        with patch.dict(os.environ, {"EXCEL_MCP_MODE": "full"}):
             mcp = MockMCP()
             register_all_tools(mcp)
             cls.registered_tools = mcp.tools
 
-        with patch.dict(
-            os.environ, {"EXCEL_MCP_LEGACY_ALIASES": "0", "EXCEL_MCP_MODE": "compose"}
-        ):
+        with patch.dict(os.environ, {"EXCEL_MCP_MODE": "compose"}):
             compose_mcp = MockMCP()
             register_all_tools(compose_mcp)
             cls.compose_tools = compose_mcp.tools
