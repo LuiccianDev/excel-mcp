@@ -6,6 +6,8 @@ and inspection tools with the FastMCP server.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from enum import StrEnum
 import logging
 import os
 from typing import Any
@@ -24,22 +26,47 @@ from excel_mcp.tools import batch_tools, compose_tools
 logger = logging.getLogger(__name__)
 
 
+class ToolMode(StrEnum):
+    """Supported MCP tool surface modes."""
+
+    COMPOSE = "compose"
+    FULL = "full"
+
+
+def normalize_tool_mode(mode: str | None) -> ToolMode:
+    """Normalize and validate an explicit tool mode string."""
+    if mode is None:
+        return get_tool_mode()
+    normalized = mode.strip().lower()
+    try:
+        return ToolMode(normalized)
+    except ValueError as exc:
+        raise ValueError(
+            f"Invalid tool mode '{mode}': expected 'compose' or 'full'."
+        ) from exc
+
+
 def should_register_legacy_aliases() -> bool:
     """Check if legacy unprefixed and redundant aliases should be registered."""
     val = os.environ.get("EXCEL_MCP_LEGACY_ALIASES", "").strip().lower()
     return val in ("1", "true", "yes")
 
 
-def get_tool_mode() -> str:
+def get_tool_mode() -> ToolMode:
     """Return the configured MCP tool surface mode ('compose' default or 'full')."""
     raw = os.environ.get("EXCEL_MCP_MODE", "").strip().lower()
-    if raw in ("full", "compose"):
-        return raw
+    if raw in (ToolMode.FULL, ToolMode.COMPOSE):
+        return ToolMode(raw)
+    if should_register_legacy_aliases():
+        if raw:
+            logger.warning(
+                "Unrecognized EXCEL_MCP_MODE=%r; using 'full' because EXCEL_MCP_LEGACY_ALIASES is enabled.",
+                raw,
+            )
+        return ToolMode.FULL
     if raw:
         logger.warning("Unrecognized EXCEL_MCP_MODE=%r; defaulting to 'compose'.", raw)
-    if should_register_legacy_aliases():
-        return "full"
-    return "compose"
+    return ToolMode.COMPOSE
 
 
 def register_all_tools(mcp: Any, mode: str | None = None) -> None:
@@ -48,16 +75,14 @@ def register_all_tools(mcp: Any, mode: str | None = None) -> None:
     write = ToolAnnotations(read_only_hint=False)
     destructive = ToolAnnotations(read_only_hint=False, destructive_hint=True)
 
-    resolved_mode = (mode if mode is not None else get_tool_mode()).strip().lower()
-    if resolved_mode not in ("compose", "full"):
-        raise ValueError(f"Invalid tool mode '{mode}': expected 'compose' or 'full'.")
+    resolved_mode = normalize_tool_mode(mode)
     include_aliases = should_register_legacy_aliases()
 
     def _reg(
         canonical_name: str,
         fn: Any,
         annotations: ToolAnnotations,
-        legacy_aliases: list[str] | None = None,
+        legacy_aliases: Sequence[str] | None = None,
     ) -> None:
         # Register canonical tool
         try:
@@ -110,7 +135,7 @@ def register_all_tools(mcp: Any, mode: str | None = None) -> None:
                 spec.full_name,
                 spec.handler,
                 annotations,
-                list(spec.legacy_aliases),
+                spec.legacy_aliases,
             )
 
     logger.info(

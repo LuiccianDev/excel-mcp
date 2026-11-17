@@ -32,7 +32,7 @@ def test_main_keeps_stdout_clean(monkeypatch, capsys):
     from excel_mcp import __main__ as cli
 
     monkeypatch.setattr(sys, "argv", ["excel-mcp"])
-    monkeypatch.setattr(cli, "run_server", lambda: _FakeServer())
+    monkeypatch.setattr(cli, "run_server", lambda mode=None: _FakeServer())
     cli.main()
     captured = capsys.readouterr()
     assert captured.out == ""
@@ -76,3 +76,37 @@ def test_main_rejects_invalid_root_tool_mode(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         cli.main()
     assert exc.value.code != 0
+
+
+def test_main_list_honors_root_path_and_rejects_tool_mode(
+    monkeypatch, tmp_path, capsys
+):
+    import os
+    import pytest
+    from excel_mcp import __main__ as cli
+    from excel_mcp.config import config_manager
+
+    original_config = config_manager._config
+    original_allowed = os.environ.get("MCP_ALLOWED_DIRECTORIES")
+    try:
+        sample = tmp_path / "report.xlsx"
+        sample.write_bytes(b"")
+        monkeypatch.setattr(sys, "argv", ["excel-mcp", "--path", str(tmp_path), "list"])
+        cli.main()
+        captured = capsys.readouterr()
+        assert "report.xlsx" in captured.out
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["excel-mcp", "--tool-mode", "full", "list"],
+        )
+        with pytest.raises(SystemExit) as exc:
+            cli.main()
+        assert exc.value.code != 0
+    finally:
+        config_manager._config = original_config
+        if original_allowed is None:
+            os.environ.pop("MCP_ALLOWED_DIRECTORIES", None)
+        else:
+            os.environ["MCP_ALLOWED_DIRECTORIES"] = original_allowed

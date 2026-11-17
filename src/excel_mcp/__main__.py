@@ -21,6 +21,7 @@ import typer
 
 from excel_mcp.config import ConfigurationError, config_manager
 from excel_mcp.server import run_server, run_stdio
+from excel_mcp.tools.register_tools import normalize_tool_mode
 
 
 # Configure logging for CLI operations
@@ -86,13 +87,11 @@ def _start_server(path: str | None = None, tool_mode: str | None = None) -> None
         validate_and_apply_configuration(path)
         normalized_mode: str | None = None
         if tool_mode is not None:
-            normalized_mode = tool_mode.strip().lower()
-            if normalized_mode not in ("full", "compose"):
-                typer.echo(
-                    f"Invalid --tool-mode '{tool_mode}': expected 'full' or 'compose'.",
-                    err=True,
-                )
-                raise typer.Exit(1)
+            try:
+                normalized_mode = normalize_tool_mode(tool_mode)
+            except ValueError as exc:
+                typer.echo(str(exc), err=True)
+                raise typer.Exit(1) from exc
 
         config = config_manager.config
         logger.info("Starting MCP Excel Office Server...")
@@ -101,21 +100,8 @@ def _start_server(path: str | None = None, tool_mode: str | None = None) -> None
         logger.info("Server ready. Listening on stdio transport...")
         logger.info("MCP server starting on stdio transport")
 
-        try:
-            server = (
-                run_server(mode=normalized_mode)
-                if normalized_mode is not None
-                else run_server()
-            )
-            run_stdio(server)
-        except ConfigurationError as config_error:
-            typer.echo(f"Configuration error: {config_error}", err=True)
-            logger.error(f"MCP server configuration failed: {config_error}")
-            raise typer.Exit(1) from config_error
-        except Exception as server_error:
-            typer.echo(f"Error initializing MCP server: {server_error}", err=True)
-            logger.error(f"MCP server initialization failed: {server_error}")
-            raise typer.Exit(1) from server_error
+        server = run_server(mode=normalized_mode)
+        run_stdio(server)
 
     except KeyboardInterrupt:
         typer.echo("\nServer stopped by user.", err=True)
@@ -123,10 +109,14 @@ def _start_server(path: str | None = None, tool_mode: str | None = None) -> None
         sys.exit(0)
     except typer.Exit:
         raise
+    except ConfigurationError as config_error:
+        typer.echo(f"Configuration error: {config_error}", err=True)
+        logger.error(f"MCP server configuration failed: {config_error}")
+        raise typer.Exit(1) from config_error
     except Exception as e:
         typer.echo(f"Unexpected error starting server: {e}", err=True)
         logger.error(f"Unexpected server startup error: {e}")
-        sys.exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.callback(invoke_without_command=True)
@@ -187,6 +177,7 @@ def run_mcp_server(
 
 @app.command("list")
 def list_excel_files(
+    ctx: typer.Context,
     path: Annotated[
         str | None,
         typer.Option(
@@ -201,8 +192,14 @@ def list_excel_files(
     This command provides a standalone way to discover Excel files without starting the MCP server.
     """
     try:
-        # Validate and apply configuration
-        validate_and_apply_configuration(path=path)
+        root_opts = ctx.obj if isinstance(ctx.obj, dict) else {}
+        if root_opts.get("tool_mode") is not None:
+            typer.echo(
+                "--tool-mode is only supported for the server command.", err=True
+            )
+            raise typer.Exit(1)
+        effective_path = path if path is not None else root_opts.get("path")
+        validate_and_apply_configuration(path=effective_path)
 
         # Get validated configuration
         config = config_manager.config
@@ -270,10 +267,6 @@ def main() -> None:
         typer.echo("\nOperation cancelled by user.", err=True)
         logger.info("Operation cancelled by user interrupt")
         sys.exit(0)
-    except typer.Exit as e:
-        # Re-raise typer.Exit to preserve exit codes
-        logger.info(f"CLI exited with code: {e.exit_code}")
-        raise
     except Exception as e:
         typer.echo(f"Unexpected error in MCP Excel CLI: {e}", err=True)
         logger.error(f"Unexpected CLI error: {e}", exc_info=True)

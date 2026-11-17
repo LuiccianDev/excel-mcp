@@ -37,6 +37,16 @@ class ComposeActionSpec:
     destructive: bool = False
     legacy_aliases: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        if self.read_only and self.destructive:
+            raise ValueError(
+                f"ComposeActionSpec '{self.full_name}' cannot be both read_only and destructive."
+            )
+        if not self.full_name.startswith("excel_"):
+            raise ValueError(
+                f"ComposeActionSpec full_name '{self.full_name}' must start with 'excel_'."
+            )
+
 
 COMPOSE_REGISTRY: dict[str, dict[str, ComposeActionSpec]] = {
     "workbook": {

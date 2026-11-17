@@ -13,10 +13,9 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from excel_mcp.core._io import atomic_save
+from excel_mcp.core._io import atomic_save, resolve_sheet, workbook_session
 from excel_mcp.exceptions.exception_core import (
     SheetExistsError,
-    SheetNotFoundError,
     ValidationError,
     WorkbookError,
     WorksheetError,
@@ -373,22 +372,12 @@ def managed_workbook(
             ws['A1'] = 'Data'
         # File saved and closed automatically
     """
-    wb = None
-    path = Path(filename).resolve()
-
-    try:
-        wb = get_or_create_workbook(path, read_only)
+    with workbook_session(
+        filename,
+        mode="read" if read_only else "upsert",
+        save=False if read_only else auto_save,
+    ) as wb:
         yield wb
-
-        if auto_save and not read_only:
-            atomic_save(wb, path)
-
-    except Exception:
-        # Re-raise exception after cleanup
-        raise
-    finally:
-        if wb:
-            wb.close()
 
 
 @contextmanager
@@ -416,15 +405,5 @@ def managed_worksheet(
             ws['A1'] = 'Value'
         # Changes saved automatically
     """
-    with managed_workbook(filename, auto_save=True) as wb:
-        if sheet_name not in wb.sheetnames:
-            if create_if_missing:
-                ws = wb.create_sheet(sheet_name)
-            else:
-                raise SheetNotFoundError(
-                    f"Sheet '{sheet_name}' not found in {filename}"
-                )
-        else:
-            ws = wb[sheet_name]
-
-        yield ws
+    with workbook_session(filename, mode="upsert") as wb:
+        yield resolve_sheet(wb, sheet_name, create_if_missing=create_if_missing)
