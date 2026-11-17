@@ -9,9 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Documentation & Skill Synchronization**: Updated `README.md` and `skills/excel-tools-reference/SKILL.md` to document `v2.2.0` `compose` mode (8 default tools) and `full` mode opt-in (`EXCEL_MCP_MODE=full`, `--tool-mode full`), and extended `tests/test_skills_in_sync.py` to guard both tool surfaces.
+
 ---
 
 ## [2.2.0] - 2026-11-16
+
+### Added
+- **Default Compact `compose` Tool Surface**: Added `compose_tools.py` grouping 30 granular operations into 5 action-dispatched domain tools (`excel_workbook`, `excel_data`, `excel_format`, `excel_formula`, `excel_analytics`) alongside the 3 single-pass tools (`8` tools by default), with `EXCEL_MCP_MODE=full` and `--tool-mode full` opt-in (PR #33).
 
 ### Changed
 - **Lightweight Release Pipeline**: Streamlined `release.yml` by removing redundant multi-version test execution during tag deployment, relying on the mandatory CI quality gate on PRs and `master`, reducing release jobs from 8 to 4.

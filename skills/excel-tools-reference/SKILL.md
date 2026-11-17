@@ -1,6 +1,6 @@
 ---
 name: excel-tools-reference
-description: "Authoritative toolkit encyclopedia and decision matrix for Excel MCP. Details exact canonical tool signatures, parameter schemas, format strings, formula rules, and error recovery across all 33 canonical tools."
+description: "Authoritative toolkit encyclopedia and decision matrix for Excel MCP. Details the default compose surface (8 tools), full-mode opt-in (33 canonical tools), parameter schemas, format strings, formula rules, and error recovery."
 argument-hint: "Tool name, functional category, or Excel task to look up"
 user-invocable: true
 disable-model-invocation: false
@@ -43,7 +43,21 @@ flowchart TD
 
 ---
 
-## 2. Complete Canonical Tool Inventory (33 Tools)
+## 2. Default Compose Mode (8 Tools) & Full Inventory (33 Tools)
+
+Starting in `v2.2.0`, `excel-mcp` defaults to `compose` mode (8 tools) to minimize tool-schema token overhead:
+
+- **Single-Pass Tools (3):** `excel_build_workbook`, `excel_get_workbook_outline`, `excel_batch_write_data`.
+- **Action-Dispatched Domain Tools (5):**
+  - `excel_workbook` (workbook, worksheet, row/column, and page-setup actions)
+  - `excel_data` (read, write, append, copy, and delete range actions)
+  - `excel_format` (table, sheet, range styling, merge, sort, and protection actions)
+  - `excel_formula` (formula validation, assignment, and data validation actions)
+  - `excel_analytics` (sheet profiling, cell search, charts, and pivot tables)
+
+To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_MODE=full` or launch with `--tool-mode full`.
+
+### Complete Canonical Tool Inventory (`full` Mode, 33 Tools)
 
 ### A. Batch & Single-Pass Tools (Priority 1)
 
