@@ -11,8 +11,6 @@ on:
       - '.gitignore'
       - '.gitattributes'
       - '.mcpbignore'
-      - '.dockerignore'
-      - 'Dockerfile'
       - '.vscode/**'
       - '.python-version'
       - 'LICENSE'

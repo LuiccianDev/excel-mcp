@@ -157,10 +157,6 @@ claude mcp add excel-mcp \
   -- uvx luiccian-excel-mcp
 ```
 
-### 7. Docker (`stdio`)
-
-For isolated containerized execution with volume-mounted directories, see [docs/Docker.md](docs/Docker.md).
-
 ---
 
 ## Environment Variables
