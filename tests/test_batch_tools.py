@@ -281,6 +281,107 @@ class TestBatchTools(unittest.TestCase):
         self.assertEqual(ws.auto_filter.ref, "A3:B5")
         wb.close()
 
+    def test_build_workbook_dynamic_totals_validations_and_multi_charts(self) -> None:
+        """Verify per-column auto_totals aggregations, inline data_validations, and charts list."""
+        target = os.path.join(self.temp_dir.name, "dynamic_report.xlsx")
+        res = build_workbook(
+            filename=target,
+            sheets=[
+                {
+                    "name": "KPI",
+                    "headers": ["Status", "Revenue", "Margin", "Items", "Sub"],
+                    "rows": [
+                        ["Open", 1000.0, 0.25, 2, 500.0],
+                        ["Closed", 2000.0, 0.35, 4, 700.0],
+                    ],
+                    "auto_totals": {
+                        "Revenue": "SUM",
+                        "Margin": "AVERAGE",
+                        "Items": "MAX",
+                        "Sub": "SUBTOTAL",
+                    },
+                    "data_validations": [
+                        {
+                            "range": "A2:A3",
+                            "type": "list",
+                            "formula1": '"Open,Closed"',
+                        }
+                    ],
+                    "charts": [
+                        {
+                            "type": "bar",
+                            "title": "Revenue",
+                            "data_column": 2,
+                            "label_column": 1,
+                        },
+                        {
+                            "type": "line",
+                            "title": "Margin",
+                            "data_column": 3,
+                            "label_column": 1,
+                            "position": "G2",
+                        },
+                    ],
+                }
+            ],
+        )
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["data"]["charts_created"], 2)
+
+        wb = openpyxl.load_workbook(target)
+        ws = wb["KPI"]
+        self.assertEqual(ws["B4"].value, "=SUM(B2:B3)")
+        self.assertEqual(ws["C4"].value, "=AVERAGE(C2:C3)")
+        self.assertEqual(ws["D4"].value, "=MAX(D2:D3)")
+        self.assertEqual(ws["E4"].value, "=SUBTOTAL(9,E2:E3)")
+        self.assertEqual(len(ws.data_validations.dataValidation), 1)
+        self.assertEqual(
+            ws.data_validations.dataValidation[0].formula1, '"Open,Closed"'
+        )
+        self.assertEqual(len(ws._charts), 2)
+        wb.close()
+
+    def test_build_workbook_zero_validation_json_totals_and_failed_chart_count(
+        self,
+    ) -> None:
+        """Verify formula1=0 validation, stringified JSON auto_totals keys, and chart count."""
+        target = os.path.join(self.temp_dir.name, "edge_cases.xlsx")
+        res = build_workbook(
+            filename=target,
+            sheets=[
+                {
+                    "name": "Edges",
+                    "headers": ["Item", "Qty", "Price"],
+                    "rows": [["Pen", 0, 2.5], ["Book", 5, 10.0]],
+                    "auto_totals": {"1": "SUM", "Price": "AVERAGE"},
+                    "data_validations": [
+                        {
+                            "range": "B2:B3",
+                            "validation_type": "whole",
+                            "operator": "greaterThanOrEqual",
+                            "formula1": 0,
+                        }
+                    ],
+                    "charts": {
+                        "type": "bar",
+                        "title": "Bad",
+                        "data_column": 999,
+                    },
+                }
+            ],
+        )
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["data"]["charts_created"], 0)
+        self.assertTrue(res["data"]["warnings"])
+
+        wb = openpyxl.load_workbook(target)
+        ws = wb["Edges"]
+        self.assertEqual(ws["B4"].value, "=SUM(B2:B3)")
+        self.assertEqual(ws["C4"].value, "=AVERAGE(C2:C3)")
+        self.assertEqual(len(ws.data_validations.dataValidation), 1)
+        self.assertEqual(ws.data_validations.dataValidation[0].formula1, "0")
+        wb.close()
+
 
 if __name__ == "__main__":
     unittest.main()

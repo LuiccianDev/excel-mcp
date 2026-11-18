@@ -341,3 +341,11 @@ class TestWriteData:
 
         with pytest.raises(InvalidCellReferenceError):
             write_data(test_file, "Sheet1", test_data, "invalid")
+
+    def test_read_excel_range_empty_sheet_name_raises(self, tmp_path: Path) -> None:
+        """Passing empty string sheet_name to read_excel_range must raise SheetNotFoundError."""
+        test_file = tmp_path / "test.xlsx"
+        write_data(test_file, "Sheet1", [["A", "B"], [1, 2]])
+
+        with pytest.raises(SheetNotFoundError):
+            read_excel_range(test_file, "")

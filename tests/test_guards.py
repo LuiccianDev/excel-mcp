@@ -63,6 +63,54 @@ class TestToolGuard(unittest.TestCase):
         self.assertEqual(res["error_type"], "ValidationError")
         self.assertIn("Invalid input range", res["message"])
 
+    def test_guarded_legacy_tool_modules_return_structured_error(self) -> None:
+        """Verify newly guarded tool functions convert unhandled errors via @tool_guard."""
+        import os
+        import tempfile
+        from unittest.mock import patch
+
+        from excel_mcp.tools.format_tools import delete_worksheet
+        from excel_mcp.tools.formulas_excel_tools import validate_formula_syntax
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            sample_path = os.path.join(tmp_dir, "sample.xlsx")
+            with (
+                patch.dict(os.environ, {"EXCEL_MCP_DIRS": tmp_dir}),
+                patch(
+                    "excel_mcp.tools.format_tools.delete_sheet",
+                    side_effect=SheetNotFoundError("Missing sheet"),
+                ),
+            ):
+                res = asyncio.run(
+                    delete_worksheet(filename=sample_path, sheet_name="Missing")
+                )
+            self.assertEqual(res["status"], "error")
+            self.assertEqual(res["error_type"], "SheetNotFoundError")
+            self.assertEqual(res["operation"], "delete_worksheet")
+            self.assertIsNotNone(res["filename"])
+            self.assertTrue(str(res["filename"]).endswith("sample.xlsx"))
+
+            with (
+                patch.dict(os.environ, {"EXCEL_MCP_DIRS": tmp_dir}),
+                patch(
+                    "excel_mcp.tools.formulas_excel_tools.validate_formula_in_cell_operation",
+                    side_effect=ValidationError("Bad syntax"),
+                ),
+            ):
+                res2 = asyncio.run(
+                    validate_formula_syntax(
+                        filename=sample_path,
+                        sheet_name="Sheet1",
+                        cell="A1",
+                        formula="=1+",
+                    )
+                )
+            self.assertEqual(res2["status"], "error")
+            self.assertEqual(res2["error_type"], "ValidationError")
+            self.assertEqual(res2["operation"], "validate_formula_syntax")
+            self.assertIsNotNone(res2["filename"])
+            self.assertTrue(str(res2["filename"]).endswith("sample.xlsx"))
+
 
 if __name__ == "__main__":
     unittest.main()

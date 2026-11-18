@@ -1,7 +1,6 @@
 from enum import Enum
 from typing import Any, cast
 
-from openpyxl import load_workbook
 from openpyxl.chart import (
     AreaChart,
     BarChart,
@@ -16,7 +15,7 @@ from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.legend import Legend
 from openpyxl.worksheet.worksheet import Worksheet
 
-from excel_mcp.core._io import atomic_save
+from excel_mcp.core._io import atomic_save, workbook_session
 from excel_mcp.utils.cell_utils import parse_cell_range
 
 
@@ -71,140 +70,146 @@ def create_chart_in_sheet(
 ) -> dict[str, Any]:
     """Create chart in sheet with enhanced styling options"""
     try:
-        wb = load_workbook(filename)
-        if sheet_name not in wb.sheetnames:
-            return {"status": "error", "message": f"Sheet '{sheet_name}' not found"}
-        worksheet = cast(Worksheet, wb[sheet_name])
-        if "!" in data_range:
-            range_sheet_name, cell_range = data_range.split("!")
-            if range_sheet_name not in wb.sheetnames:
+        with workbook_session(filename, mode="edit", save=False) as wb:
+            if sheet_name not in wb.sheetnames:
+                return {"status": "error", "message": f"Sheet '{sheet_name}' not found"}
+            worksheet = cast(Worksheet, wb[sheet_name])
+            if "!" in data_range:
+                range_sheet_name, cell_range = data_range.split("!")
+                if range_sheet_name not in wb.sheetnames:
+                    return {
+                        "status": "error",
+                        "message": f"Sheet '{range_sheet_name}' referenced in data range not found",
+                    }
+                worksheet = cast(Worksheet, wb[range_sheet_name])
+            else:
+                cell_range = data_range
+            try:
+                start_cell, end_cell = cell_range.split(":")
+                start_row, start_col, end_row, end_col = parse_cell_range(
+                    start_cell, end_cell
+                )
+                if None in (start_row, start_col, end_row, end_col):
+                    return {
+                        "status": "error",
+                        "message": "Failed to parse cell range",
+                    }
+                assert start_row is not None
+                assert start_col is not None
+                assert end_row is not None
+                assert end_col is not None
+            except ValueError as e:
                 return {
                     "status": "error",
-                    "message": f"Sheet '{range_sheet_name}' referenced in data range not found",
+                    "message": f"Invalid data range format: {str(e)}",
                 }
-            worksheet = cast(Worksheet, wb[range_sheet_name])
-        else:
-            cell_range = data_range
-        try:
-            start_cell, end_cell = cell_range.split(":")
-            start_row, start_col, end_row, end_col = parse_cell_range(
-                start_cell, end_cell
-            )
-            if None in (start_row, start_col, end_row, end_col):
+            chart_classes = {
+                "line": LineChart,
+                "bar": BarChart,
+                "pie": PieChart,
+                "scatter": ScatterChart,
+                "area": AreaChart,
+            }
+            chart_type_lower = chart_type.lower()
+            chart_class = chart_classes.get(chart_type_lower)
+            if not chart_class:
                 return {
                     "status": "error",
-                    "message": "Failed to parse cell range",
+                    "message": (
+                        f"Unsupported chart type: {chart_type}. "
+                        f"Supported types: {', '.join(chart_classes.keys())}"
+                    ),
                 }
-            assert start_row is not None
-            assert start_col is not None
-            assert end_row is not None
-            assert end_col is not None
-        except ValueError as e:
-            return {
-                "status": "error",
-                "message": f"Invalid data range format: {str(e)}",
-            }
-        chart_classes = {
-            "line": LineChart,
-            "bar": BarChart,
-            "pie": PieChart,
-            "scatter": ScatterChart,
-            "area": AreaChart,
-        }
-        chart_type_lower = chart_type.lower()
-        chart_class = chart_classes.get(chart_type_lower)
-        if not chart_class:
-            return {
-                "status": "error",
-                "message": (
-                    f"Unsupported chart type: {chart_type}. "
-                    f"Supported types: {', '.join(chart_classes.keys())}"
-                ),
-            }
-        chart = chart_class()
-        chart.title = title
-        if hasattr(chart, "x_axis"):
-            chart.x_axis.title = x_axis
-        if hasattr(chart, "y_axis"):
-            chart.y_axis.title = y_axis
-        try:
-            if chart_type_lower == "scatter":
-                for col in range(start_col + 1, end_col + 1):
-                    x_values = Reference(
+            chart = chart_class()
+            chart.title = title
+            if hasattr(chart, "x_axis"):
+                chart.x_axis.title = x_axis
+            if hasattr(chart, "y_axis"):
+                chart.y_axis.title = y_axis
+            try:
+                if chart_type_lower == "scatter":
+                    for col in range(start_col + 1, end_col + 1):
+                        x_values = Reference(
+                            worksheet,
+                            min_row=start_row + 1,
+                            max_row=end_row,
+                            min_col=start_col,
+                        )
+                        y_values = Reference(
+                            worksheet,
+                            min_row=start_row + 1,
+                            max_row=end_row,
+                            min_col=col,
+                        )
+                        chart.series.append(Series(y_values, x_values))
+                else:
+                    data = Reference(
+                        worksheet,
+                        min_row=start_row,
+                        max_row=end_row,
+                        min_col=start_col + 1,
+                        max_col=end_col,
+                    )
+                    cats = Reference(
                         worksheet,
                         min_row=start_row + 1,
                         max_row=end_row,
                         min_col=start_col,
                     )
-                    y_values = Reference(
-                        worksheet, min_row=start_row + 1, max_row=end_row, min_col=col
-                    )
-                    chart.series.append(Series(y_values, x_values))
-            else:
-                data = Reference(
-                    worksheet,
-                    min_row=start_row,
-                    max_row=end_row,
-                    min_col=start_col + 1,
-                    max_col=end_col,
-                )
-                cats = Reference(
-                    worksheet, min_row=start_row + 1, max_row=end_row, min_col=start_col
-                )
-                chart.add_data(data, titles_from_data=True)
-                chart.set_categories(cats)
-        except Exception as e:
+                    chart.add_data(data, titles_from_data=True)
+                    chart.set_categories(cats)
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "message": f"Failed to create chart data references: {str(e)}",
+                }
+            try:
+                if style:
+                    if style.get("show_legend", True):
+                        chart.legend = Legend()
+                        chart.legend.position = style.get("legend_position", "r")
+                    else:
+                        chart.legend = None
+                    if style.get("show_data_labels", False):
+                        chart.dataLabels = DataLabelList()
+                        chart.dataLabels.showVal = True
+                    if style.get("grid_lines", False):
+                        if hasattr(chart, "x_axis"):
+                            chart.x_axis.majorGridlines = ChartLines()
+                        if hasattr(chart, "y_axis"):
+                            chart.y_axis.majorGridlines = ChartLines()
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "message": f"Failed to apply chart style: {str(e)}",
+                }
+            chart.width = 15
+            chart.height = 7.5
+            try:
+                worksheet.add_chart(chart, target_cell)
+            except ValueError as e:
+                return {"status": "error", "message": f"Invalid target cell: {str(e)}"}
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "message": f"Failed to create chart drawing: {str(e)}",
+                }
+            try:
+                atomic_save(wb, filename)
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "message": f"Failed to save workbook with chart: {str(e)}",
+                }
             return {
-                "status": "error",
-                "message": f"Failed to create chart data references: {str(e)}",
+                "status": "success",
+                "message": f"{chart_type.capitalize()} chart created successfully",
+                "details": {
+                    "type": chart_type,
+                    "location": target_cell,
+                    "data_range": data_range,
+                },
             }
-        try:
-            if style:
-                if style.get("show_legend", True):
-                    chart.legend = Legend()
-                    chart.legend.position = style.get("legend_position", "r")
-                else:
-                    chart.legend = None
-                if style.get("show_data_labels", False):
-                    chart.dataLabels = DataLabelList()
-                    chart.dataLabels.showVal = True
-                if style.get("grid_lines", False):
-                    if hasattr(chart, "x_axis"):
-                        chart.x_axis.majorGridlines = ChartLines()
-                    if hasattr(chart, "y_axis"):
-                        chart.y_axis.majorGridlines = ChartLines()
-        except Exception as e:
-            return {
-                "status": "error",
-                "message": f"Failed to apply chart style: {str(e)}",
-            }
-        chart.width = 15
-        chart.height = 7.5
-        try:
-            worksheet.add_chart(chart, target_cell)
-        except ValueError as e:
-            return {"status": "error", "message": f"Invalid target cell: {str(e)}"}
-        except Exception as e:
-            return {
-                "status": "error",
-                "message": f"Failed to create chart drawing: {str(e)}",
-            }
-        try:
-            atomic_save(wb, filename)
-        except Exception as e:
-            return {
-                "status": "error",
-                "message": f"Failed to save workbook with chart: {str(e)}",
-            }
-        return {
-            "status": "success",
-            "message": f"{chart_type.capitalize()} chart created successfully",
-            "details": {
-                "type": chart_type,
-                "location": target_cell,
-                "data_range": data_range,
-            },
-        }
     except Exception as e:
         return {
             "status": "error",

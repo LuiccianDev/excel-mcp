@@ -7,29 +7,32 @@ saving >90% tokens and preventing chatty micro-iterations.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import openpyxl
 from openpyxl.chart import BarChart, LineChart, PieChart, Reference
 from openpyxl.utils import get_column_letter
 
-from excel_mcp.core._io import atomic_save
+from excel_mcp.core._io import resolve_sheet, workbook_session
 from excel_mcp.core.calculations import (
     FormulaSecurityError,
     validate_cell_value_secure,
 )
+from excel_mcp.core.data_validation import apply_data_validation_to_sheet
 from excel_mcp.core.presets import (
     apply_data_cell_style,
     apply_header_style,
     auto_fit_column_widths,
     get_preset,
 )
-from excel_mcp.exceptions.exception_core import SheetNotFoundError
 from excel_mcp.models.response_models import (
     BatchWriteResult,
     BuildWorkbookResult,
     SheetOutline,
     WorkbookOutline,
+)
+
+SUPPORTED_TOTAL_FUNCTIONS = frozenset(
+    {"SUM", "AVERAGE", "COUNT", "COUNTA", "MIN", "MAX", "SUBTOTAL"}
 )
 
 
@@ -47,6 +50,23 @@ def _render_chart(
 
     data_col = chart_config.get("data_column", 2)  # 1-indexed
     label_col = chart_config.get("label_column", 1)  # 1-indexed
+
+    if (
+        isinstance(data_col, bool)
+        or not isinstance(data_col, int)
+        or data_col < 1
+        or data_col > num_cols
+    ):
+        raise ValueError(f"chart data_column {data_col!r} out of bounds (1-{num_cols})")
+    if (
+        isinstance(label_col, bool)
+        or not isinstance(label_col, int)
+        or label_col < 1
+        or label_col > num_cols
+    ):
+        raise ValueError(
+            f"chart label_column {label_col!r} out of bounds (1-{num_cols})"
+        )
 
     if ctype == "line":
         chart = LineChart()
@@ -68,7 +88,110 @@ def _render_chart(
     ws.add_chart(chart, chart_cell)
 
 
-def build_single_pass_sheet(
+def _resolve_col_index(key: Any, headers: list[str]) -> int | None:
+    """Resolve a 0-based column index from an int, header name, or digit string."""
+    if isinstance(key, bool):
+        return None
+    if isinstance(key, int):
+        return key if key >= 0 else None
+    if headers and key in headers:
+        return headers.index(key)
+    if isinstance(key, str) and key.isdigit():
+        return int(key)
+    return None
+
+
+def _resolve_col_indices(keys: Any, headers: list[str]) -> set[int]:
+    """Resolve an iterable of column names or indices into a set of 0-based indices."""
+    resolved: set[int] = set()
+    for key in keys or ():
+        idx = _resolve_col_index(key, headers)
+        if idx is not None:
+            resolved.add(idx)
+    return resolved
+
+
+def _build_total_map(
+    auto_totals: Any,
+    headers: list[str],
+    num_cols: int,
+    sheet_title: str,
+    warnings: list[str] | None,
+) -> dict[int, str]:
+    """Build {0-based col_idx: SQL/Excel agg_func} mapping for auto_totals."""
+    total_map: dict[int, str] = {}
+    if isinstance(auto_totals, dict):
+        items = list(auto_totals.items())
+    elif isinstance(auto_totals, list):
+        items = [(key, "SUM") for key in auto_totals]
+    else:
+        return dict.fromkeys(range(1, num_cols), "SUM")
+
+    for key, raw_func in items:
+        func_upper = str(raw_func).strip().upper()
+        if func_upper not in SUPPORTED_TOTAL_FUNCTIONS:
+            if warnings is not None:
+                warnings.append(
+                    f"Sheet '{sheet_title}' unsupported total function '{raw_func}', defaulting to SUM."
+                )
+            func_upper = "SUM"
+
+        idx = _resolve_col_index(key, headers)
+        if idx is None or idx == 0 or idx >= num_cols:
+            if warnings is not None:
+                warnings.append(
+                    f"Sheet '{sheet_title}' could not apply auto_totals to column '{key}'."
+                )
+            continue
+        total_map[idx] = func_upper
+    return total_map
+
+
+def _apply_sheet_data_validations(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    data_validations: Any,
+    warnings: list[str] | None,
+) -> None:
+    """Apply inline data validation rule specs via canonical core.data_validation."""
+    specs = (
+        [data_validations] if isinstance(data_validations, dict) else data_validations
+    )
+    for dv_spec in specs:
+        if not isinstance(dv_spec, dict):
+            if warnings is not None:
+                warnings.append(
+                    f"Sheet '{ws.title}' skipped invalid data_validation entry."
+                )
+            continue
+        target_range = dv_spec.get("range") or dv_spec.get("cell_range")
+        formula1 = dv_spec.get("formula1")
+        if not target_range or formula1 is None or str(formula1) == "":
+            if warnings is not None:
+                warnings.append(
+                    f"Sheet '{ws.title}' skipped data validation missing range or formula1."
+                )
+            continue
+        dv_type = dv_spec.get("type") or dv_spec.get("validation_type", "list")
+        try:
+            apply_data_validation_to_sheet(
+                ws=ws,
+                cell_range=str(target_range),
+                validation_type=str(dv_type),
+                operator=str(dv_spec.get("operator", "between")),
+                formula1=formula1,
+                formula2=dv_spec.get("formula2"),
+                allow_blank=bool(dv_spec.get("allow_blank", True)),
+                prompt_title=dv_spec.get("prompt_title"),
+                prompt=dv_spec.get("prompt"),
+                error_title=dv_spec.get("error_title"),
+                error_message=dv_spec.get("error_message"),
+            )
+        except Exception as e:
+            if warnings is not None:
+                warnings.append(f"Sheet '{ws.title}' data validation warning: {e}")
+
+
+def _build_sheet_with_stats(
     ws: openpyxl.worksheet.worksheet.Worksheet,
     sheet_data: dict[str, Any],
     preset_name: str = "corporate",
@@ -76,15 +199,23 @@ def build_single_pass_sheet(
     warnings: list[str] | None = None,
     font_name: str | None = None,
     font_size: float | None = None,
-) -> int:
-    """Build a complete formatted sheet from structured data."""
+) -> tuple[int, int]:
+    """Build a complete formatted sheet and return (rows_inserted, charts_rendered)."""
     headers = sheet_data.get("headers", [])
     rows = sheet_data.get("rows", [])
     title_banner = sheet_data.get("title")
     auto_totals = sheet_data.get("auto_totals", False)
-    currency_cols = set(sheet_data.get("currency_columns", []))
-    numeric_cols = set(sheet_data.get("numeric_columns", []))
+    currency_indices = _resolve_col_indices(
+        sheet_data.get("currency_columns", []), headers
+    )
+    numeric_indices = _resolve_col_indices(
+        sheet_data.get("numeric_columns", []), headers
+    )
     chart_config = sheet_data.get("chart")
+    charts_config = sheet_data.get("charts") or []
+    if isinstance(charts_config, dict):
+        charts_config = [charts_config]
+    data_validations = sheet_data.get("data_validations") or []
     freeze_panes = sheet_data.get("freeze_panes")
     auto_filter = sheet_data.get("auto_filter", False)
 
@@ -147,13 +278,10 @@ def build_single_pass_sheet(
                     f"Formula security validation failed in sheet '{ws.title}' row {current_row} col {col_idx}: {msg}"
                 )
             cell = ws.cell(row=current_row, column=col_idx, value=val)
-            is_curr = (col_idx - 1 in currency_cols) or (
-                headers
-                and col_idx - 1 < len(headers)
-                and headers[col_idx - 1] in currency_cols
-            )
+            zero_idx = col_idx - 1
+            is_curr = zero_idx in currency_indices
             is_num = (
-                is_curr or (col_idx - 1 in numeric_cols) or isinstance(val, int | float)
+                is_curr or (zero_idx in numeric_indices) or isinstance(val, int | float)
             )
             apply_data_cell_style(
                 cell=cell,
@@ -182,26 +310,19 @@ def build_single_pass_sheet(
             font_size=font_size,
         )
 
-        # Detect numeric columns to sum
-        cols_to_sum = (
-            auto_totals if isinstance(auto_totals, list) else list(range(1, num_cols))
-        )
+        total_map = _build_total_map(auto_totals, headers, num_cols, ws.title, warnings)
         for col_idx in range(2, num_cols + 1):
             cell = ws.cell(row=current_row, column=col_idx)
-            is_curr = (col_idx - 1 in currency_cols) or (
-                headers
-                and col_idx - 1 < len(headers)
-                and headers[col_idx - 1] in currency_cols
-            )
-
-            if (col_idx - 1 in cols_to_sum) or (
-                headers
-                and col_idx - 1 < len(headers)
-                and headers[col_idx - 1] in cols_to_sum
-            ):
+            zero_idx = col_idx - 1
+            is_curr = zero_idx in currency_indices
+            agg_func = total_map.get(zero_idx)
+            if agg_func is not None:
                 col_letter = get_column_letter(col_idx)
+                cell_range = f"{col_letter}{data_start_row}:{col_letter}{data_end_row}"
                 cell.value = (
-                    f"=SUM({col_letter}{data_start_row}:{col_letter}{data_end_row})"
+                    f"=SUBTOTAL(9,{cell_range})"
+                    if agg_func == "SUBTOTAL"
+                    else f"={agg_func}({cell_range})"
                 )
                 apply_data_cell_style(
                     cell,
@@ -233,26 +354,55 @@ def build_single_pass_sheet(
             f"A{header_start_row}:{get_column_letter(num_cols)}{filter_end_row}"
         )
 
-    # 5. Optional Chart Generation
-    if chart_config and rows:
-        try:
-            _render_chart(
-                ws=ws,
-                chart_config=chart_config,
-                start_row=header_start_row,
-                end_row=data_end_row,
-                num_cols=num_cols,
-            )
-        except Exception as e:
-            # Record warning without corrupting sheet cell contents
-            if warnings is not None:
-                warnings.append(f"Sheet '{ws.title}' chart generation warning: {e}")
+    # 4.75 Optional Inline Data Validations
+    if data_validations:
+        _apply_sheet_data_validations(ws, data_validations, warnings)
+
+    # 5. Optional Chart Generation (supports single `chart` and/or list `charts`)
+    charts_rendered = 0
+    if rows:
+        all_charts = ([chart_config] if chart_config else []) + list(charts_config)
+        for chart_spec in all_charts:
+            try:
+                _render_chart(
+                    ws=ws,
+                    chart_config=chart_spec,
+                    start_row=header_start_row,
+                    end_row=data_end_row,
+                    num_cols=num_cols,
+                )
+                charts_rendered += 1
+            except Exception as e:
+                if warnings is not None:
+                    warnings.append(f"Sheet '{ws.title}' chart generation warning: {e}")
 
     # 6. Auto-fit column widths
     if auto_fit:
         auto_fit_column_widths(ws)
 
-    return len(rows)
+    return len(rows), charts_rendered
+
+
+def build_single_pass_sheet(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    sheet_data: dict[str, Any],
+    preset_name: str = "corporate",
+    auto_fit: bool = True,
+    warnings: list[str] | None = None,
+    font_name: str | None = None,
+    font_size: float | None = None,
+) -> int:
+    """Build a complete formatted sheet from structured data."""
+    rows_inserted, _ = _build_sheet_with_stats(
+        ws=ws,
+        sheet_data=sheet_data,
+        preset_name=preset_name,
+        auto_fit=auto_fit,
+        warnings=warnings,
+        font_name=font_name,
+        font_size=font_size,
+    )
+    return rows_inserted
 
 
 def build_single_pass_workbook(
@@ -264,38 +414,34 @@ def build_single_pass_workbook(
     font_size: float | None = None,
 ) -> BuildWorkbookResult:
     """Construct an entire Excel workbook in one atomic pass."""
-    os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
-
-    wb = openpyxl.Workbook()
-    default_sheet = wb.active
     sheets_created: list[str] = []
     total_rows = 0
     charts_count = 0
     warnings: list[str] = []
 
-    for i, s_data in enumerate(sheets):
-        sheet_name = s_data.get("name", f"Sheet{i + 1}")
-        if i == 0 and default_sheet is not None:
-            ws = default_sheet
-            ws.title = sheet_name
-        else:
-            ws = wb.create_sheet(title=sheet_name)
+    with workbook_session(filename, mode="create", initial_sheet=None) as wb:
+        default_sheet = wb.active
 
-        sheets_created.append(sheet_name)
-        rows_inserted = build_single_pass_sheet(
-            ws=ws,
-            sheet_data=s_data,
-            preset_name=preset,
-            auto_fit=auto_fit,
-            warnings=warnings,
-            font_name=font_name,
-            font_size=font_size,
-        )
-        total_rows += rows_inserted
-        if s_data.get("chart"):
-            charts_count += 1
+        for i, s_data in enumerate(sheets):
+            sheet_name = s_data.get("name", f"Sheet{i + 1}")
+            if i == 0 and default_sheet is not None:
+                ws = default_sheet
+                ws.title = sheet_name
+            else:
+                ws = wb.create_sheet(title=sheet_name)
 
-    atomic_save(wb, filename)
+            sheets_created.append(sheet_name)
+            rows_inserted, charts_rendered = _build_sheet_with_stats(
+                ws=ws,
+                sheet_data=s_data,
+                preset_name=preset,
+                auto_fit=auto_fit,
+                warnings=warnings,
+                font_name=font_name,
+                font_size=font_size,
+            )
+            total_rows += rows_inserted
+            charts_count += charts_rendered
 
     return BuildWorkbookResult(
         filename=filename,
@@ -310,14 +456,10 @@ def build_single_pass_workbook(
 
 def inspect_workbook_outline(filename: str) -> WorkbookOutline:
     """Inspect structural outline of workbook without loading full cell grids into context."""
-    if not os.path.exists(filename):
-        raise FileNotFoundError(f"Workbook not found at {filename}")
-
-    wb = openpyxl.load_workbook(filename, read_only=True, data_only=False)
     sheet_outlines: list[SheetOutline] = []
     total_cells = 0
 
-    try:
+    with workbook_session(filename, mode="read", data_only=False) as wb:
         for name in wb.sheetnames:
             ws = wb[name]
             max_r = ws.max_row or 0
@@ -395,9 +537,6 @@ def inspect_workbook_outline(filename: str) -> WorkbookOutline:
                     warnings=sheet_warnings,
                 )
             )
-    finally:
-        wb.close()
-
     return WorkbookOutline(
         filename=filename,
         sheet_count=len(sheet_outlines),
@@ -413,26 +552,10 @@ def batch_write_matrix(
     data_matrix: list[list[Any]],
 ) -> BatchWriteResult:
     """Write a 2D matrix of values into a sheet starting from a given cell in one atomic pass."""
-    if not os.path.exists(filename):
-        raise FileNotFoundError(f"Workbook not found at {filename}")
+    from openpyxl.utils.cell import coordinate_to_tuple
 
-    wb = openpyxl.load_workbook(filename)
-    try:
-        if sheet_name:
-            if sheet_name not in wb.sheetnames:
-                raise SheetNotFoundError(
-                    f"Sheet '{sheet_name}' not found in workbook '{filename}'. Available sheets: {wb.sheetnames}"
-                )
-            ws = wb[sheet_name]
-        else:
-            ws = wb.active
-            if ws is None:
-                raise SheetNotFoundError(
-                    f"Workbook '{filename}' has no active worksheet."
-                )
-
-        # Parse start cell coordinate (e.g., 'B3')
-        from openpyxl.utils.cell import coordinate_to_tuple
+    with workbook_session(filename, mode="edit") as wb:
+        ws = resolve_sheet(wb, sheet_name)
 
         start_row, start_col = coordinate_to_tuple(start_cell)
 
@@ -454,16 +577,13 @@ def batch_write_matrix(
 
         end_cell = f"{get_column_letter(start_col + max(cols_affected - 1, 0))}{start_row + max(rows_affected - 1, 0)}"
         range_written = f"{start_cell}:{end_cell}"
+        title = ws.title
 
-        atomic_save(wb, filename)
-
-        return BatchWriteResult(
-            filename=filename,
-            sheet_name=ws.title,
-            range_written=range_written,
-            rows_affected=rows_affected,
-            columns_affected=cols_affected,
-            cells_updated=total_cells,
-        )
-    finally:
-        wb.close()
+    return BatchWriteResult(
+        filename=filename,
+        sheet_name=title,
+        range_written=range_written,
+        rows_affected=rows_affected,
+        columns_affected=cols_affected,
+        cells_updated=total_cells,
+    )

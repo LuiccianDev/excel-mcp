@@ -6,9 +6,11 @@ from excel_mcp.core.pivot import create_pivot_table as create_pivot_table_impl
 # Import exceptions
 from excel_mcp.exceptions.exception_tools import ChartError, PivotError, ValidationError
 from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_access
+from excel_mcp.utils.guards import tool_guard
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def create_chart(
     filename: str,
     sheet_name: str,
@@ -18,6 +20,7 @@ async def create_chart(
     title: str = "",
     x_axis: str = "",
     y_axis: str = "",
+    style: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create a chart in a worksheet based on a specified data range.
 
@@ -33,6 +36,7 @@ async def create_chart(
         title (str, optional): The title of the chart. Defaults to "".
         x_axis (str, optional): The label for the x-axis. Defaults to "".
         y_axis (str, optional): The label for the y-axis. Defaults to "".
+        style (dict[str, Any] | None, optional): Optional styling overrides (`show_legend`, `show_data_labels`, `grid_lines`, `style_id`, etc.). Defaults to None.
 
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure, with a descriptive message.
@@ -40,6 +44,7 @@ async def create_chart(
     filename = ensure_xlsx_extension(filename)
 
     try:
+        extra_kwargs: dict[str, Any] = {"style": style} if style is not None else {}
         result: dict[str, Any] = create_chart_impl(
             filename=filename,
             sheet_name=sheet_name,
@@ -49,6 +54,7 @@ async def create_chart(
             title=title,
             x_axis=x_axis,
             y_axis=y_axis,
+            **extra_kwargs,
         )
         return result
     except (ValidationError, ChartError) as e:
@@ -58,6 +64,7 @@ async def create_chart(
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def create_pivot_table(
     filename: str,
     sheet_name: str,

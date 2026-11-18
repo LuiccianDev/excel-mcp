@@ -60,9 +60,11 @@ Args:
         - 'title': Optional banner title header (str).
         - 'headers': List of column header names (list[str]).
         - 'rows': 2D array of data values (list[list[Any]]).
-        - 'auto_totals': bool or list of 0-based column indices to calculate SUM.
+        - 'auto_totals': bool, list of column names/0-based indices (SUM), or dict mapping column names/indices to function ('SUM', 'AVERAGE', 'COUNT', 'COUNTA', 'MIN', 'MAX', 'SUBTOTAL').
         - 'currency_columns': list of column names or 0-based indices for currency formatting ($#,##0.00).
-        - 'chart': Optional chart definition {'type': 'bar'|'line'|'pie', 'title': '...', 'data_column': 2, 'label_column': 1}.
+        - 'chart': Optional single chart dict {'type': 'bar'|'line'|'pie', 'title': '...', 'data_column': 2, 'label_column': 1}.
+        - 'charts': Optional list of chart dicts to embed multiple charts on the same sheet.
+        - 'data_validations': Optional list of rule dicts ({'range'|'cell_range', 'type', 'formula1', 'formula2', 'operator', 'allow_blank', 'prompt_title', 'prompt', 'error_title', 'error_message'}).
         - 'freeze_panes': Optional cell coordinate to freeze panes (e.g. 'A2', 'A4').
         - 'auto_filter': Optional bool to enable autofilter on the table header range.
     preset: Visual styling preset ('corporate', 'financial', 'modern', 'compact').
@@ -514,7 +516,7 @@ Returns:
 ### `excel_delete_range`
 
 - **Access Mode:** `Destructive`
-- **Signature:** `excel_delete_range(filename: str, sheet_name: str, start_cell: str, end_cell: str, shift_direction: str = 'up') -> dict[str, typing.Any]`
+- **Signature:** `excel_delete_range(filename: str, sheet_name: str, start_cell: str, end_cell: str | None = None, shift_direction: str = 'up') -> dict[str, typing.Any]`
 
 ```text
 Delete a range of cells and optionally shift the surrounding cells to fill the gap.
@@ -526,7 +528,7 @@ Args:
     filename (str): Path to the Excel workbook.
     sheet_name (str): The name of the worksheet.
     start_cell (str): The top-left cell of the range to delete.
-    end_cell (str): The bottom-right cell of the range to delete.
+    end_cell (str | None, optional): The bottom-right cell of the range to delete. Defaults to None.
     shift_direction (str, optional): Direction to shift cells after deletion ('up' or 'left'). Defaults to "up".
 
 Returns:
@@ -659,7 +661,7 @@ Notes:
 ### `excel_create_chart`
 
 - **Access Mode:** `Write`
-- **Signature:** `excel_create_chart(filename: str, sheet_name: str, data_range: str, chart_type: str, target_cell: str, title: str = '', x_axis: str = '', y_axis: str = '') -> dict[str, typing.Any]`
+- **Signature:** `excel_create_chart(filename: str, sheet_name: str, data_range: str, chart_type: str, target_cell: str, title: str = '', x_axis: str = '', y_axis: str = '', style: dict[str, typing.Any] | None = None) -> dict[str, typing.Any]`
 
 ```text
 Create a chart in a worksheet based on a specified data range.
@@ -676,6 +678,7 @@ Args:
     title (str, optional): The title of the chart. Defaults to "".
     x_axis (str, optional): The label for the x-axis. Defaults to "".
     y_axis (str, optional): The label for the y-axis. Defaults to "".
+    style (dict[str, Any] | None, optional): Optional styling overrides (`show_legend`, `show_data_labels`, `grid_lines`, `style_id`, etc.). Defaults to None.
 
 Returns:
     dict[str, Any]: A status dictionary indicating success or failure, with a descriptive message.

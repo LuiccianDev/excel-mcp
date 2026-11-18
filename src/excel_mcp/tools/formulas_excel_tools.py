@@ -2,14 +2,15 @@
 from typing import Any
 
 from excel_mcp.core.calculations import apply_formula
-from excel_mcp.exceptions.exception_tools import CalculationError, ValidationError
 from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_access
+from excel_mcp.utils.guards import tool_guard
 
 # Import core/tools/utils with new structure
 from excel_mcp.utils.validation_utils import validate_formula_in_cell_operation
 
 
 @validate_file_access("filename", read_only=True)
+@tool_guard()
 async def validate_formula_syntax(
     filename: str,
     sheet_name: str,
@@ -31,18 +32,14 @@ async def validate_formula_syntax(
         dict[str, Any]: A dictionary with validation status ("success" or "error") and a message.
     """
     filename = ensure_xlsx_extension(filename)
-    try:
-        result: dict[str, Any] = validate_formula_in_cell_operation(
-            filename, sheet_name, cell, formula
-        )
-        return result
-    except (ValidationError, CalculationError) as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to validate formula: {str(e)}"}
+    result: dict[str, Any] = validate_formula_in_cell_operation(
+        filename, sheet_name, cell, formula
+    )
+    return result
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def apply_formula_excel(
     filename: str,
     sheet_name: str,
@@ -75,17 +72,12 @@ async def apply_formula_excel(
     """
     filename = ensure_xlsx_extension(filename)
 
-    try:
-        # First validate the formula
-        validation: dict[str, Any] = validate_formula_in_cell_operation(
-            filename, sheet_name, cell, formula
-        )
-        if isinstance(validation, dict) and validation.get("status") == "error":
-            return validation
+    # First validate the formula
+    validation: dict[str, Any] = validate_formula_in_cell_operation(
+        filename, sheet_name, cell, formula
+    )
+    if isinstance(validation, dict) and validation.get("status") == "error":
+        return validation
 
-        result: dict[str, Any] = apply_formula(filename, sheet_name, cell, formula)
-        return result
-    except (ValidationError, CalculationError) as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to apply formula: {str(e)}"}
+    result: dict[str, Any] = apply_formula(filename, sheet_name, cell, formula)
+    return result

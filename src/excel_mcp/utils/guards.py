@@ -28,12 +28,23 @@ def tool_guard(
 
     def decorator(fn: F) -> F:
         name = tool_name or fn.__name__
+        sig = inspect.signature(fn)
+
+        def _extract_target_file(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
+            target = kwargs.get("filename") or kwargs.get("file_path")
+            if target is not None:
+                return target
+            try:
+                bound = sig.bind_partial(*args, **kwargs).arguments
+                return bound.get("filename") or bound.get("file_path")
+            except TypeError:
+                return None
 
         if inspect.iscoroutinefunction(fn):
 
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                target_file = kwargs.get("filename") or kwargs.get("file_path")
+                target_file = _extract_target_file(args, kwargs)
                 try:
                     return await fn(*args, **kwargs)
                 except Exception as e:
@@ -45,7 +56,7 @@ def tool_guard(
 
         @functools.wraps(fn)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            target_file = kwargs.get("filename") or kwargs.get("file_path")
+            target_file = _extract_target_file(args, kwargs)
             try:
                 return fn(*args, **kwargs)
             except Exception as e:

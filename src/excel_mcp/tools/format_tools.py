@@ -2,15 +2,8 @@ from typing import Any
 
 from excel_mcp.core.formatting import BorderStyle, format_range
 from excel_mcp.core.workbook import get_workbook_info
-
-# Import exceptions
-from excel_mcp.exceptions.exception_tools import (
-    FormattingError,
-    SheetError,
-    ValidationError,
-    WorkbookError,
-)
 from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_access
+from excel_mcp.utils.guards import tool_guard
 from excel_mcp.utils.sheet_utils import (
     copy_range_operation,
     copy_sheet,
@@ -23,6 +16,7 @@ from excel_mcp.utils.sheet_utils import (
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def format_range_excel(
     filename: str,
     sheet_name: str,
@@ -81,35 +75,31 @@ async def format_range_excel(
     """
 
     filename = ensure_xlsx_extension(filename)
-    try:
-        result: dict[str, Any] = format_range(
-            filename=filename,
-            sheet_name=sheet_name,
-            start_cell=start_cell,
-            end_cell=end_cell,
-            bold=bold,
-            italic=italic,
-            underline=underline,
-            font_size=font_size,
-            font_color=font_color,
-            bg_color=bg_color,
-            border_style=border_style,
-            border_color=border_color,
-            number_format=number_format,
-            alignment=alignment,
-            wrap_text=wrap_text,
-            merge_cells=merge_cells,
-            protection=protection,
-            conditional_format=conditional_format,
-        )
-        return result
-    except (ValidationError, FormattingError) as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to format range: {str(e)}"}
+    result: dict[str, Any] = format_range(
+        filename=filename,
+        sheet_name=sheet_name,
+        start_cell=start_cell,
+        end_cell=end_cell,
+        bold=bold,
+        italic=italic,
+        underline=underline,
+        font_size=font_size,
+        font_color=font_color,
+        bg_color=bg_color,
+        border_style=border_style,
+        border_color=border_color,
+        number_format=number_format,
+        alignment=alignment,
+        wrap_text=wrap_text,
+        merge_cells=merge_cells,
+        protection=protection,
+        conditional_format=conditional_format,
+    )
+    return result
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def copy_worksheet(
     filename: str, source_sheet: str, target_sheet: str
 ) -> dict[str, Any]:
@@ -127,17 +117,12 @@ async def copy_worksheet(
         dict[str, Any]: A status dictionary with a confirmation message or error details.
     """
     filename = ensure_xlsx_extension(filename)
-
-    try:
-        result: dict[str, Any] = copy_sheet(filename, source_sheet, target_sheet)
-        return result
-    except (ValidationError, SheetError) as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to copy worksheet: {str(e)}"}
+    result: dict[str, Any] = copy_sheet(filename, source_sheet, target_sheet)
+    return result
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def delete_worksheet(filename: str, sheet_name: str) -> dict[str, Any]:
     """Permanently delete a worksheet from a workbook.
 
@@ -152,17 +137,12 @@ async def delete_worksheet(filename: str, sheet_name: str) -> dict[str, Any]:
         dict[str, Any]: A status dictionary indicating success or failure with a message.
     """
     filename = ensure_xlsx_extension(filename)
-
-    try:
-        result: dict[str, Any] = delete_sheet(filename, sheet_name)
-        return result
-    except (ValidationError, SheetError) as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to delete worksheet: {str(e)}"}
+    result: dict[str, Any] = delete_sheet(filename, sheet_name)
+    return result
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def rename_worksheet(
     filename: str, old_name: str, new_name: str
 ) -> dict[str, Any]:
@@ -180,17 +160,12 @@ async def rename_worksheet(
         dict[str, Any]: A status dictionary with a confirmation or error message.
     """
     filename = ensure_xlsx_extension(filename)
-
-    try:
-        result: dict[str, Any] = rename_sheet(filename, old_name, new_name)
-        return result
-    except (ValidationError, SheetError) as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to rename worksheet: {str(e)}"}
+    result: dict[str, Any] = rename_sheet(filename, old_name, new_name)
+    return result
 
 
 @validate_file_access("filename", read_only=True)
+@tool_guard()
 async def get_workbook_metadata(
     filename: str, include_ranges: bool = False
 ) -> dict[str, Any]:
@@ -207,22 +182,12 @@ async def get_workbook_metadata(
         dict[str, Any]: A dictionary containing workbook metadata, such as a list of sheet names and properties.
     """
     filename = ensure_xlsx_extension(filename)
-
-    try:
-        result: dict[str, Any] = get_workbook_info(
-            filename, include_ranges=include_ranges
-        )
-        return result
-    except WorkbookError as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to get workbook metadata: {str(e)}",
-        }
+    result: dict[str, Any] = get_workbook_info(filename, include_ranges=include_ranges)
+    return result
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def merge_cells(
     filename: str, sheet_name: str, start_cell: str, end_cell: str
 ) -> dict[str, Any]:
@@ -241,17 +206,12 @@ async def merge_cells(
         dict[str, Any]: A status dictionary indicating success or failure.
     """
     filename = ensure_xlsx_extension(filename)
-
-    try:
-        result: dict[str, Any] = merge_range(filename, sheet_name, start_cell, end_cell)
-        return result
-    except (ValidationError, SheetError) as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to merge cells: {str(e)}"}
+    result: dict[str, Any] = merge_range(filename, sheet_name, start_cell, end_cell)
+    return result
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def unmerge_cells(
     filename: str, sheet_name: str, start_cell: str, end_cell: str
 ) -> dict[str, Any]:
@@ -270,19 +230,12 @@ async def unmerge_cells(
         dict[str, Any]: A status dictionary indicating success or failure.
     """
     filename = ensure_xlsx_extension(filename)
-
-    try:
-        result: dict[str, Any] = unmerge_range(
-            filename, sheet_name, start_cell, end_cell
-        )
-        return result
-    except (ValidationError, SheetError) as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to unmerge cells: {str(e)}"}
+    result: dict[str, Any] = unmerge_range(filename, sheet_name, start_cell, end_cell)
+    return result
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def copy_range(
     filename: str,
     sheet_name: str,
@@ -308,24 +261,19 @@ async def copy_range(
         dict[str, Any]: A status dictionary indicating success or failure.
     """
     filename = ensure_xlsx_extension(filename)
-
-    try:
-        result: dict[str, Any] = copy_range_operation(
-            filename, sheet_name, source_start, source_end, target_start, target_sheet
-        )
-        return result
-    except (ValidationError, SheetError) as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to copy range: {str(e)}"}
+    result: dict[str, Any] = copy_range_operation(
+        filename, sheet_name, source_start, source_end, target_start, target_sheet
+    )
+    return result
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def delete_range(
     filename: str,
     sheet_name: str,
     start_cell: str,
-    end_cell: str,
+    end_cell: str | None = None,
     shift_direction: str = "up",
 ) -> dict[str, Any]:
     """Delete a range of cells and optionally shift the surrounding cells to fill the gap.
@@ -337,26 +285,21 @@ async def delete_range(
         filename (str): Path to the Excel workbook.
         sheet_name (str): The name of the worksheet.
         start_cell (str): The top-left cell of the range to delete.
-        end_cell (str): The bottom-right cell of the range to delete.
+        end_cell (str | None, optional): The bottom-right cell of the range to delete. Defaults to None.
         shift_direction (str, optional): Direction to shift cells after deletion ('up' or 'left'). Defaults to "up".
 
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure.
     """
     filename = ensure_xlsx_extension(filename)
-
-    try:
-        result: dict[str, Any] = delete_range_operation(
-            filename, sheet_name, start_cell, end_cell, shift_direction
-        )
-        return result
-    except (ValidationError, SheetError) as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to delete range: {str(e)}"}
+    result: dict[str, Any] = delete_range_operation(
+        filename, sheet_name, start_cell, end_cell, shift_direction
+    )
+    return result
 
 
 @validate_file_access("filename", read_only=True)
+@tool_guard()
 async def validate_excel_range(
     filename: str, sheet_name: str, start_cell: str, end_cell: str | None = None
 ) -> dict[str, Any]:
@@ -375,17 +318,11 @@ async def validate_excel_range(
         dict[str, Any]: A dictionary with validation status ("success" or "error") and a descriptive message.
     """
     filename = ensure_xlsx_extension(filename)
+    from excel_mcp.utils.validation_utils import (
+        validate_range_in_sheet_operation as validate_range_impl,
+    )
 
-    try:
-        from excel_mcp.utils.validation_utils import (
-            validate_range_in_sheet_operation as validate_range_impl,
-        )
-
-        result: dict[str, Any] = validate_range_impl(
-            filename, sheet_name, start_cell, end_cell
-        )
-        return result
-    except ValidationError as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to validate range: {str(e)}"}
+    result: dict[str, Any] = validate_range_impl(
+        filename, sheet_name, start_cell, end_cell
+    )
+    return result

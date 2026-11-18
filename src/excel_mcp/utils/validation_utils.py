@@ -1,7 +1,6 @@
 import re
 from typing import Any
 
-from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -11,51 +10,46 @@ from excel_mcp.utils.cell_utils import parse_cell_range, validate_cell_reference
 def validate_formula_in_cell_operation(
     filepath: str, sheet_name: str, cell: str, formula: str
 ) -> dict[str, Any]:
-    # Quick validations
     if not validate_cell_reference(cell):
         return {"status": "error", "message": f"Invalid cell reference: {cell}"}
-    wb = None
+    from excel_mcp.core._io import workbook_session
+
     try:
-        wb = load_workbook(filepath, read_only=True)
-        if sheet_name not in wb.sheetnames:
-            return {"status": "error", "message": f"Sheet '{sheet_name}' not found"}
-        # Validate formula syntax
-        result: tuple[bool, str] = validate_formula(formula)
-        is_valid, message = result
-        if not is_valid:
-            return {"status": "error", "message": f"Invalid formula syntax: {message}"}
-        # Validate cell references in the formula
-        cell_refs = re.findall(r"[A-Z]+[0-9]+(?::[A-Z]+[0-9]+)?", formula)
-        for ref in cell_refs:
-            if ":" in ref:
-                start, end = ref.split(":")
-                if not (
-                    validate_cell_reference(start) and validate_cell_reference(end)
-                ):
-                    return {
-                        "status": "error",
-                        "message": f"Invalid cell range reference in formula: {ref}",
-                    }
-            else:
-                if not validate_cell_reference(ref):
+        with workbook_session(filepath, mode="read") as wb:
+            if sheet_name not in wb.sheetnames:
+                return {"status": "error", "message": f"Sheet '{sheet_name}' not found"}
+            result: tuple[bool, str] = validate_formula(formula)
+            is_valid, message = result
+            if not is_valid:
+                return {
+                    "status": "error",
+                    "message": f"Invalid formula syntax: {message}",
+                }
+            cell_refs = re.findall(r"[A-Z]+[0-9]+(?::[A-Z]+[0-9]+)?", formula)
+            for ref in cell_refs:
+                if ":" in ref:
+                    start, end = ref.split(":")
+                    if not (
+                        validate_cell_reference(start) and validate_cell_reference(end)
+                    ):
+                        return {
+                            "status": "error",
+                            "message": f"Invalid cell range reference in formula: {ref}",
+                        }
+                elif not validate_cell_reference(ref):
                     return {
                         "status": "error",
                         "message": f"Invalid cell reference in formula: {ref}",
                     }
-
-        # All validations passed - formula is valid and can be applied
-        return {
-            "status": "success",
-            "message": f"Formula '{formula}' is valid and ready to be applied to cell {cell}",
-            "valid": True,
-            "cell": cell,
-            "formula": formula,
-        }
+            return {
+                "status": "success",
+                "message": f"Formula '{formula}' is valid and ready to be applied to cell {cell}",
+                "valid": True,
+                "cell": cell,
+                "formula": formula,
+            }
     except Exception as e:
         return {"status": "error", "message": str(e)}
-    finally:
-        if wb is not None:
-            wb.close()
 
 
 def validate_range_in_sheet_operation(
@@ -71,53 +65,53 @@ def validate_range_in_sheet_operation(
         }
     if end_cell and not validate_cell_reference(end_cell):
         return {"status": "error", "message": f"Invalid end cell reference: {end_cell}"}
-    wb = None
+    from excel_mcp.core._io import workbook_session
+
     try:
-        wb = load_workbook(filepath, read_only=True)
-        if sheet_name not in wb.sheetnames:
-            return {"status": "error", "message": f"Sheet '{sheet_name}' not found"}
-        worksheet = wb[sheet_name]
-        data_max_row = worksheet.max_row
-        data_max_col = worksheet.max_column
-        try:
-            start_row, start_col, end_row, end_col = parse_cell_range(
-                start_cell, end_cell
+        with workbook_session(filepath, mode="read") as wb:
+            if sheet_name not in wb.sheetnames:
+                return {"status": "error", "message": f"Sheet '{sheet_name}' not found"}
+            worksheet = wb[sheet_name]
+            data_max_row = worksheet.max_row
+            data_max_col = worksheet.max_column
+            try:
+                start_row, start_col, end_row, end_col = parse_cell_range(
+                    start_cell, end_cell
+                )
+            except ValueError as e:
+                return {"status": "error", "message": f"Invalid range: {str(e)}"}
+            if end_row is None:
+                end_row = start_row
+            if end_col is None:
+                end_col = start_col
+            is_valid, message = validate_range_bounds(
+                worksheet, start_row, start_col, end_row, end_col
             )
-        except ValueError as e:
-            return {"status": "error", "message": f"Invalid range: {str(e)}"}
-        if end_row is None:
-            end_row = start_row
-        if end_col is None:
-            end_col = start_col
-        is_valid, message = validate_range_bounds(
-            worksheet, start_row, start_col, end_row, end_col
-        )
-        if not is_valid:
-            return {"status": "error", "message": message}
-        range_str = f"{start_cell}" if end_cell is None else f"{start_cell}:{end_cell}"
-        data_range_str = f"A1:{get_column_letter(data_max_col)}{data_max_row}"
-        extends_beyond_data = end_row > data_max_row or end_col > data_max_col
-        return {
-            "status": "success",
-            "message": (
-                f"Range '{range_str}' is valid. "
-                f"Sheet contains data in range '{data_range_str}'"
-            ),
-            "valid": True,
-            "range": range_str,
-            "data_range": data_range_str,
-            "extends_beyond_data": extends_beyond_data,
-            "data_dimensions": {
-                "max_row": data_max_row,
-                "max_col": data_max_col,
-                "max_col_letter": get_column_letter(data_max_col),
-            },
-        }
+            if not is_valid:
+                return {"status": "error", "message": message}
+            range_str = (
+                f"{start_cell}" if end_cell is None else f"{start_cell}:{end_cell}"
+            )
+            data_range_str = f"A1:{get_column_letter(data_max_col)}{data_max_row}"
+            extends_beyond_data = end_row > data_max_row or end_col > data_max_col
+            return {
+                "status": "success",
+                "message": (
+                    f"Range '{range_str}' is valid. "
+                    f"Sheet contains data in range '{data_range_str}'"
+                ),
+                "valid": True,
+                "range": range_str,
+                "data_range": data_range_str,
+                "extends_beyond_data": extends_beyond_data,
+                "data_dimensions": {
+                    "max_row": data_max_row,
+                    "max_col": data_max_col,
+                    "max_col_letter": get_column_letter(data_max_col),
+                },
+            }
     except Exception as e:
         return {"status": "error", "message": str(e)}
-    finally:
-        if wb is not None:
-            wb.close()
 
 
 def validate_formula(formula: str) -> tuple[bool, str]:

@@ -8,14 +8,13 @@ from __future__ import annotations
 
 from datetime import date, datetime
 import logging
-import os
+from pathlib import Path
 import re
 from typing import Any
 
-import openpyxl
 from openpyxl.utils.cell import get_column_letter
 
-from excel_mcp.exceptions.exception_core import SheetNotFoundError
+from excel_mcp.core._io import resolve_sheet, workbook_session
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +33,10 @@ def find_cells_in_workbook(
     Returns matching cell coordinates, sheet name, and values without
     dumping entire matrices into LLM context.
     """
-    if not os.path.exists(filename):
-        raise FileNotFoundError(f"Workbook not found: {filename}")
     if not query:
+        path = Path(filename).resolve()
+        if not path.exists():
+            raise FileNotFoundError(f"Workbook not found: {path}")
         return {"total_matches": 0, "matches": [], "limit_reached": False}
 
     pattern: re.Pattern[str] | None = None
@@ -46,15 +46,9 @@ def find_cells_in_workbook(
     else:
         norm_query = query if match_case else query.lower()
 
-    wb = openpyxl.load_workbook(filename, data_only=False, read_only=False)
-    try:
-        sheets_to_search: list[Any] = []
+    with workbook_session(filename, mode="read") as wb:
         if sheet_name:
-            if sheet_name not in wb.sheetnames:
-                raise SheetNotFoundError(
-                    f"Worksheet '{sheet_name}' not found in workbook."
-                )
-            sheets_to_search = [wb[sheet_name]]
+            sheets_to_search: list[Any] = [resolve_sheet(wb, sheet_name)]
         else:
             sheets_to_search = wb.worksheets
 
@@ -108,8 +102,6 @@ def find_cells_in_workbook(
             "matches": matches,
             "limit_reached": False,
         }
-    finally:
-        wb.close()
 
 
 def profile_worksheet(
@@ -122,19 +114,8 @@ def profile_worksheet(
     Token-efficient: inspects data types, null counts, min/max, and distinct samples
     without transmitting full row payloads.
     """
-    if not os.path.exists(filename):
-        raise FileNotFoundError(f"Workbook not found: {filename}")
-
-    wb = openpyxl.load_workbook(filename, data_only=True, read_only=True)
-    try:
-        if sheet_name:
-            if sheet_name not in wb.sheetnames:
-                raise SheetNotFoundError(
-                    f"Worksheet '{sheet_name}' not found in workbook."
-                )
-            ws = wb[sheet_name]
-        else:
-            ws = wb.active
+    with workbook_session(filename, mode="read", data_only=True) as wb:
+        ws = resolve_sheet(wb, sheet_name)
 
         # Stream rows
         row_iter = ws.iter_rows(values_only=True)
@@ -244,5 +225,3 @@ def profile_worksheet(
             "sampled_data_rows": total_sampled,
             "columns": column_summaries,
         }
-    finally:
-        wb.close()

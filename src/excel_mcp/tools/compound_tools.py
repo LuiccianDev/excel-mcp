@@ -298,6 +298,30 @@ async def dispatch_compound_action(
     ) = spec.signature_meta
 
     call_kwargs = dict(params or {})
+    if (
+        "range_string" in call_kwargs
+        and "cell_range" in call_kwargs
+        and (
+            "range_string" not in accepted_params or "cell_range" not in accepted_params
+        )
+    ):
+        return {
+            "status": "error",
+            "message": "Provide either 'range_string' or 'cell_range', not both.",
+        }
+    if (
+        "range_string" in call_kwargs
+        and "range_string" not in accepted_params
+        and "cell_range" in accepted_params
+    ):
+        call_kwargs["cell_range"] = call_kwargs.pop("range_string")
+    elif (
+        "cell_range" in call_kwargs
+        and "cell_range" not in accepted_params
+        and "range_string" in accepted_params
+    ):
+        call_kwargs["range_string"] = call_kwargs.pop("cell_range")
+
     if not accepts_kwargs:
         unknown = sorted(k for k in call_kwargs if k not in accepted_params)
         if unknown:
@@ -399,10 +423,20 @@ async def excel_data(
 ) -> dict[str, Any]:
     """Read, write, transform, search, and profile worksheet data.
 
-    Actions:
-        - `read`, `write`, `append_rows`, `copy_range`, `delete_range`
-        - `merge_cells`, `unmerge_cells`, `insert_rows_columns`, `delete_rows_columns`
-        - `sort_range`, `validate_range`, `find_cells`, `profile_sheet`
+    Actions (`params` keys):
+        - `read`: (`sheet_name`, `start_cell`, optional `end_cell`, `preview_only`)
+        - `write`: (`sheet_name`, `data`, optional `start_cell`)
+        - `append_rows`: (`rows`, optional `sheet_name`, `start_column`)
+        - `copy_range`: (`sheet_name`, `source_start`, `source_end`, `target_start`, optional `target_sheet`)
+        - `delete_range`: (`sheet_name`, `start_cell`, optional `end_cell`, `shift_direction`)
+        - `merge_cells`: (`sheet_name`, `start_cell`, `end_cell`)
+        - `unmerge_cells`: (`sheet_name`, `start_cell`, `end_cell`)
+        - `insert_rows_columns`: (`dimension`: `'row'|'column'`, `index`, optional `amount`, `sheet_name`)
+        - `delete_rows_columns`: (`dimension`: `'row'|'column'`, `index`, optional `amount`, `sheet_name`)
+        - `sort_range`: (`range_string`, `key_column`, optional `ascending`, `has_header`, `sheet_name`)
+        - `validate_range`: (`sheet_name`, `start_cell`, optional `end_cell`)
+        - `find_cells`: (`query`, optional `sheet_name`, `match_case`, `exact_match`, `use_regex`, `max_results`)
+        - `profile_sheet`: (optional `sheet_name`, `sample_rows`)
     """
     return await dispatch_compound_action("data", action, filename, params)
 
@@ -421,9 +455,13 @@ async def excel_format(
 ) -> dict[str, Any]:
     """Apply cell/sheet formatting, tables, data validation, protection, and page setup.
 
-    Actions:
-        - `format_range`, `format_sheet`, `create_table`
-        - `add_data_validation`, `protect_sheet`, `configure_page_setup`
+    Actions (`params` keys):
+        - `format_range`: (`sheet_name`, `start_cell`, optional `end_cell`, `bold`, `italic`, `font_size`, `bg_color`, `border_style`, `number_format`, `alignment`, `wrap_text`, `conditional_format`)
+        - `format_sheet`: (optional `sheet_name`, `freeze_panes`, `auto_filter`, `show_grid_lines`, `column_widths`)
+        - `create_table`: (`range_string`, optional `table_name`, `style_name`, `sheet_name`)
+        - `add_data_validation`: (`cell_range`, `validation_type`, `formula1`, optional `operator`, `formula2`, `allow_blank`, `sheet_name`)
+        - `protect_sheet`: (optional `enabled`, `password`, `sheet_name`, `allow_*` flags)
+        - `configure_page_setup`: (optional `orientation`, `paper_size`, `fit_to_width`, `fit_to_height`, `print_area`, `print_title_rows`, `header`, `footer`, `center_horizontally`, `sheet_name`)
     """
     return await dispatch_compound_action("format", action, filename, params)
 
@@ -449,8 +487,8 @@ async def excel_analytics(
 ) -> dict[str, Any]:
     """Create native Excel charts and pivot tables.
 
-    Actions:
-        - `create_chart`: Add a bar, line, pie, or scatter chart.
-        - `create_pivot_table`: Summarize a data range into a pivot table.
+    Actions (`params` keys):
+        - `create_chart`: (`sheet_name`, `data_range`, `chart_type`, `target_cell`, optional `title`, `x_axis`, `y_axis`, `style`)
+        - `create_pivot_table`: (`sheet_name`, `data_range`, `rows`, `values`, optional `columns`, `agg_func`)
     """
     return await dispatch_compound_action("analytics", action, filename, params)
