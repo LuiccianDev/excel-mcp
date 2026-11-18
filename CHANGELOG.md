@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Docker Container Packaging**: Removed `Dockerfile`, `.dockerignore`, `docs/Docker.md`, and Docker references from `README.md` and CI path filters.
+
 ---
 
 ## [2.3.0] - 2026-11-18
