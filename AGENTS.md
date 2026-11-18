@@ -24,7 +24,7 @@ When assisting users or configuring clients (Claude Desktop, Cursor, Cline, Copi
         "command": "uvx",
         "args": ["luiccian-excel-mcp"],
         "env": {
-          "MCP_ALLOWED_DIRECTORIES": "/path/to/spreadsheets"
+          "EXCEL_MCP_DIRS": "/path/to/spreadsheets"
         }
       }
     }

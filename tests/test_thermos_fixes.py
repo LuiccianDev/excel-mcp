@@ -35,7 +35,7 @@ def test_validate_file_access_does_not_create_ghost_file(
     """validate_file_access must not create a 0-byte file on disk when checking access."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     @validate_file_access("filename")
     def write_tool(filename: str) -> dict[str, str]:
@@ -60,7 +60,7 @@ def test_validate_formula_syntax_blocks_traversal(
     """validate_formula_syntax must enforce sandboxed path validation."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     result = asyncio.run(
         validate_formula_syntax("../../outside.xlsx", "Sheet1", "A1", "=SUM(B1:B5)")
@@ -84,7 +84,7 @@ def test_create_excel_workbook_enforces_xlsx_extension(
     """create_excel_workbook must reject non-.xlsx extensions and dotfiles."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     for bad_name in ("payload.exe", "macro.xlsm", ".env"):
         res = asyncio.run(create_excel_workbook(bad_name))
@@ -114,7 +114,7 @@ def test_validate_excel_range_accepts_end_cell(
     """validate_excel_range must pass start_cell and end_cell separately."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     wb_path = docs_dir / "range_test.xlsx"
     wb = openpyxl.Workbook()

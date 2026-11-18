@@ -1,6 +1,6 @@
 ---
 name: excel-tools-reference
-description: "Authoritative toolkit encyclopedia and decision matrix for Excel MCP. Details the default compose surface (8 tools), full-mode opt-in (33 canonical tools), parameter schemas, format strings, formula rules, and error recovery."
+description: "Authoritative toolkit encyclopedia and decision matrix for Excel MCP. Details the default compound surface (8 tools), full-mode opt-in (33 canonical tools), parameter schemas, format strings, formula rules, and error recovery."
 argument-hint: "Tool name, functional category, or Excel task to look up"
 user-invocable: true
 disable-model-invocation: false
@@ -43,9 +43,9 @@ flowchart TD
 
 ---
 
-## 2. Default Compose Mode (8 Tools) & Full Inventory (33 Tools)
+## 2. Default Compound Mode (8 Tools) & Full Inventory (33 Tools)
 
-Starting in `v2.2.0`, `excel-mcp` defaults to `compose` mode (8 tools) to minimize tool-schema token overhead. All 5 domain dispatchers use the calling contract `(action: str, filename: str | None = None, params: dict | None = None)`, where `params` carries the underlying granular tool arguments:
+Starting in `v2.2.0`, `excel-mcp` defaults to `compound` mode (8 tools) to minimize tool-schema token overhead. All 5 domain dispatchers use the calling contract `(action: str, filename: str | None = None, params: dict | None = None)`, where `params` carries the underlying granular tool arguments:
 
 - **Single-Pass Tools (3):** `excel_build_workbook`, `excel_get_workbook_outline`, `excel_batch_write_data`.
 - **Action-Dispatched Domain Tools (5):**
@@ -55,7 +55,7 @@ Starting in `v2.2.0`, `excel-mcp` defaults to `compose` mode (8 tools) to minimi
   - `excel_formula`: `validate`, `apply`
   - `excel_analytics`: `create_chart`, `create_pivot_table`
 
-To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_MODE=full` or launch with `server --tool-mode full`.
+To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=full` or launch with `server --tool-mode full`.
 
 ### Complete Canonical Tool Inventory (`full` Mode, 33 Tools)
 
@@ -169,7 +169,7 @@ To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_MODE=fu
 
 - **Formula Injection Defense:** All formulas written via `excel_build_workbook`, `excel_batch_write_data`, `excel_append_rows`, or `excel_apply_formula` pass strict AST security validation blocking DDE commands (`cmd|`, `powershell|`, `|'`), external URLs, and dangerous functions (`EXEC`, `SHELL`, `CALL`).
 - **Crash-Safe Atomic Writes:** All mutating operations write to an isolated temporary file in the target directory and commit atomically via `atomic_save` (`os.replace`).
-- **Path Confinement:** Files must reside within paths permitted by `MCP_ALLOWED_DIRECTORIES`.
+- **Path Confinement:** Files must reside within paths permitted by `EXCEL_MCP_DIRS`.
 
 ---
 

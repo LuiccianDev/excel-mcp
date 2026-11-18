@@ -25,13 +25,13 @@ To launch the container interactively over standard input/output (`stdio`):
 ```bash
 docker run --rm -i \
   -v /path/to/your/spreadsheets:/spreadsheets \
-  -e MCP_ALLOWED_DIRECTORIES="/spreadsheets" \
+  -e EXCEL_MCP_DIRS="/spreadsheets" \
   excel-mcp
 ```
 
 - `-i`: Kept interactive so the container accepts JSON-RPC messages via `stdio`.
 - `-v`: Mounts the local directory containing spreadsheets. **Replace `/path/to/your/spreadsheets` with your local folder path**.
-- `-e MCP_ALLOWED_DIRECTORIES`: Restricts server file operations strictly to the mounted volume for defense-in-depth security.
+- `-e EXCEL_MCP_DIRS`: Restricts server file operations strictly to the mounted volume for defense-in-depth security.
 
 ---
 
@@ -47,7 +47,7 @@ Add the following block to your `claude_desktop_config.json`:
       "args": [
         "run", "--rm", "-i",
         "-v", "/path/to/your/spreadsheets:/spreadsheets",
-        "-e", "MCP_ALLOWED_DIRECTORIES=/spreadsheets",
+        "-e", "EXCEL_MCP_DIRS=/spreadsheets",
         "excel-mcp"
       ]
     }
@@ -71,7 +71,7 @@ Add the following block to your `claude_desktop_config.json`:
 
 ## 5. Security & Isolation
 
-- **Directory Boundary:** Always specify `MCP_ALLOWED_DIRECTORIES` to confine file operations strictly to mounted directories.
+- **Directory Boundary:** Always specify `EXCEL_MCP_DIRS` to confine file operations strictly to mounted directories.
 - **Symlink Protection:** The server resolves all paths and symlinks to prevent path traversal outside designated volumes.
 - **Least Privilege:** Mount volumes as read-only (`:ro`) if only inspection and analysis tools are required.
 

@@ -29,7 +29,7 @@
         "src/excel_mcp/server.py"
       ],
       "env": {
-        "MCP_ALLOWED_DIRECTORIES": "${user_config:directory}"
+        "EXCEL_MCP_DIRS": "${user_config:directory}"
       }
     }
   },

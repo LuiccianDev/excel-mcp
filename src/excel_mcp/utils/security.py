@@ -1,7 +1,7 @@
 """Security utilities for file path and directory validation.
 
 Provides functions for validating file paths against permitted directories
-configured via MCP_ALLOWED_DIRECTORIES or DIRECTORY environment variables.
+configured via EXCEL_MCP_DIRS or DIRECTORY environment variables.
 Delegates the actual resolution to :mod:`excel_mcp.utils.paths`.
 """
 
@@ -19,7 +19,7 @@ def get_allowed_directories() -> list[str]:
 
     Returns:
         List of absolute paths to directories where spreadsheets can be created/accessed.
-        Defaults to ['./documents'] if MCP_ALLOWED_DIRECTORIES or DIRECTORY is not set.
+        Defaults to ['./documents'] if EXCEL_MCP_DIRS or DIRECTORY is not set.
     """
     return paths.resolve_allowed_directories()
 

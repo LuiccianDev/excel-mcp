@@ -25,7 +25,7 @@ except ImportError:
         FastMCP = Any  # type: ignore
 
 from excel_mcp import __version__
-from excel_mcp.tools.compose_tools import COMPOSE_REGISTRY
+from excel_mcp.tools.compound_tools import COMPOUND_REGISTRY
 from excel_mcp.tools.register_tools import (
     ToolMode,
     normalize_tool_mode,
@@ -42,27 +42,27 @@ logger = logging.getLogger(__name__)
 
 
 def build_server_instructions(mode: str, allowed_dirs: list[Any]) -> str:
-    """Build mode-aware MCP server instructions derived from COMPOSE_REGISTRY."""
+    """Build mode-aware MCP server instructions derived from COMPOUND_REGISTRY."""
     resolved_mode = normalize_tool_mode(mode)
     dirs_list = "\n".join([f"- `{d}`" for d in allowed_dirs])
     single_pass_count = 3
-    if resolved_mode == ToolMode.COMPOSE:
-        total_tools = single_pass_count + len(COMPOSE_REGISTRY)
+    if resolved_mode == ToolMode.COMPOUND:
+        total_tools = single_pass_count + len(COMPOUND_REGISTRY)
         lines = [
             f"- **`excel_{group}`**: Action-dispatched ({', '.join(f'`{action}`' for action in actions)})."
-            for group, actions in COMPOSE_REGISTRY.items()
+            for group, actions in COMPOUND_REGISTRY.items()
         ]
         surface_section = (
-            f"### Active Tool Surface (`compose` mode, {total_tools} tools)\n"
+            f"### Active Tool Surface (`compound` mode, {total_tools} tools)\n"
             + "\n".join(lines)
         )
     else:
         total_tools = single_pass_count + sum(
-            len(actions) for actions in COMPOSE_REGISTRY.values()
+            len(actions) for actions in COMPOUND_REGISTRY.values()
         )
         lines = [
             f"- **`{group}`**: {', '.join(f'`{spec.full_name}`' for spec in actions.values())}."
-            for group, actions in COMPOSE_REGISTRY.items()
+            for group, actions in COMPOUND_REGISTRY.items()
         ]
         surface_section = (
             f"### Active Tool Surface (`full` mode, {total_tools} tools)\n"
@@ -101,7 +101,7 @@ High-performance Model Context Protocol (MCP) server for programmatic Excel (.xl
 ## Tool Naming
 
 All tools use the `excel_` prefix for clarity (e.g., `excel_build_workbook`, `excel_workbook`).
-Set `EXCEL_MCP_MODE=full` (or launch `server --tool-mode full`) for all 33 granular tools.
+Set `EXCEL_MCP_TOOLS=full` (or launch `server --tool-mode full`) for all 33 granular tools.
 """
 
 

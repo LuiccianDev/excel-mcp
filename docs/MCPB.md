@@ -29,7 +29,7 @@ Add the following to `claude_desktop_config.json`:
       "command": "uvx",
       "args": ["luiccian-excel-mcp"],
       "env": {
-        "MCP_ALLOWED_DIRECTORIES": "/path/to/spreadsheets"
+        "EXCEL_MCP_DIRS": "/path/to/spreadsheets"
       }
     }
   }
@@ -45,7 +45,7 @@ Add the following to `claude_desktop_config.json`:
       "command": "uvx",
       "args": ["luiccian-excel-mcp"],
       "env": {
-        "MCP_ALLOWED_DIRECTORIES": "${workspaceFolder}"
+        "EXCEL_MCP_DIRS": "${workspaceFolder}"
       }
     }
   }

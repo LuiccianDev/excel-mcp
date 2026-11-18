@@ -50,7 +50,7 @@ async def test_create_excel_workbook_rejects_relative_traversal(
 ) -> None:
     allowed = tmp_path / "allowed"
     allowed.mkdir()
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(allowed))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(allowed))
     monkeypatch.delenv("DIRECTORY", raising=False)
 
     result = await excel_tools.create_excel_workbook("../escape.xlsx")

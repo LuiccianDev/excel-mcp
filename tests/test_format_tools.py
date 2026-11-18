@@ -19,7 +19,7 @@ TEST_RANGE_END = "B2"
 
 @pytest.fixture(autouse=True)
 def allow_test_directory(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(TEST_DIR))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(TEST_DIR))
     monkeypatch.delenv("DIRECTORY", raising=False)
 
 

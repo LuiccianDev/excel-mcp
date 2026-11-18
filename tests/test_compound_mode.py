@@ -1,4 +1,4 @@
-"""Tests for compact compose tool-surface mode."""
+"""Tests for compact compound tool-surface mode."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from typing import Any
 
 import pytest
 
-from excel_mcp.tools.compose_tools import (
-    COMPOSE_REGISTRY,
+from excel_mcp.tools.compound_tools import (
+    COMPOUND_REGISTRY,
     excel_analytics,
     excel_data,
     excel_format,
@@ -33,10 +33,10 @@ class _ToolCollector:
         return _decorator
 
 
-def test_compose_mode_registers_eight_tools(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Default compose mode exposes 8 tools and EXCEL_MCP_MODE=full switches to 33."""
-    monkeypatch.delenv("EXCEL_MCP_MODE", raising=False)
-    assert get_tool_mode() == "compose"
+def test_compound_mode_registers_eight_tools(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default compound mode exposes 8 tools and EXCEL_MCP_TOOLS=full switches to 33."""
+    monkeypatch.delenv("EXCEL_MCP_TOOLS", raising=False)
+    assert get_tool_mode() == "compound"
 
     collector = _ToolCollector()
     register_all_tools(collector)
@@ -52,15 +52,15 @@ def test_compose_mode_registers_eight_tools(monkeypatch: pytest.MonkeyPatch) -> 
         "excel_analytics",
     }
 
-    monkeypatch.setenv("EXCEL_MCP_MODE", "full")
+    monkeypatch.setenv("EXCEL_MCP_TOOLS", "full")
     assert get_tool_mode() == "full"
     full_collector = _ToolCollector()
     register_all_tools(full_collector)
     assert len(full_collector.tools) == 33
 
 
-def test_compose_registry_covers_all_granular_tools() -> None:
-    """Every non-single-pass canonical tool in full mode must exist in COMPOSE_REGISTRY."""
+def test_compound_registry_covers_all_granular_tools() -> None:
+    """Every non-single-pass canonical tool in full mode must exist in COMPOUND_REGISTRY."""
     full_collector = _ToolCollector()
     register_all_tools(full_collector, mode="full")
 
@@ -72,12 +72,23 @@ def test_compose_registry_covers_all_granular_tools() -> None:
     full_handlers = {
         fn for name, fn in full_collector.tools.items() if name not in single_pass
     }
-    composed_handlers = {
+    compound_handlers = {
         spec.handler
-        for actions in COMPOSE_REGISTRY.values()
+        for actions in COMPOUND_REGISTRY.values()
         for spec in actions.values()
     }
-    assert composed_handlers == full_handlers
+    assert compound_handlers == full_handlers
+
+
+def test_compound_dispatcher_literals_match_registry() -> None:
+    """Every compound dispatcher's Literal action annotation must match COMPOUND_REGISTRY."""
+    from typing import get_args, get_type_hints
+    from excel_mcp.tools import compound_tools
+
+    for group, actions in COMPOUND_REGISTRY.items():
+        fn = getattr(compound_tools, f"excel_{group}")
+        hints = get_type_hints(fn)
+        assert set(get_args(hints["action"])) == set(actions.keys())
 
 
 def test_invalid_mode_raises_value_error() -> None:
@@ -87,13 +98,13 @@ def test_invalid_mode_raises_value_error() -> None:
         register_all_tools(collector, mode="invalid")
 
 
-def test_compose_tools_end_to_end(
+def test_compound_tools_end_to_end(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Composed tools must execute real workbook, data, formula, and format flows."""
+    """Compound tools must execute real workbook, data, formula, and format flows."""
     docs_dir = tmp_path / "Documents"
     docs_dir.mkdir(parents=True)
-    monkeypatch.setenv("MCP_ALLOWED_DIRECTORIES", str(docs_dir))
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     res_create = asyncio.run(excel_workbook("create", "sales.xlsx"))
     assert res_create.get("status") == "success"
@@ -155,7 +166,7 @@ def test_compose_tools_end_to_end(
     assert res_table.get("status") == "success"
 
 
-def test_compose_tools_reject_invalid_actions_and_params() -> None:
+def test_compound_tools_reject_invalid_actions_and_params() -> None:
     """Invalid actions, unknown params, and missing required params must return errors."""
     bad_action = asyncio.run(excel_workbook("nonexistent"))  # type: ignore[arg-type]
     assert bad_action["status"] == "error"

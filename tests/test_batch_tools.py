@@ -27,9 +27,7 @@ class TestBatchTools(unittest.TestCase):
 
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
-        self._env_patch = patch.dict(
-            os.environ, {"MCP_ALLOWED_DIRECTORIES": self.temp_dir.name}
-        )
+        self._env_patch = patch.dict(os.environ, {"EXCEL_MCP_DIRS": self.temp_dir.name})
         self._env_patch.start()
 
     def tearDown(self) -> None:

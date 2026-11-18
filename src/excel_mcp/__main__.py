@@ -63,9 +63,7 @@ def validate_and_apply_configuration(path: str | None = None) -> None:
         # Reload configuration with overrides
         config_manager.reload_configuration(**overrides)
         if path is not None:
-            os.environ["MCP_ALLOWED_DIRECTORIES"] = (
-                config_manager.config.file_config.directory
-            )
+            os.environ["EXCEL_MCP_DIRS"] = config_manager.config.file_config.directory
 
         logger.info("Configuration validated and applied successfully")
 
@@ -133,7 +131,7 @@ def root_entrypoint(
         str | None,
         typer.Option(
             "--tool-mode",
-            help="Tool registration mode: 'compose' (default, 8 compact tools) or 'full' (33 tools)",
+            help="Tool registration mode: 'compound' (default, 8 compact tools) or 'full' (33 tools)",
         ),
     ] = None,
 ) -> None:
@@ -158,7 +156,7 @@ def run_mcp_server(
         str | None,
         typer.Option(
             "--tool-mode",
-            help="Tool registration mode: 'compose' (default, 8 compact tools) or 'full' (33 tools)",
+            help="Tool registration mode: 'compound' (default, 8 compact tools) or 'full' (33 tools)",
         ),
     ] = None,
 ) -> None:
