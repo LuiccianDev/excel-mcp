@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.3.0] - 2026-11-18
+
 ### Added
 - **Unified Workbook Session Lifecycle**: Added `workbook_session` and `resolve_sheet` in `excel_mcp.core._io` with atomic save on clean write exits, strict guards against `mode="read", save=True` and `data_only=True` writes, and sheet-name validation; migrated `protection`, `page_setup`, `data_validation`, and `workbook` context managers.
 - **Root CLI `--tool-mode` Support**: Added root Typer callback support for `--tool-mode` and `--path` forwarding across `server` and `list` commands in `excel_mcp.__main__`.
