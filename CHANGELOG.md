@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.4.0] - 2026-11-18
+
 ### Added
 - **Single-Pass Builder Dynamism (`excel_build_workbook`)**: Extended `build_single_pass_sheet` to support configurable `auto_totals` aggregations (`SUM`, `AVERAGE`, `COUNT`, `COUNTA`, `MIN`, `MAX`, `SUBTOTAL` via dict/column-name mapping), inline `data_validations` rule lists, and multiple native `charts` per sheet.
 - **Compound Parameter Normalization & Documentation**: Added transparent `range_string`/`cell_range` alias normalization in `dispatch_compound_action` and documented exact `params` schema keys across `excel_data`, `excel_format`, and `excel_analytics`.
