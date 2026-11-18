@@ -186,3 +186,58 @@ def test_compound_tools_reject_invalid_actions_and_params() -> None:
     bad_create = asyncio.run(excel_workbook("create", "payload.exe"))
     assert bad_create["status"] == "error"
     assert "message" in bad_create
+
+
+def test_compound_metadata_and_exception_normalization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Dict results without status are normalized and handler exceptions use ExceptionTool."""
+    from excel_mcp.tools.compound_tools import CompoundActionSpec
+
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(tmp_path))
+    created = asyncio.run(excel_workbook("create", "meta.xlsx"))
+    assert created["status"] == "success"
+
+    meta = asyncio.run(excel_workbook("metadata", "meta.xlsx"))
+    assert meta["status"] == "success"
+    assert "sheets" in meta
+
+    def _raising_handler(filename: str, sheet_name: str, cell: str, formula: str):
+        raise RuntimeError("boom")
+
+    orig = COMPOUND_REGISTRY["formula"]["validate"]
+    monkeypatch.setitem(
+        COMPOUND_REGISTRY["formula"],
+        "validate",
+        CompoundActionSpec(
+            handler=_raising_handler,
+            summary=orig.summary,
+            read_only=orig.read_only,
+            full_name=orig.full_name,
+        ),
+    )
+    err = asyncio.run(
+        excel_formula(
+            "validate",
+            "meta.xlsx",
+            {"sheet_name": "Sheet1", "cell": "A1", "formula": "=1+1"},
+        )
+    )
+    assert err["status"] == "error"
+    assert err["error_type"] == "RuntimeError"
+    assert err["operation"] == "excel_formula.validate"
+
+
+def test_compound_dispatcher_annotations_reflect_group_actions() -> None:
+    """Compound dispatcher annotations must reflect destructive vs write group actions."""
+    recorded: dict[str, object] = {}
+
+    class _AnnotatedMCP:
+        def tool(self, name: str, annotations: object = None):
+            recorded[name] = annotations
+            return lambda fn: fn
+
+    register_all_tools(_AnnotatedMCP(), mode="compound")
+    assert getattr(recorded["excel_workbook"], "destructive_hint", False) is True
+    assert getattr(recorded["excel_data"], "destructive_hint", False) is True
+    assert getattr(recorded["excel_format"], "destructive_hint", False) is not True
