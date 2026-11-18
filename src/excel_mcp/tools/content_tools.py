@@ -3,9 +3,11 @@ from typing import Any
 from excel_mcp.core.data import read_excel_range
 from excel_mcp.exceptions.exception_tools import DataError, ValidationError
 from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_access
+from excel_mcp.utils.guards import tool_guard
 
 
 @validate_file_access("filename", read_only=True)
+@tool_guard()
 async def read_data_from_excel(
     filename: str,
     sheet_name: str,
@@ -90,6 +92,7 @@ async def read_data_from_excel(
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def write_data_to_excel(
     filename: str,
     sheet_name: str,

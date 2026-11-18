@@ -7,13 +7,13 @@ saving >90% tokens and preventing chatty micro-iterations.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 import openpyxl
 from openpyxl.chart import BarChart, LineChart, PieChart, Reference
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
 
-from excel_mcp.core._io import atomic_save
+from excel_mcp.core._io import resolve_sheet, workbook_session
 from excel_mcp.core.calculations import (
     FormulaSecurityError,
     validate_cell_value_secure,
@@ -24,12 +24,15 @@ from excel_mcp.core.presets import (
     auto_fit_column_widths,
     get_preset,
 )
-from excel_mcp.exceptions.exception_core import SheetNotFoundError
 from excel_mcp.models.response_models import (
     BatchWriteResult,
     BuildWorkbookResult,
     SheetOutline,
     WorkbookOutline,
+)
+
+SUPPORTED_TOTAL_FUNCTIONS = frozenset(
+    {"SUM", "AVERAGE", "COUNT", "COUNTA", "MIN", "MAX", "SUBTOTAL"}
 )
 
 
@@ -85,6 +88,8 @@ def build_single_pass_sheet(
     currency_cols = set(sheet_data.get("currency_columns", []))
     numeric_cols = set(sheet_data.get("numeric_columns", []))
     chart_config = sheet_data.get("chart")
+    charts_config = sheet_data.get("charts") or []
+    data_validations = sheet_data.get("data_validations") or []
     freeze_panes = sheet_data.get("freeze_panes")
     auto_filter = sheet_data.get("auto_filter", False)
 
@@ -169,7 +174,7 @@ def build_single_pass_sheet(
 
     data_end_row = current_row - 1
 
-    # 4. Optional Auto-Totals Row
+    # 4. Optional Auto-Totals Row (supports bool, list of columns, or {col: agg_func} dict)
     if auto_totals and rows:
         ws.row_dimensions[current_row].height = 22
         first_cell = ws.cell(row=current_row, column=1, value="Total")
@@ -182,10 +187,30 @@ def build_single_pass_sheet(
             font_size=font_size,
         )
 
-        # Detect numeric columns to sum
-        cols_to_sum = (
-            auto_totals if isinstance(auto_totals, list) else list(range(1, num_cols))
-        )
+        total_map: dict[int, str] = {}
+        if isinstance(auto_totals, dict):
+            for key, raw_func in auto_totals.items():
+                func_upper = str(raw_func).strip().upper()
+                if func_upper not in SUPPORTED_TOTAL_FUNCTIONS:
+                    if warnings is not None:
+                        warnings.append(
+                            f"Sheet '{ws.title}' unsupported total function '{raw_func}', defaulting to SUM."
+                        )
+                    func_upper = "SUM"
+                if isinstance(key, int):
+                    total_map[key] = func_upper
+                elif headers and key in headers:
+                    total_map[headers.index(key)] = func_upper
+        elif isinstance(auto_totals, list):
+            for key in auto_totals:
+                if isinstance(key, int):
+                    total_map[key] = "SUM"
+                elif headers and key in headers:
+                    total_map[headers.index(key)] = "SUM"
+        else:
+            for idx in range(1, num_cols):
+                total_map[idx] = "SUM"
+
         for col_idx in range(2, num_cols + 1):
             cell = ws.cell(row=current_row, column=col_idx)
             is_curr = (col_idx - 1 in currency_cols) or (
@@ -194,15 +219,14 @@ def build_single_pass_sheet(
                 and headers[col_idx - 1] in currency_cols
             )
 
-            if (col_idx - 1 in cols_to_sum) or (
-                headers
-                and col_idx - 1 < len(headers)
-                and headers[col_idx - 1] in cols_to_sum
-            ):
+            agg_func = total_map.get(col_idx - 1)
+            if agg_func is not None:
                 col_letter = get_column_letter(col_idx)
-                cell.value = (
-                    f"=SUM({col_letter}{data_start_row}:{col_letter}{data_end_row})"
-                )
+                cell_range = f"{col_letter}{data_start_row}:{col_letter}{data_end_row}"
+                if agg_func == "SUBTOTAL":
+                    cell.value = f"=SUBTOTAL(9,{cell_range})"
+                else:
+                    cell.value = f"={agg_func}({cell_range})"
                 apply_data_cell_style(
                     cell,
                     row_idx=1,
@@ -233,18 +257,50 @@ def build_single_pass_sheet(
             f"A{header_start_row}:{get_column_letter(num_cols)}{filter_end_row}"
         )
 
-    # 5. Optional Chart Generation
-    if chart_config and rows:
+    # 4.75 Optional Inline Data Validations
+    for dv_spec in data_validations:
+        try:
+            target_range = dv_spec.get("range") or dv_spec.get("cell_range")
+            dv_type = dv_spec.get("type", "list")
+            if not target_range or not dv_spec.get("formula1"):
+                continue
+            dv = DataValidation(
+                type=dv_type,
+                operator=None
+                if dv_type == "list"
+                else dv_spec.get("operator", "between"),
+                formula1=dv_spec["formula1"],
+                formula2=dv_spec.get("formula2"),
+                allow_blank=dv_spec.get("allow_blank", True),
+            )
+            if dv_spec.get("prompt_title") or dv_spec.get("prompt"):
+                dv.promptTitle = dv_spec.get("prompt_title")
+                dv.prompt = dv_spec.get("prompt")
+                dv.showInputMessage = True
+            if dv_spec.get("error_title") or dv_spec.get("error_message"):
+                dv.errorTitle = dv_spec.get("error_title")
+                dv.error = dv_spec.get("error_message")
+                dv.showErrorMessage = True
+            dv.add(target_range)
+            ws.add_data_validation(dv)
+        except Exception as e:
+            if warnings is not None:
+                warnings.append(f"Sheet '{ws.title}' data validation warning: {e}")
+
+    # 5. Optional Chart Generation (supports single `chart` and/or list `charts`)
+    all_charts = ([chart_config] if chart_config else []) + list(charts_config)
+    for chart_spec in all_charts:
+        if not rows:
+            continue
         try:
             _render_chart(
                 ws=ws,
-                chart_config=chart_config,
+                chart_config=chart_spec,
                 start_row=header_start_row,
                 end_row=data_end_row,
                 num_cols=num_cols,
             )
         except Exception as e:
-            # Record warning without corrupting sheet cell contents
             if warnings is not None:
                 warnings.append(f"Sheet '{ws.title}' chart generation warning: {e}")
 
@@ -264,38 +320,37 @@ def build_single_pass_workbook(
     font_size: float | None = None,
 ) -> BuildWorkbookResult:
     """Construct an entire Excel workbook in one atomic pass."""
-    os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
-
-    wb = openpyxl.Workbook()
-    default_sheet = wb.active
     sheets_created: list[str] = []
     total_rows = 0
     charts_count = 0
     warnings: list[str] = []
 
-    for i, s_data in enumerate(sheets):
-        sheet_name = s_data.get("name", f"Sheet{i + 1}")
-        if i == 0 and default_sheet is not None:
-            ws = default_sheet
-            ws.title = sheet_name
-        else:
-            ws = wb.create_sheet(title=sheet_name)
+    with workbook_session(filename, mode="create", initial_sheet=None) as wb:
+        default_sheet = wb.active
 
-        sheets_created.append(sheet_name)
-        rows_inserted = build_single_pass_sheet(
-            ws=ws,
-            sheet_data=s_data,
-            preset_name=preset,
-            auto_fit=auto_fit,
-            warnings=warnings,
-            font_name=font_name,
-            font_size=font_size,
-        )
-        total_rows += rows_inserted
-        if s_data.get("chart"):
-            charts_count += 1
+        for i, s_data in enumerate(sheets):
+            sheet_name = s_data.get("name", f"Sheet{i + 1}")
+            if i == 0 and default_sheet is not None:
+                ws = default_sheet
+                ws.title = sheet_name
+            else:
+                ws = wb.create_sheet(title=sheet_name)
 
-    atomic_save(wb, filename)
+            sheets_created.append(sheet_name)
+            rows_inserted = build_single_pass_sheet(
+                ws=ws,
+                sheet_data=s_data,
+                preset_name=preset,
+                auto_fit=auto_fit,
+                warnings=warnings,
+                font_name=font_name,
+                font_size=font_size,
+            )
+            total_rows += rows_inserted
+            if s_data.get("rows"):
+                if s_data.get("chart"):
+                    charts_count += 1
+                charts_count += len(s_data.get("charts") or [])
 
     return BuildWorkbookResult(
         filename=filename,
@@ -310,14 +365,10 @@ def build_single_pass_workbook(
 
 def inspect_workbook_outline(filename: str) -> WorkbookOutline:
     """Inspect structural outline of workbook without loading full cell grids into context."""
-    if not os.path.exists(filename):
-        raise FileNotFoundError(f"Workbook not found at {filename}")
-
-    wb = openpyxl.load_workbook(filename, read_only=True, data_only=False)
     sheet_outlines: list[SheetOutline] = []
     total_cells = 0
 
-    try:
+    with workbook_session(filename, mode="read", data_only=False) as wb:
         for name in wb.sheetnames:
             ws = wb[name]
             max_r = ws.max_row or 0
@@ -395,9 +446,6 @@ def inspect_workbook_outline(filename: str) -> WorkbookOutline:
                     warnings=sheet_warnings,
                 )
             )
-    finally:
-        wb.close()
-
     return WorkbookOutline(
         filename=filename,
         sheet_count=len(sheet_outlines),
@@ -413,26 +461,10 @@ def batch_write_matrix(
     data_matrix: list[list[Any]],
 ) -> BatchWriteResult:
     """Write a 2D matrix of values into a sheet starting from a given cell in one atomic pass."""
-    if not os.path.exists(filename):
-        raise FileNotFoundError(f"Workbook not found at {filename}")
+    from openpyxl.utils.cell import coordinate_to_tuple
 
-    wb = openpyxl.load_workbook(filename)
-    try:
-        if sheet_name:
-            if sheet_name not in wb.sheetnames:
-                raise SheetNotFoundError(
-                    f"Sheet '{sheet_name}' not found in workbook '{filename}'. Available sheets: {wb.sheetnames}"
-                )
-            ws = wb[sheet_name]
-        else:
-            ws = wb.active
-            if ws is None:
-                raise SheetNotFoundError(
-                    f"Workbook '{filename}' has no active worksheet."
-                )
-
-        # Parse start cell coordinate (e.g., 'B3')
-        from openpyxl.utils.cell import coordinate_to_tuple
+    with workbook_session(filename, mode="edit") as wb:
+        ws = resolve_sheet(wb, sheet_name)
 
         start_row, start_col = coordinate_to_tuple(start_cell)
 
@@ -454,16 +486,13 @@ def batch_write_matrix(
 
         end_cell = f"{get_column_letter(start_col + max(cols_affected - 1, 0))}{start_row + max(rows_affected - 1, 0)}"
         range_written = f"{start_cell}:{end_cell}"
+        title = ws.title
 
-        atomic_save(wb, filename)
-
-        return BatchWriteResult(
-            filename=filename,
-            sheet_name=ws.title,
-            range_written=range_written,
-            rows_affected=rows_affected,
-            columns_affected=cols_affected,
-            cells_updated=total_cells,
-        )
-    finally:
-        wb.close()
+    return BatchWriteResult(
+        filename=filename,
+        sheet_name=title,
+        range_written=range_written,
+        rows_affected=rows_affected,
+        columns_affected=cols_affected,
+        cells_updated=total_cells,
+    )

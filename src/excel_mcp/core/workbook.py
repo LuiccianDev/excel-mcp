@@ -41,18 +41,17 @@ def create_workbook(
         }
     """
     path = Path(filename).resolve()
-    wb = None
 
     try:
         # Input validation
         _validate_sheet_name(sheet_name)
 
-        # Create workbook and initial worksheet
-        wb = Workbook()
-        _create_initial_worksheet(wb, sheet_name)
-
-        # Save the workbook atomically
-        atomic_save(wb, path)
+        # Create workbook and initial worksheet, then save atomically
+        with workbook_session(
+            path, mode="create", initial_sheet=None, save=False
+        ) as wb:
+            _create_initial_worksheet(wb, sheet_name)
+            atomic_save(wb, path)
 
         return {
             "status": "success",
@@ -65,9 +64,6 @@ def create_workbook(
         raise PermissionError(f"Cannot write to {path}: {e}") from e
     except Exception as e:
         raise WorkbookError(f"Failed to create workbook: {e}") from e
-    finally:
-        if wb is not None:
-            wb.close()
 
 
 # * Get or create workbook
@@ -161,17 +157,12 @@ def create_sheet(filename: str | Path, sheet_name: str) -> dict[str, Any]:
     if not path.exists():
         return create_workbook(path, sheet_name)
 
-    wb = None
     try:
-        # Load existing workbook
-        wb = _load_existing_workbook(path)
-
         # Validate sheet name and create the sheet
         _validate_sheet_name(sheet_name)
-        _create_new_sheet(wb, sheet_name)
-
-        # Save the workbook atomically
-        atomic_save(wb, path)
+        with workbook_session(path, mode="edit", save=False) as wb:
+            _create_new_sheet(wb, sheet_name)
+            atomic_save(wb, path)
 
         return {
             "status": "success",
@@ -186,10 +177,6 @@ def create_sheet(filename: str | Path, sheet_name: str) -> dict[str, Any]:
     except Exception as e:
         # Wrap other exceptions in WorkbookError
         raise WorkbookError(f"Failed to create sheet '{sheet_name}': {e}") from e
-    finally:
-        # Ensure the workbook is properly closed
-        if wb is not None:
-            wb.close()
 
 
 # * Get workbook info
@@ -222,39 +209,34 @@ def get_workbook_info(
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
 
-    wb = None
     try:
         # Load in read-only mode for better performance with large files
-        wb = load_workbook(str(path), read_only=True, data_only=True)
+        with workbook_session(path, mode="read", data_only=True) as wb:
+            # Basic file information
+            info: dict[str, Any] = {
+                "filename": path.name,
+                "sheets": wb.sheetnames,
+                "size": path.stat().st_size,
+                "modified": path.stat().st_mtime,
+                "used_ranges": None,
+            }
 
-        # Basic file information
-        info: dict[str, Any] = {
-            "filename": path.name,
-            "sheets": wb.sheetnames,
-            "size": path.stat().st_size,
-            "modified": path.stat().st_mtime,
-            "used_ranges": None,
-        }
+            # Calculate used ranges if requested
+            if include_ranges:
+                ranges: dict[str, str] = {}
+                for sheet_name in wb.sheetnames:
+                    ws = wb[sheet_name]
+                    if range_str := _get_worksheet_range(ws):
+                        ranges[sheet_name] = range_str
 
-        # Calculate used ranges if requested
-        if include_ranges:
-            ranges: dict[str, str] = {}
-            for sheet_name in wb.sheetnames:
-                ws = wb[sheet_name]
-                if range_str := _get_worksheet_range(ws):
-                    ranges[sheet_name] = range_str
+                info["used_ranges"] = ranges or None
 
-            info["used_ranges"] = ranges or None
-
-        return info
+            return info
 
     except PermissionError as e:
         raise PermissionError(f"Cannot access {path}: {e}") from e
     except Exception as e:
         raise WorkbookError(f"Failed to get workbook info: {e}") from e
-    finally:
-        if wb is not None:
-            wb.close()
 
 
 def _validate_sheet_name(sheet_name: str) -> None:

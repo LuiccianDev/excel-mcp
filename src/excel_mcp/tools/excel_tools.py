@@ -2,16 +2,18 @@
 from typing import Any
 
 from excel_mcp.core.workbook import create_sheet, create_workbook
-from excel_mcp.exceptions.exception_tools import ValidationError, WorkbookError
+from excel_mcp.exceptions.exception_tools import WorkbookError
 from excel_mcp.utils.file_utils import (
     ensure_xlsx_extension,
     list_excel_files_in_directory,
     resolve_safe_path,
     validate_file_access,
 )
+from excel_mcp.utils.guards import tool_guard
 
 
 # * Create a new Excel workbook
+@tool_guard()
 async def create_excel_workbook(filename: str) -> dict[str, Any]:
     """
     Create an empty Excel workbook (.xlsx) in a secure, validated path.
@@ -57,6 +59,7 @@ async def create_excel_workbook(filename: str) -> dict[str, Any]:
 
 # * Create new worksheet in workbook
 @validate_file_access("filename")
+@tool_guard()
 async def create_excel_worksheet(filename: str, sheet_name: str) -> dict[str, Any]:
     """
     Add a new worksheet to an existing Excel workbook.
@@ -78,16 +81,11 @@ async def create_excel_worksheet(filename: str, sheet_name: str) -> dict[str, An
         On error, returns a dictionary with status "error" and a descriptive message.
     """
     filename = ensure_xlsx_extension(filename)
-
-    try:
-        result: dict[str, Any] = create_sheet(filename, sheet_name)
-        return result
-    except (ValidationError, WorkbookError) as e:
-        return {"status": "error", "message": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"status": "error", "message": f"Failed to create worksheet: {str(e)}"}
+    result: dict[str, Any] = create_sheet(filename, sheet_name)
+    return result
 
 
+@tool_guard()
 async def list_excel_documents() -> dict[str, Any]:
     """
     List all .xlsx files in the specified directory.
@@ -111,15 +109,9 @@ async def list_excel_documents() -> dict[str, Any]:
                 [{"name": "report.xlsx", "size": 2048, "modified": "2025-07-30T10:45:00"}]
         On error, returns a dictionary with status "error" and a descriptive message.
     """
-    try:
-        files = list_excel_files_in_directory()
-        return {
-            "status": "success",
-            "count": len(files),
-            "files": files,
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to list documents: {str(e)}",
-        }
+    files = list_excel_files_in_directory()
+    return {
+        "status": "success",
+        "count": len(files),
+        "files": files,
+    }

@@ -6,9 +6,11 @@ from excel_mcp.core.pivot import create_pivot_table as create_pivot_table_impl
 # Import exceptions
 from excel_mcp.exceptions.exception_tools import ChartError, PivotError, ValidationError
 from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_access
+from excel_mcp.utils.guards import tool_guard
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def create_chart(
     filename: str,
     sheet_name: str,
@@ -58,6 +60,7 @@ async def create_chart(
 
 
 @validate_file_access("filename")
+@tool_guard()
 async def create_pivot_table(
     filename: str,
     sheet_name: str,

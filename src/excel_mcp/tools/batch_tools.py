@@ -48,9 +48,11 @@ def build_workbook(
             - 'title': Optional banner title header (str).
             - 'headers': List of column header names (list[str]).
             - 'rows': 2D array of data values (list[list[Any]]).
-            - 'auto_totals': bool or list of 0-based column indices to calculate SUM.
+            - 'auto_totals': bool, list of column names/0-based indices (SUM), or dict mapping column names/indices to function ('SUM', 'AVERAGE', 'COUNT', 'COUNTA', 'MIN', 'MAX', 'SUBTOTAL').
             - 'currency_columns': list of column names or 0-based indices for currency formatting ($#,##0.00).
-            - 'chart': Optional chart definition {'type': 'bar'|'line'|'pie', 'title': '...', 'data_column': 2, 'label_column': 1}.
+            - 'chart': Optional single chart dict {'type': 'bar'|'line'|'pie', 'title': '...', 'data_column': 2, 'label_column': 1}.
+            - 'charts': Optional list of chart dicts to embed multiple charts on the same sheet.
+            - 'data_validations': Optional list of rule dicts ({'range'|'cell_range', 'type', 'formula1', 'formula2', 'operator', 'allow_blank', 'prompt_title', 'prompt', 'error_title', 'error_message'}).
             - 'freeze_panes': Optional cell coordinate to freeze panes (e.g. 'A2', 'A4').
             - 'auto_filter': Optional bool to enable autofilter on the table header range.
         preset: Visual styling preset ('corporate', 'financial', 'modern', 'compact').

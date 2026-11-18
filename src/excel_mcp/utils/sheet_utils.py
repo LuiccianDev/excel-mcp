@@ -1,55 +1,68 @@
+from pathlib import Path
 from typing import Any
 
-from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from excel_mcp.core._io import atomic_save
 from excel_mcp.utils.cell_utils import parse_cell_range
+
+
+def _edit_session(filename: Path | str) -> Any:
+    """Open an edit workbook session lazily to avoid utils/core circular imports."""
+    from excel_mcp.core._io import workbook_session
+
+    return workbook_session(filename, mode="edit", save=False)
+
+
+def _save_wb(wb: Any, filename: Path | str) -> Path:
+    """Persist workbook atomically using shared core I/O helper."""
+    from excel_mcp.core._io import atomic_save
+
+    return atomic_save(wb, filename)
 
 
 def copy_sheet(filename: str, source_sheet: str, target_sheet: str) -> dict[str, Any]:
     try:
-        wb = load_workbook(filename)
-        if source_sheet not in wb.sheetnames:
-            return {"error": f"Source sheet '{source_sheet}' not found"}
-        if target_sheet in wb.sheetnames:
-            return {"error": f"Target sheet '{target_sheet}' already exists"}
-        source = wb[source_sheet]
-        target = wb.copy_worksheet(source)
-        target.title = target_sheet
-        atomic_save(wb, filename)
-        return {"message": f"Sheet '{source_sheet}' copied to '{target_sheet}'"}
+        with _edit_session(filename) as wb:
+            if source_sheet not in wb.sheetnames:
+                return {"error": f"Source sheet '{source_sheet}' not found"}
+            if target_sheet in wb.sheetnames:
+                return {"error": f"Target sheet '{target_sheet}' already exists"}
+            source = wb[source_sheet]
+            target = wb.copy_worksheet(source)
+            target.title = target_sheet
+            _save_wb(wb, filename)
+            return {"message": f"Sheet '{source_sheet}' copied to '{target_sheet}'"}
     except Exception as e:
         return {"error": str(e)}
 
 
 def delete_sheet(filename: str, sheet_name: str) -> dict[str, Any]:
     try:
-        wb = load_workbook(filename)
-        if sheet_name not in wb.sheetnames:
-            return {"error": f"Sheet '{sheet_name}' not found"}
-        if len(wb.sheetnames) == 1:
-            return {"error": "Cannot delete the only sheet in workbook"}
-        del wb[sheet_name]
-        atomic_save(wb, filename)
-        return {"message": f"Sheet '{sheet_name}' deleted"}
+        with _edit_session(filename) as wb:
+            if sheet_name not in wb.sheetnames:
+                return {"error": f"Sheet '{sheet_name}' not found"}
+            if len(wb.sheetnames) == 1:
+                return {"error": "Cannot delete the only sheet in workbook"}
+            del wb[sheet_name]
+            _save_wb(wb, filename)
+            return {"message": f"Sheet '{sheet_name}' deleted"}
     except Exception as e:
         return {"error": str(e)}
 
 
 def rename_sheet(filename: str, old_name: str, new_name: str) -> dict[str, Any]:
     try:
-        wb = load_workbook(filename)
-        if old_name not in wb.sheetnames:
-            return {"error": f"Sheet '{old_name}' not found"}
-        if new_name in wb.sheetnames:
-            return {"error": f"Sheet '{new_name}' already exists"}
-        sheet = wb[old_name]
-        sheet.title = new_name
-        atomic_save(wb, filename)
-        return {"message": f"Sheet renamed from '{old_name}' to '{new_name}'"}
+        with _edit_session(filename) as wb:
+            if old_name not in wb.sheetnames:
+                return {"error": f"Sheet '{old_name}' not found"}
+            if new_name in wb.sheetnames:
+                return {"error": f"Sheet '{new_name}' already exists"}
+            sheet = wb[old_name]
+            sheet.title = new_name
+            _save_wb(wb, filename)
+            return {"message": f"Sheet renamed from '{old_name}' to '{new_name}'"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -202,17 +215,21 @@ def merge_range(
 ) -> dict[str, Any]:
     """Merge a range of cells."""
     try:
-        wb = load_workbook(filename)
-        if sheet_name not in wb.sheetnames:
-            return {"error": f"Sheet '{sheet_name}' not found"}
-        start_row, start_col, end_row, end_col = parse_cell_range(start_cell, end_cell)
-        if end_row is None or end_col is None:
-            return {"error": "Both start and end cells must be specified for merging"}
-        range_string = format_range_string(start_row, start_col, end_row, end_col)
-        worksheet = wb[sheet_name]
-        worksheet.merge_cells(range_string)
-        atomic_save(wb, filename)
-        return {"message": f"Range '{range_string}' merged in sheet '{sheet_name}'"}
+        with _edit_session(filename) as wb:
+            if sheet_name not in wb.sheetnames:
+                return {"error": f"Sheet '{sheet_name}' not found"}
+            start_row, start_col, end_row, end_col = parse_cell_range(
+                start_cell, end_cell
+            )
+            if end_row is None or end_col is None:
+                return {
+                    "error": "Both start and end cells must be specified for merging"
+                }
+            range_string = format_range_string(start_row, start_col, end_row, end_col)
+            worksheet = wb[sheet_name]
+            worksheet.merge_cells(range_string)
+            _save_wb(wb, filename)
+            return {"message": f"Range '{range_string}' merged in sheet '{sheet_name}'"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -222,23 +239,28 @@ def unmerge_range(
 ) -> dict[str, Any]:
     """Unmerge a range of cells."""
     try:
-        wb = load_workbook(filename)
-        if sheet_name not in wb.sheetnames:
-            return {"error": f"Sheet '{sheet_name}' not found"}
-        worksheet = wb[sheet_name]
-        start_row, start_col, end_row, end_col = parse_cell_range(start_cell, end_cell)
-        if end_row is None or end_col is None:
-            return {"error": "Both start and end cells must be specified for unmerging"}
-        range_string = format_range_string(start_row, start_col, end_row, end_col)
-        merged_ranges = worksheet.merged_cells.ranges
-        target_range = range_string.upper()
-        if not any(
-            str(merged_range).upper() == target_range for merged_range in merged_ranges
-        ):
-            return {"error": f"Range '{range_string}' is not merged"}
-        worksheet.unmerge_cells(range_string)
-        atomic_save(wb, filename)
-        return {"message": f"Range '{range_string}' unmerged successfully"}
+        with _edit_session(filename) as wb:
+            if sheet_name not in wb.sheetnames:
+                return {"error": f"Sheet '{sheet_name}' not found"}
+            worksheet = wb[sheet_name]
+            start_row, start_col, end_row, end_col = parse_cell_range(
+                start_cell, end_cell
+            )
+            if end_row is None or end_col is None:
+                return {
+                    "error": "Both start and end cells must be specified for unmerging"
+                }
+            range_string = format_range_string(start_row, start_col, end_row, end_col)
+            merged_ranges = worksheet.merged_cells.ranges
+            target_range = range_string.upper()
+            if not any(
+                str(merged_range).upper() == target_range
+                for merged_range in merged_ranges
+            ):
+                return {"error": f"Range '{range_string}' is not merged"}
+            worksheet.unmerge_cells(range_string)
+            _save_wb(wb, filename)
+            return {"message": f"Range '{range_string}' unmerged successfully"}
     except Exception as e:
         return {"error": str(e)}
 
@@ -253,73 +275,73 @@ def copy_range_operation(
 ) -> dict[str, Any]:
     """Copy a range of cells to another location."""
     try:
-        wb = load_workbook(filename)
-        if sheet_name not in wb.sheetnames:
-            return {"error": f"Sheet '{sheet_name}' not found"}
-        source_ws = wb[sheet_name]
-        target_ws = wb[target_sheet] if target_sheet else source_ws
-        try:
-            start_row, start_col, end_row, end_col = parse_cell_range(
-                source_start, source_end
-            )
-            if end_row is None or end_col is None:
-                return {"error": "Source end range is missing or invalid."}
-        except ValueError as e:
-            return {"error": f"Invalid source range: {str(e)}"}
-        try:
-            target_row = int("".join(filter(str.isdigit, target_start)))
-            target_col = column_index_from_string(
-                "".join(filter(str.isalpha, target_start))
-            )
-        except ValueError as e:
-            return {"error": f"Invalid target cell: {str(e)}"}
-        row_offset = target_row - start_row
-        col_offset = target_col - start_col
-        for i in range(start_row, end_row + 1):
-            for j in range(start_col, end_col + 1):
-                source_cell = source_ws.cell(row=i, column=j)
-                target_cell = target_ws.cell(row=i + row_offset, column=j + col_offset)
-                target_cell.value = source_cell.value
-                if source_cell.has_style:
-                    # Safely copy cell style attributes
-                    # Create new style objects instead of copying StyleProxy
-                    if source_cell.font:
-                        target_cell.font = Font(
-                            name=source_cell.font.name,
-                            size=source_cell.font.size,
-                            bold=source_cell.font.bold,
-                            italic=source_cell.font.italic,
-                            color=source_cell.font.color,
-                        )
-                    if source_cell.border:
-                        target_cell.border = Border(
-                            left=source_cell.border.left,
-                            right=source_cell.border.right,
-                            top=source_cell.border.top,
-                            bottom=source_cell.border.bottom,
-                        )
-                    if source_cell.fill:
-                        target_cell.fill = PatternFill(
-                            fill_type=source_cell.fill.fill_type,
-                            fgColor=source_cell.fill.fgColor,
-                            bgColor=source_cell.fill.bgColor,
-                        )
-                    target_cell.number_format = source_cell.number_format
-                    if source_cell.alignment:
-                        align = source_cell.alignment
-                        target_cell.alignment = Alignment(
-                            horizontal=align.horizontal,
-                            vertical=align.vertical,
-                            textRotation=align.textRotation,
-                            wrapText=align.wrapText,
-                            shrinkToFit=align.shrinkToFit,
-                            indent=align.indent,
-                            relativeIndent=align.relativeIndent,
-                            justifyLastLine=align.justifyLastLine,
-                            readingOrder=align.readingOrder,
-                        )
-        atomic_save(wb, filename)
-        return {"message": "Range copied successfully"}
+        with _edit_session(filename) as wb:
+            if sheet_name not in wb.sheetnames:
+                return {"error": f"Sheet '{sheet_name}' not found"}
+            source_ws = wb[sheet_name]
+            target_ws = wb[target_sheet] if target_sheet else source_ws
+            try:
+                start_row, start_col, end_row, end_col = parse_cell_range(
+                    source_start, source_end
+                )
+                if end_row is None or end_col is None:
+                    return {"error": "Source end range is missing or invalid."}
+            except ValueError as e:
+                return {"error": f"Invalid source range: {str(e)}"}
+            try:
+                target_row = int("".join(filter(str.isdigit, target_start)))
+                target_col = column_index_from_string(
+                    "".join(filter(str.isalpha, target_start))
+                )
+            except ValueError as e:
+                return {"error": f"Invalid target cell: {str(e)}"}
+            row_offset = target_row - start_row
+            col_offset = target_col - start_col
+            for i in range(start_row, end_row + 1):
+                for j in range(start_col, end_col + 1):
+                    source_cell = source_ws.cell(row=i, column=j)
+                    target_cell = target_ws.cell(
+                        row=i + row_offset, column=j + col_offset
+                    )
+                    target_cell.value = source_cell.value
+                    if source_cell.has_style:
+                        if source_cell.font:
+                            target_cell.font = Font(
+                                name=source_cell.font.name,
+                                size=source_cell.font.size,
+                                bold=source_cell.font.bold,
+                                italic=source_cell.font.italic,
+                                color=source_cell.font.color,
+                            )
+                        if source_cell.border:
+                            target_cell.border = Border(
+                                left=source_cell.border.left,
+                                right=source_cell.border.right,
+                                top=source_cell.border.top,
+                                bottom=source_cell.border.bottom,
+                            )
+                        if source_cell.fill:
+                            target_cell.fill = PatternFill(
+                                fill_type=source_cell.fill.fill_type,
+                                fgColor=source_cell.fill.fgColor,
+                                bgColor=source_cell.fill.bgColor,
+                            )
+                        target_cell.number_format = source_cell.number_format
+                        if source_cell.alignment:
+                            align = source_cell.alignment
+                            target_cell.alignment = Alignment(
+                                horizontal=align.horizontal,
+                                vertical=align.vertical,
+                                textRotation=align.textRotation,
+                                wrapText=align.wrapText,
+                                shrinkToFit=align.shrinkToFit,
+                                indent=align.indent,
+                                relativeIndent=align.relativeIndent,
+                                justifyLastLine=align.justifyLastLine,
+                                readingOrder=align.readingOrder,
+                            )
+            _save_wb(wb, filename)
+            return {"message": "Range copied successfully"}
     except Exception as e:
         return {"error": f"Failed to copy range: {str(e)}"}
 
@@ -332,37 +354,37 @@ def delete_range_operation(
     shift_direction: str = "up",
 ) -> dict[str, Any]:
     try:
-        wb = load_workbook(filename)
-        if sheet_name not in wb.sheetnames:
-            return {"error": f"Sheet '{sheet_name}' not found"}
-        worksheet = wb[sheet_name]
-        try:
-            start_row, start_col, end_row, end_col = parse_cell_range(
-                start_cell, end_cell
+        with _edit_session(filename) as wb:
+            if sheet_name not in wb.sheetnames:
+                return {"error": f"Sheet '{sheet_name}' not found"}
+            worksheet = wb[sheet_name]
+            try:
+                start_row, start_col, end_row, end_col = parse_cell_range(
+                    start_cell, end_cell
+                )
+                if end_row and end_row > worksheet.max_row:
+                    return {
+                        "error": f"End row {end_row} out of bounds (1-{worksheet.max_row})"
+                    }
+                if end_col and end_col > worksheet.max_column:
+                    return {
+                        "error": f"End column {end_col} out of bounds (1-{worksheet.max_column})"
+                    }
+            except ValueError as e:
+                return {"error": f"Invalid range: {str(e)}"}
+            if shift_direction not in ["up", "left"]:
+                return {
+                    "error": f"Invalid shift direction: {shift_direction}. Must be 'up' or 'left'"
+                }
+            range_string = format_range_string(
+                start_row, start_col, end_row or start_row, end_col or start_col
             )
-            if end_row and end_row > worksheet.max_row:
-                return {
-                    "error": f"End row {end_row} out of bounds (1-{worksheet.max_row})"
-                }
-            if end_col and end_col > worksheet.max_column:
-                return {
-                    "error": f"End column {end_col} out of bounds (1-{worksheet.max_column})"
-                }
-        except ValueError as e:
-            return {"error": f"Invalid range: {str(e)}"}
-        if shift_direction not in ["up", "left"]:
-            return {
-                "error": f"Invalid shift direction: {shift_direction}. Must be 'up' or 'left'"
-            }
-        range_string = format_range_string(
-            start_row, start_col, end_row or start_row, end_col or start_col
-        )
-        delete_range(worksheet, start_cell, end_cell)
-        if shift_direction == "up":
-            worksheet.delete_rows(start_row, (end_row or start_row) - start_row + 1)
-        elif shift_direction == "left":
-            worksheet.delete_cols(start_col, (end_col or start_col) - start_col + 1)
-        atomic_save(wb, filename)
-        return {"message": f"Range {range_string} deleted successfully"}
+            delete_range(worksheet, start_cell, end_cell)
+            if shift_direction == "up":
+                worksheet.delete_rows(start_row, (end_row or start_row) - start_row + 1)
+            elif shift_direction == "left":
+                worksheet.delete_cols(start_col, (end_col or start_col) - start_col + 1)
+            _save_wb(wb, filename)
+            return {"message": f"Range {range_string} deleted successfully"}
     except Exception as e:
         return {"error": str(e)}

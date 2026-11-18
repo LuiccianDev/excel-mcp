@@ -241,3 +241,47 @@ def test_compound_dispatcher_annotations_reflect_group_actions() -> None:
     assert getattr(recorded["excel_workbook"], "destructive_hint", False) is True
     assert getattr(recorded["excel_data"], "destructive_hint", False) is True
     assert getattr(recorded["excel_format"], "destructive_hint", False) is not True
+
+
+def test_compound_range_alias_normalization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """range_string alias must transparently normalize to cell_range across format actions."""
+    from excel_mcp.tools.batch_tools import build_workbook
+
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(tmp_path))
+    target = tmp_path / "aliases.xlsx"
+    built = build_workbook(
+        filename=str(target),
+        sheets=[
+            {
+                "name": "Data",
+                "headers": ["Item", "Status"],
+                "rows": [["Alpha", "Open"], ["Beta", "Closed"]],
+            }
+        ],
+    )
+    assert built["status"] == "success"
+
+    table_res = asyncio.run(
+        excel_format(
+            "create_table",
+            str(target),
+            {"range_string": "A1:B3", "table_name": "OrdersTbl", "sheet_name": "Data"},
+        )
+    )
+    assert table_res["status"] == "success"
+
+    dv_res = asyncio.run(
+        excel_format(
+            "add_data_validation",
+            str(target),
+            {
+                "range_string": "B2:B3",
+                "validation_type": "list",
+                "formula1": '"Open,Closed"',
+                "sheet_name": "Data",
+            },
+        )
+    )
+    assert dv_res["status"] == "success"

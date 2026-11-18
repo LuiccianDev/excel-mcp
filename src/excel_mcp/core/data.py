@@ -7,14 +7,11 @@ writing data, and detecting headers, following the Model Context Protocol (MCP) 
 from pathlib import Path
 from typing import Any, TypedDict
 
-from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.workbook.workbook import Workbook as OpenpyxlWorkbook
-from openpyxl.worksheet._read_only import ReadOnlyWorksheet
-from openpyxl.worksheet._write_only import WriteOnlyWorksheet
 from openpyxl.worksheet.worksheet import Worksheet
 
-from excel_mcp.core._io import atomic_save
+from excel_mcp.core._io import atomic_save, resolve_sheet, workbook_session
 from excel_mcp.core.calculations import FormulaSecurityError, validate_cell_value_secure
 from excel_mcp.exceptions.exception_core import (
     DataError,
@@ -146,42 +143,41 @@ def read_excel_range(
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
 
-    wb = None
     try:
-        wb = load_workbook(str(path), read_only=True, data_only=True)
-        ws = _get_worksheet(wb, sheet_name)
+        with workbook_session(path, mode="read", data_only=True) as wb:
+            ws = resolve_sheet(wb, sheet_name)
 
-        # Handle range string (e.g., "A1:B2")
-        if ":" in start_cell:
-            start_cell, end_cell = start_cell.split(":", 1)
+            # Handle range string (e.g., "A1:B2")
+            if ":" in start_cell:
+                start_cell, end_cell = start_cell.split(":", 1)
 
-        # Parse start cell coordinates
-        start_row, start_col = _parse_cell_reference(start_cell)
+            # Parse start cell coordinates
+            start_row, start_col = _parse_cell_reference(start_cell)
 
-        # Parse or detect end cell coordinates
-        if end_cell:
-            end_row, end_col = _parse_cell_reference(end_cell)
-        else:
-            end_row, end_col = _get_used_range(ws, start_row, start_col)
+            # Parse or detect end cell coordinates
+            if end_cell:
+                end_row, end_col = _parse_cell_reference(end_cell)
+            else:
+                end_row, end_col = _get_used_range(ws, start_row, start_col)
 
-        # Validate range is within worksheet bounds
-        if start_row > ws.max_row or start_col > ws.max_column:
-            max_cell = f"{get_column_letter(ws.max_column)}{ws.max_row}"
-            raise RangeError(
-                f"Start cell out of bounds. Sheet dimensions are A1:{max_cell}"
-            )
+            # Validate range is within worksheet bounds
+            if start_row > ws.max_row or start_col > ws.max_column:
+                max_cell = f"{get_column_letter(ws.max_column)}{ws.max_row}"
+                raise RangeError(
+                    f"Start cell out of bounds. Sheet dimensions are A1:{max_cell}"
+                )
 
-        # Read the data
-        data: SheetData = []
-        for row in range(start_row, min(end_row, ws.max_row) + 1):
-            row_data = [
-                ws.cell(row=row, column=col).value
-                for col in range(start_col, min(end_col, ws.max_column) + 1)
-            ]
-            if any(v is not None for v in row_data):
-                data.append(row_data)
+            # Read the data
+            data: SheetData = []
+            for row in range(start_row, min(end_row, ws.max_row) + 1):
+                row_data = [
+                    ws.cell(row=row, column=col).value
+                    for col in range(start_col, min(end_col, ws.max_column) + 1)
+                ]
+                if any(v is not None for v in row_data):
+                    data.append(row_data)
 
-        return data
+            return data
 
     except Exception as e:
         if not isinstance(
@@ -193,9 +189,6 @@ def read_excel_range(
         ):
             raise DataError(f"Failed to read Excel range: {str(e)}") from e
         raise
-    finally:
-        if wb is not None:
-            wb.close()
 
 
 def _write_data_to_worksheet(
@@ -253,48 +246,8 @@ def write_data(
         raise InvalidDataError("No data provided to write")
 
     path = Path(filename).resolve()
-    wb = None
     try:
-        # Load or create workbook
-        try:
-            if path.exists():
-                wb = load_workbook(str(path))
-            else:
-                wb = Workbook()
-                # Remove default sheet if it exists
-                if (
-                    wb.sheetnames
-                    and wb.active
-                    and isinstance(
-                        wb.active, Worksheet | ReadOnlyWorksheet | WriteOnlyWorksheet
-                    )
-                ):
-                    wb.remove(wb.active)
-        except Exception as e:
-            raise WorkbookError(f"Failed to access workbook: {str(e)}") from e
-
-        # Get or create worksheet
-        try:
-            if not sheet_name:
-                if not wb.sheetnames:  # If no sheets exist
-                    ws = wb.create_sheet("Sheet1")
-                else:
-                    ws = wb.active
-            else:
-                if sheet_name in wb.sheetnames:
-                    ws = wb[sheet_name]
-                else:
-                    ws = wb.create_sheet(sheet_name)
-        except Exception as e:
-            raise SheetError(f"Failed to access worksheet: {str(e)}") from e
-
-        # Validate worksheet type
-        if ws is None:
-            raise SheetError("No active worksheet available")
-        if not isinstance(ws, Worksheet):
-            raise SheetError(f"Expected Worksheet, got {type(ws).__name__}")
-
-        # Parse start cell
+        # Parse start cell before mutating or creating files
         try:
             start_row, start_col = _parse_cell_reference(start_cell)
         except InvalidCellReferenceError as e:
@@ -302,24 +255,35 @@ def write_data(
                 f"Invalid start cell format: {str(e)}"
             ) from e
 
-        # Ensure parent directory exists
-        path.parent.mkdir(parents=True, exist_ok=True)
+        with workbook_session(
+            path,
+            mode="upsert",
+            initial_sheet=sheet_name or "Sheet1",
+            save=False,
+        ) as wb:
+            try:
+                ws = resolve_sheet(wb, sheet_name or None, create_if_missing=True)
+            except Exception as e:
+                raise SheetError(f"Failed to access worksheet: {str(e)}") from e
 
-        # Write data
-        _write_data_to_worksheet(ws, data, start_row, start_col)
+            # Ensure parent directory exists
+            path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Save changes atomically
-        try:
-            atomic_save(wb, path)
-        except Exception as e:
-            raise WorkbookError(f"Failed to save workbook: {str(e)}") from e
+            # Write data
+            _write_data_to_worksheet(ws, data, start_row, start_col)
 
-        return {
-            "status": "success",
-            "message": f"Data written to {ws.title}",
-            "active_sheet": ws.title,
-            "filepath": str(path),
-        }
+            # Save changes atomically
+            try:
+                atomic_save(wb, path)
+            except Exception as e:
+                raise WorkbookError(f"Failed to save workbook: {str(e)}") from e
+
+            return {
+                "status": "success",
+                "message": f"Data written to {ws.title}",
+                "active_sheet": ws.title,
+                "filepath": str(path),
+            }
 
     except Exception as e:
         if not isinstance(
@@ -332,9 +296,3 @@ def write_data(
         ):
             raise WorkbookError(f"Failed to write data: {str(e)}") from e
         raise
-    finally:
-        if wb is not None:
-            try:
-                wb.close()
-            except Exception:
-                pass  # noqa: S110
