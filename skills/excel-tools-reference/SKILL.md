@@ -64,7 +64,7 @@ To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=f
 1. **`excel_build_workbook`**
    - **Access Mode:** Write
    - **Purpose:** Construct complete, publication-ready workbooks with multiple sheets in a single atomic pass.
-   - **Arguments:** `filename`, `sheets` (list of sheet dicts with `name`, `title`, `headers`, `rows`, `auto_totals`, `currency_columns`, `chart`, `freeze_panes`, `auto_filter`), `preset` (`"corporate"`, `"financial"`, `"modern"`, `"compact"`), `auto_fit` (`bool`), `font_name` (*optional*, e.g. `"Calibri"`, `"Arial"`), `font_size` (*optional*, e.g. `11`).
+   - **Arguments:** `filename`, `sheets` (list of sheet dicts with `name`, `title`, `headers`, `rows`, `auto_totals` [bool, list, or `{col: "SUM"|"AVERAGE"|"COUNT"|"COUNTA"|"MIN"|"MAX"|"SUBTOTAL"}` dict], `currency_columns`, `chart`, `charts` [list of chart dicts], `data_validations` [list of validation rule dicts], `freeze_panes`, `auto_filter`), `preset` (`"corporate"`, `"financial"`, `"modern"`, `"compact"`), `auto_fit` (`bool`), `font_name` (*optional*, e.g. `"Calibri"`, `"Arial"`), `font_size` (*optional*, e.g. `11`).
 
 2. **`excel_get_workbook_outline`**
    - **Access Mode:** Read-Only
