@@ -83,11 +83,18 @@ def register_all_tools(mcp: Any, mode: str | None = None) -> None:
     _reg("excel_batch_write_data", batch_tools.batch_write_data, write)
 
     if resolved_mode == ToolMode.COMPOUND:
-        _reg("excel_workbook", compound_tools.excel_workbook, write)
-        _reg("excel_data", compound_tools.excel_data, write)
-        _reg("excel_format", compound_tools.excel_format, write)
-        _reg("excel_formula", compound_tools.excel_formula, write)
-        _reg("excel_analytics", compound_tools.excel_analytics, write)
+        for group, actions in compound_tools.COMPOUND_REGISTRY.items():
+            if any(spec.destructive for spec in actions.values()):
+                group_annotations = destructive
+            elif all(spec.read_only for spec in actions.values()):
+                group_annotations = read_only
+            else:
+                group_annotations = write
+            _reg(
+                f"excel_{group}",
+                getattr(compound_tools, f"excel_{group}"),
+                group_annotations,
+            )
         logger.info("Excel MCP tools registered in compact compound mode (8 tools).")
         return
 

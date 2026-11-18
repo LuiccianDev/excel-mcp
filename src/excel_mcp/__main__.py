@@ -117,23 +117,27 @@ def _start_server(path: str | None = None, tool_mode: str | None = None) -> None
         raise typer.Exit(1) from e
 
 
+PathOption = Annotated[
+    str | None,
+    typer.Option(
+        "--path",
+        help="Base directory for file operations (overrides EXCEL_MCP_DIRS env var)",
+    ),
+]
+ToolModeOption = Annotated[
+    str | None,
+    typer.Option(
+        "--tool-mode",
+        help="Tool registration mode: 'compound' (default, 8 compact tools) or 'full' (33 tools)",
+    ),
+]
+
+
 @app.callback(invoke_without_command=True)
 def root_entrypoint(
     ctx: typer.Context,
-    path: Annotated[
-        str | None,
-        typer.Option(
-            "--path",
-            help="Base directory for file operations (overrides DIRECTORY env var)",
-        ),
-    ] = None,
-    tool_mode: Annotated[
-        str | None,
-        typer.Option(
-            "--tool-mode",
-            help="Tool registration mode: 'compound' (default, 8 compact tools) or 'full' (33 tools)",
-        ),
-    ] = None,
+    path: PathOption = None,
+    tool_mode: ToolModeOption = None,
 ) -> None:
     """Start the MCP server by default or forward root options to subcommands."""
     if ctx.invoked_subcommand is None:
@@ -145,20 +149,8 @@ def root_entrypoint(
 @app.command("server")
 def run_mcp_server(
     ctx: typer.Context,
-    path: Annotated[
-        str | None,
-        typer.Option(
-            "--path",
-            help="Base directory for file operations (overrides DIRECTORY env var)",
-        ),
-    ] = None,
-    tool_mode: Annotated[
-        str | None,
-        typer.Option(
-            "--tool-mode",
-            help="Tool registration mode: 'compound' (default, 8 compact tools) or 'full' (33 tools)",
-        ),
-    ] = None,
+    path: PathOption = None,
+    tool_mode: ToolModeOption = None,
 ) -> None:
     """
     Start the MCP Excel Office server.

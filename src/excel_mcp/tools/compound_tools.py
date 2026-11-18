@@ -10,7 +10,10 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any, Literal
+
+from excel_mcp.exceptions.exception_tools import ExceptionTool
 
 from excel_mcp.tools import (
     analysis_tools,
@@ -45,6 +48,34 @@ class CompoundActionSpec:
             raise ValueError(
                 f"CompoundActionSpec full_name '{self.full_name}' must start with 'excel_'."
             )
+
+    @cached_property
+    def signature_meta(
+        self,
+    ) -> tuple[tuple[str, ...], tuple[str, ...], bool, bool, bool]:
+        """Cache handler parameter names, required params, kwargs flag, and file flags."""
+        sig = inspect.signature(self.handler)
+        params = sig.parameters
+        accepted = tuple(params.keys())
+        required = tuple(
+            name
+            for name, param in params.items()
+            if param.default is inspect.Parameter.empty
+            and param.kind
+            not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+        )
+        accepts_kwargs = any(
+            p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+        )
+        accepts_filename = "filename" in params
+        requires_guard_file = "filename" in params and "file_path" in params
+        return (
+            accepted,
+            required,
+            accepts_kwargs,
+            accepts_filename,
+            requires_guard_file,
+        )
 
 
 COMPOUND_REGISTRY: dict[str, dict[str, CompoundActionSpec]] = {
@@ -226,6 +257,8 @@ def _normalize_result(result: Any) -> dict[str, Any]:
     if isinstance(result, dict):
         if "error" in result and "status" not in result:
             return {"status": "error", "message": str(result["error"]), **result}
+        if "status" not in result:
+            return {"status": "success", **result}
         return result
     if isinstance(result, str):
         if result.startswith("Error:"):
@@ -256,49 +289,45 @@ async def dispatch_compound_action(
             "available_actions": sorted(group_actions.keys()),
         }
 
-    sig = inspect.signature(spec.handler)
-    accepts_kwargs = any(
-        p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
-    )
+    (
+        accepted_params,
+        required_params,
+        accepts_kwargs,
+        accepts_filename,
+        requires_guard_file,
+    ) = spec.signature_meta
 
     call_kwargs = dict(params or {})
     if not accepts_kwargs:
-        unknown = sorted(k for k in call_kwargs if k not in sig.parameters)
+        unknown = sorted(k for k in call_kwargs if k not in accepted_params)
         if unknown:
             return {
                 "status": "error",
                 "message": (
                     f"Unknown parameter(s) for '{group}.{action}': {', '.join(unknown)}"
                 ),
-                "accepted_parameters": list(sig.parameters.keys()),
+                "accepted_parameters": list(accepted_params),
             }
 
-    if filename is not None:
-        if "filename" in sig.parameters and call_kwargs.get("filename") is None:
-            call_kwargs["filename"] = filename
-        elif "file_path" in sig.parameters and call_kwargs.get("file_path") is None:
-            call_kwargs["file_path"] = filename
+    if (
+        filename is not None
+        and accepts_filename
+        and call_kwargs.get("filename") is None
+    ):
+        call_kwargs["filename"] = filename
 
     if (
-        "filename" in sig.parameters
-        and "file_path" in sig.parameters
+        requires_guard_file
         and call_kwargs.get("filename") is None
         and call_kwargs.get("file_path") is None
     ):
         return {
             "status": "error",
             "message": f"Missing required parameter 'filename' for '{group}.{action}'.",
-            "accepted_parameters": list(sig.parameters.keys()),
+            "accepted_parameters": list(accepted_params),
         }
 
-    missing = [
-        name
-        for name, param in sig.parameters.items()
-        if param.default is inspect.Parameter.empty
-        and param.kind
-        not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
-        and name not in call_kwargs
-    ]
+    missing = [name for name in required_params if name not in call_kwargs]
     if missing:
         return {
             "status": "error",
@@ -306,7 +335,7 @@ async def dispatch_compound_action(
                 f"Missing required parameter(s) for '{group}.{action}': "
                 f"{', '.join(missing)}"
             ),
-            "accepted_parameters": list(sig.parameters.keys()),
+            "accepted_parameters": list(accepted_params),
         }
 
     try:
@@ -314,7 +343,11 @@ async def dispatch_compound_action(
         if inspect.isawaitable(result):
             result = await result
     except Exception as exc:
-        return {"status": "error", "message": str(exc)}
+        return ExceptionTool.handle_error(
+            exc,
+            filename=call_kwargs.get("filename") or filename,
+            operation=f"excel_{group}.{action}",
+        )
     return _normalize_result(result)
 
 
