@@ -285,3 +285,65 @@ def test_compound_range_alias_normalization(
         )
     )
     assert dv_res["status"] == "success"
+
+    dual_err = asyncio.run(
+        excel_format(
+            "add_data_validation",
+            str(target),
+            {
+                "range_string": "B2:B3",
+                "cell_range": "A2:A3",
+                "validation_type": "list",
+                "formula1": '"Open,Closed"',
+                "sheet_name": "Data",
+            },
+        )
+    )
+    assert dual_err["status"] == "error"
+    assert "not both" in dual_err["message"]
+
+
+def test_compound_chart_style_and_optional_delete_end_cell(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify excel_analytics accepts style on create_chart and delete_range allows omitting end_cell."""
+    from excel_mcp.tools.batch_tools import build_workbook
+
+    monkeypatch.setenv("EXCEL_MCP_DIRS", str(tmp_path))
+    target = tmp_path / "analytics_delete.xlsx"
+    built = build_workbook(
+        filename=str(target),
+        sheets=[
+            {
+                "name": "Metrics",
+                "headers": ["Month", "Sales"],
+                "rows": [["Jan", 10], ["Feb", 20], ["Temp", 99]],
+            }
+        ],
+    )
+    assert built["status"] == "success"
+
+    chart_res = asyncio.run(
+        excel_analytics(
+            "create_chart",
+            str(target),
+            {
+                "sheet_name": "Metrics",
+                "data_range": "A1:B3",
+                "chart_type": "bar",
+                "target_cell": "D2",
+                "title": "Sales",
+                "style": {"show_legend": False},
+            },
+        )
+    )
+    assert chart_res["status"] == "success"
+
+    del_res = asyncio.run(
+        excel_data(
+            "delete_range",
+            str(target),
+            {"sheet_name": "Metrics", "start_cell": "A4", "shift_direction": "up"},
+        )
+    )
+    assert del_res["status"] == "success"

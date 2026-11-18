@@ -7,6 +7,7 @@ creating native tables, formatting sheet view properties, and sorting ranges.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 import re
 from typing import Any, Literal
 
@@ -22,7 +23,7 @@ from excel_mcp.core.calculations import (
     FormulaSecurityError,
     validate_cell_value_secure,
 )
-from excel_mcp.exceptions.exception_tools import ValidationError
+from excel_mcp.exceptions.exception_core import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +48,14 @@ def append_rows_to_sheet(
         Summary dictionary with rows appended and cell range bounds.
     """
     if not rows:
-        with workbook_session(filename, mode="read"):
-            return {
-                "sheet_name": sheet_name or "active",
-                "rows_appended": 0,
-                "message": "No rows to append.",
-            }
+        path = Path(filename).resolve()
+        if not path.exists():
+            raise FileNotFoundError(f"Workbook not found: {path}")
+        return {
+            "sheet_name": sheet_name or "active",
+            "rows_appended": 0,
+            "message": "No rows to append.",
+        }
 
     with workbook_session(filename, mode="edit") as wb:
         ws = resolve_sheet(wb, sheet_name)

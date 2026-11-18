@@ -8,13 +8,13 @@ from __future__ import annotations
 
 from datetime import date, datetime
 import logging
+from pathlib import Path
 import re
 from typing import Any
 
 from openpyxl.utils.cell import get_column_letter
 
 from excel_mcp.core._io import resolve_sheet, workbook_session
-from excel_mcp.exceptions.exception_core import SheetNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,10 @@ def find_cells_in_workbook(
     dumping entire matrices into LLM context.
     """
     if not query:
-        with workbook_session(filename, mode="read") as _:
-            return {"total_matches": 0, "matches": [], "limit_reached": False}
+        path = Path(filename).resolve()
+        if not path.exists():
+            raise FileNotFoundError(f"Workbook not found: {path}")
+        return {"total_matches": 0, "matches": [], "limit_reached": False}
 
     pattern: re.Pattern[str] | None = None
     if use_regex:
@@ -46,11 +48,7 @@ def find_cells_in_workbook(
 
     with workbook_session(filename, mode="read") as wb:
         if sheet_name:
-            if sheet_name not in wb.sheetnames:
-                raise SheetNotFoundError(
-                    f"Worksheet '{sheet_name}' not found in workbook."
-                )
-            sheets_to_search: list[Any] = [wb[sheet_name]]
+            sheets_to_search: list[Any] = [resolve_sheet(wb, sheet_name)]
         else:
             sheets_to_search = wb.worksheets
 

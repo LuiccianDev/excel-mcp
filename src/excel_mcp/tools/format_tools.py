@@ -273,7 +273,7 @@ async def delete_range(
     filename: str,
     sheet_name: str,
     start_cell: str,
-    end_cell: str,
+    end_cell: str | None = None,
     shift_direction: str = "up",
 ) -> dict[str, Any]:
     """Delete a range of cells and optionally shift the surrounding cells to fill the gap.
@@ -285,7 +285,7 @@ async def delete_range(
         filename (str): Path to the Excel workbook.
         sheet_name (str): The name of the worksheet.
         start_cell (str): The top-left cell of the range to delete.
-        end_cell (str): The bottom-right cell of the range to delete.
+        end_cell (str | None, optional): The bottom-right cell of the range to delete. Defaults to None.
         shift_direction (str, optional): Direction to shift cells after deletion ('up' or 'left'). Defaults to "up".
 
     Returns:

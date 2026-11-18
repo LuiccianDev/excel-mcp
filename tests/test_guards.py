@@ -87,6 +87,8 @@ class TestToolGuard(unittest.TestCase):
             self.assertEqual(res["status"], "error")
             self.assertEqual(res["error_type"], "SheetNotFoundError")
             self.assertEqual(res["operation"], "delete_worksheet")
+            self.assertIsNotNone(res["filename"])
+            self.assertTrue(str(res["filename"]).endswith("sample.xlsx"))
 
             with (
                 patch.dict(os.environ, {"EXCEL_MCP_DIRS": tmp_dir}),
@@ -106,6 +108,8 @@ class TestToolGuard(unittest.TestCase):
             self.assertEqual(res2["status"], "error")
             self.assertEqual(res2["error_type"], "ValidationError")
             self.assertEqual(res2["operation"], "validate_formula_syntax")
+            self.assertIsNotNone(res2["filename"])
+            self.assertTrue(str(res2["filename"]).endswith("sample.xlsx"))
 
 
 if __name__ == "__main__":

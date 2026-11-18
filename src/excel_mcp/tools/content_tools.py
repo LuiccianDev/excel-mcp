@@ -92,7 +92,6 @@ async def read_data_from_excel(
 
 
 @validate_file_access("filename")
-@tool_guard()
 async def write_data_to_excel(
     filename: str,
     sheet_name: str,

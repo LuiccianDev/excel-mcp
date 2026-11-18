@@ -341,6 +341,47 @@ class TestBatchTools(unittest.TestCase):
         self.assertEqual(len(ws._charts), 2)
         wb.close()
 
+    def test_build_workbook_zero_validation_json_totals_and_failed_chart_count(
+        self,
+    ) -> None:
+        """Verify formula1=0 validation, stringified JSON auto_totals keys, and chart count."""
+        target = os.path.join(self.temp_dir.name, "edge_cases.xlsx")
+        res = build_workbook(
+            filename=target,
+            sheets=[
+                {
+                    "name": "Edges",
+                    "headers": ["Item", "Qty", "Price"],
+                    "rows": [["Pen", 0, 2.5], ["Book", 5, 10.0]],
+                    "auto_totals": {"1": "SUM", "Price": "AVERAGE"},
+                    "data_validations": [
+                        {
+                            "range": "B2:B3",
+                            "validation_type": "whole",
+                            "operator": "greaterThanOrEqual",
+                            "formula1": 0,
+                        }
+                    ],
+                    "charts": {
+                        "type": "bar",
+                        "title": "Bad",
+                        "data_column": 999,
+                    },
+                }
+            ],
+        )
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["data"]["charts_created"], 0)
+        self.assertTrue(res["data"]["warnings"])
+
+        wb = openpyxl.load_workbook(target)
+        ws = wb["Edges"]
+        self.assertEqual(ws["B4"].value, "=SUM(B2:B3)")
+        self.assertEqual(ws["C4"].value, "=AVERAGE(C2:C3)")
+        self.assertEqual(len(ws.data_validations.dataValidation), 1)
+        self.assertEqual(ws.data_validations.dataValidation[0].formula1, "0")
+        wb.close()
+
 
 if __name__ == "__main__":
     unittest.main()

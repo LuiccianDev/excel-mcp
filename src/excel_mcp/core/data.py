@@ -11,7 +11,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.workbook.workbook import Workbook as OpenpyxlWorkbook
 from openpyxl.worksheet.worksheet import Worksheet
 
-from excel_mcp.core._io import atomic_save, resolve_sheet, workbook_session
+from excel_mcp.core._io import resolve_sheet, workbook_session
 from excel_mcp.core.calculations import FormulaSecurityError, validate_cell_value_secure
 from excel_mcp.exceptions.exception_core import (
     DataError,
@@ -139,9 +139,10 @@ def read_excel_range(
         InvalidCellReferenceError: If cell references are invalid.
         DataError: For errors related to data processing.
     """
+    if not sheet_name:
+        raise SheetNotFoundError(f"Sheet '{sheet_name}' not found")
+
     path = Path(filename).resolve()
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {path}")
 
     try:
         with workbook_session(path, mode="read", data_only=True) as wb:
@@ -259,31 +260,21 @@ def write_data(
             path,
             mode="upsert",
             initial_sheet=sheet_name or "Sheet1",
-            save=False,
         ) as wb:
             try:
                 ws = resolve_sheet(wb, sheet_name or None, create_if_missing=True)
             except Exception as e:
                 raise SheetError(f"Failed to access worksheet: {str(e)}") from e
 
-            # Ensure parent directory exists
-            path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Write data
             _write_data_to_worksheet(ws, data, start_row, start_col)
+            title = ws.title
 
-            # Save changes atomically
-            try:
-                atomic_save(wb, path)
-            except Exception as e:
-                raise WorkbookError(f"Failed to save workbook: {str(e)}") from e
-
-            return {
-                "status": "success",
-                "message": f"Data written to {ws.title}",
-                "active_sheet": ws.title,
-                "filepath": str(path),
-            }
+        return {
+            "status": "success",
+            "message": f"Data written to {title}",
+            "active_sheet": title,
+            "filepath": str(path),
+        }
 
     except Exception as e:
         if not isinstance(

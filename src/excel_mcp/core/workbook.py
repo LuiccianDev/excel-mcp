@@ -13,7 +13,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from excel_mcp.core._io import atomic_save, resolve_sheet, workbook_session
+from excel_mcp.core._io import resolve_sheet, workbook_session
 from excel_mcp.exceptions.exception_core import (
     SheetExistsError,
     ValidationError,
@@ -46,12 +46,9 @@ def create_workbook(
         # Input validation
         _validate_sheet_name(sheet_name)
 
-        # Create workbook and initial worksheet, then save atomically
-        with workbook_session(
-            path, mode="create", initial_sheet=None, save=False
-        ) as wb:
+        # Create workbook and initial worksheet; workbook_session saves atomically
+        with workbook_session(path, mode="create", initial_sheet=None) as wb:
             _create_initial_worksheet(wb, sheet_name)
-            atomic_save(wb, path)
 
         return {
             "status": "success",
@@ -158,11 +155,10 @@ def create_sheet(filename: str | Path, sheet_name: str) -> dict[str, Any]:
         return create_workbook(path, sheet_name)
 
     try:
-        # Validate sheet name and create the sheet
+        # Validate sheet name and create the sheet; workbook_session saves atomically
         _validate_sheet_name(sheet_name)
-        with workbook_session(path, mode="edit", save=False) as wb:
+        with workbook_session(path, mode="edit") as wb:
             _create_new_sheet(wb, sheet_name)
-            atomic_save(wb, path)
 
         return {
             "status": "success",
@@ -206,9 +202,6 @@ def get_workbook_info(
     """
     path = Path(filename).resolve()
 
-    if not path.exists():
-        raise FileNotFoundError(f"File not found: {path}")
-
     try:
         # Load in read-only mode for better performance with large files
         with workbook_session(path, mode="read", data_only=True) as wb:
@@ -233,6 +226,8 @@ def get_workbook_info(
 
             return info
 
+    except FileNotFoundError:
+        raise
     except PermissionError as e:
         raise PermissionError(f"Cannot access {path}: {e}") from e
     except Exception as e:

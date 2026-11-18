@@ -300,6 +300,17 @@ async def dispatch_compound_action(
     call_kwargs = dict(params or {})
     if (
         "range_string" in call_kwargs
+        and "cell_range" in call_kwargs
+        and (
+            "range_string" not in accepted_params or "cell_range" not in accepted_params
+        )
+    ):
+        return {
+            "status": "error",
+            "message": "Provide either 'range_string' or 'cell_range', not both.",
+        }
+    if (
+        "range_string" in call_kwargs
         and "range_string" not in accepted_params
         and "cell_range" in accepted_params
     ):

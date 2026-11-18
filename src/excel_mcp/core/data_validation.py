@@ -11,9 +11,10 @@ from __future__ import annotations
 from typing import Any
 
 from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.worksheet.worksheet import Worksheet
 
 from excel_mcp.core._io import resolve_sheet, workbook_session
-from excel_mcp.exceptions.exception_tools import ValidationError
+from excel_mcp.exceptions.exception_core import ValidationError
 from excel_mcp.utils.cell_utils import parse_cell_range
 
 #: Validation types supported by openpyxl's DataValidation.
@@ -34,6 +35,92 @@ VALID_OPERATORS = frozenset(
         "lessThanOrEqual",
     }
 )
+
+
+def _validate_data_validation_params(
+    cell_range: str,
+    validation_type: str,
+    operator: str,
+    formula1: Any,
+    formula2: Any,
+) -> tuple[str, str | None]:
+    """Validate and normalize data validation parameters into openpyxl strings."""
+    if validation_type not in VALID_VALIDATION_TYPES:
+        raise ValidationError(
+            f"Unsupported validation type '{validation_type}'. "
+            f"Expected one of: {', '.join(sorted(VALID_VALIDATION_TYPES))}."
+        )
+
+    if operator not in VALID_OPERATORS:
+        raise ValidationError(
+            f"Unsupported operator '{operator}'. "
+            f"Expected one of: {', '.join(sorted(VALID_OPERATORS))}."
+        )
+
+    if formula1 is None or str(formula1) == "":
+        raise ValidationError(
+            "Missing required parameter 'formula1' for the selected validation type."
+        )
+
+    if (
+        operator in ("between", "notBetween")
+        and validation_type != "list"
+        and (formula2 is None or str(formula2) == "")
+    ):
+        raise ValidationError(
+            f"Operator '{operator}' requires both 'formula1' and 'formula2'."
+        )
+
+    try:
+        parse_cell_range(cell_range)
+    except ValueError as exc:
+        raise ValidationError(f"Invalid cell range '{cell_range}': {exc}") from exc
+
+    return str(formula1), (str(formula2) if formula2 is not None else None)
+
+
+def apply_data_validation_to_sheet(
+    ws: Worksheet,
+    cell_range: str,
+    validation_type: str = "list",
+    operator: str = "between",
+    formula1: Any = None,
+    formula2: Any = None,
+    allow_blank: bool = True,
+    prompt_title: str | None = None,
+    prompt: str | None = None,
+    error_title: str | None = None,
+    error_message: str | None = None,
+) -> DataValidation:
+    """Validate parameters and attach a DataValidation rule to an open worksheet."""
+    norm_f1, norm_f2 = _validate_data_validation_params(
+        cell_range=cell_range,
+        validation_type=validation_type,
+        operator=operator,
+        formula1=formula1,
+        formula2=formula2,
+    )
+
+    validation = DataValidation(
+        type=validation_type,
+        operator=None if validation_type == "list" else operator,
+        formula1=norm_f1,
+        formula2=norm_f2,
+        allow_blank=allow_blank,
+    )
+    validation.add(cell_range)
+
+    if prompt_title or prompt:
+        validation.promptTitle = prompt_title
+        validation.prompt = prompt
+        validation.showInputMessage = True
+    if error_title or error_message:
+        validation.errorTitle = error_title
+        validation.error = error_message
+        validation.showErrorMessage = True
+
+    ws.add_data_validation(validation)
+    return validation
 
 
 def add_data_validation(
@@ -75,59 +162,29 @@ def add_data_validation(
         SheetNotFoundError: If ``sheet_name`` is not present.
         ValidationError: If the type, operator, range or formulas are invalid.
     """
-    if validation_type not in VALID_VALIDATION_TYPES:
-        raise ValidationError(
-            f"Unsupported validation type '{validation_type}'. "
-            f"Expected one of: {', '.join(sorted(VALID_VALIDATION_TYPES))}."
-        )
-
-    if operator not in VALID_OPERATORS:
-        raise ValidationError(
-            f"Unsupported operator '{operator}'. "
-            f"Expected one of: {', '.join(sorted(VALID_OPERATORS))}."
-        )
-
-    if not formula1:
-        raise ValidationError(
-            "Missing required parameter 'formula1' for the selected validation type."
-        )
-
-    if (
-        operator in ("between", "notBetween")
-        and validation_type != "list"
-        and not formula2
-    ):
-        raise ValidationError(
-            f"Operator '{operator}' requires both 'formula1' and 'formula2'."
-        )
-
-    try:
-        parse_cell_range(cell_range)
-    except ValueError as exc:
-        raise ValidationError(f"Invalid cell range '{cell_range}': {exc}") from exc
+    _validate_data_validation_params(
+        cell_range=cell_range,
+        validation_type=validation_type,
+        operator=operator,
+        formula1=formula1,
+        formula2=formula2,
+    )
 
     with workbook_session(filename, mode="edit") as wb:
         ws = resolve_sheet(wb, sheet_name)
-
-        validation = DataValidation(
-            type=validation_type,
-            operator=None if validation_type == "list" else operator,
+        apply_data_validation_to_sheet(
+            ws=ws,
+            cell_range=cell_range,
+            validation_type=validation_type,
+            operator=operator,
             formula1=formula1,
             formula2=formula2,
             allow_blank=allow_blank,
+            prompt_title=prompt_title,
+            prompt=prompt,
+            error_title=error_title,
+            error_message=error_message,
         )
-        validation.add(cell_range)
-
-        if prompt_title or prompt:
-            validation.promptTitle = prompt_title
-            validation.prompt = prompt
-            validation.showInputMessage = True
-        if error_title or error_message:
-            validation.errorTitle = error_title
-            validation.error = error_message
-            validation.showErrorMessage = True
-
-        ws.add_data_validation(validation)
         title = ws.title
 
     return {
