@@ -157,13 +157,22 @@ Best for management dashboards where a clean summary table is paired with a nati
         ["West", 410000, 435000, "=IFERROR(C7/B7,0)", "=C7-B7"]
       ],
       "currency_columns": ["Quota", "Actual Sales", "Variance"],
-      "auto_totals": [1, 2, 4],
-      "chart": {
-        "type": "bar",
-        "title": "Actual Sales by Region",
-        "data_column": 3,
-        "label_column": 1
-      }
+      "auto_totals": {"Quota": "SUM", "Actual Sales": "SUM", "Attainment %": "AVERAGE", "Variance": "SUM"},
+      "data_validations": [
+        {
+          "range": "A4:A7",
+          "validation_type": "list",
+          "formula1": "\"North,South,East,West\""
+        }
+      ],
+      "charts": [
+        {
+          "type": "bar",
+          "title": "Actual Sales by Region",
+          "data_column": 3,
+          "label_column": 1
+        }
+      ]
     }
   ]
 }

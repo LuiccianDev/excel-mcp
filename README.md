@@ -199,7 +199,7 @@ The repository includes pre-built agent skills under `skills/`:
 
 ## Tool Taxonomy
 
-The server defaults to `compound` mode (8 tools) and exposes all 33 granular `excel_*` tools when `EXCEL_MCP_TOOLS=full` or `server --tool-mode full` is set. Each domain dispatcher accepts `(action, filename=None, params=None)`; for the underlying `full`-mode parameter schemas (`params` keys), see [docs/TOOLS.md](docs/TOOLS.md).
+The server defaults to `compound` mode (8 tools) and exposes all 33 granular `excel_*` tools when `EXCEL_MCP_TOOLS=full` or `server --tool-mode full` is set. Each domain dispatcher accepts `(action, filename=None, params=None)` and transparently normalizes `range_string` / `cell_range` parameter aliases; for the underlying `full`-mode parameter schemas (`params` keys), see [docs/TOOLS.md](docs/TOOLS.md).
 
 ### Default `compound` Mode (8 Tools)
 
