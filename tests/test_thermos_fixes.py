@@ -88,7 +88,7 @@ def test_create_excel_workbook_enforces_xlsx_extension(
 
     for bad_name in ("payload.exe", "macro.xlsm", ".env"):
         res = asyncio.run(create_excel_workbook(bad_name))
-        assert "error" in res
+        assert res["status"] == "error"
         assert not (docs_dir / bad_name).exists()
 
     ok_res = asyncio.run(create_excel_workbook("daily_report"))

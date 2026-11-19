@@ -31,6 +31,7 @@ from excel_mcp.tools.register_tools import (
     normalize_tool_mode,
     register_all_tools,
 )
+from excel_mcp.utils.metrics import is_metrics_enabled, track_tool_metrics
 from excel_mcp.utils.security import get_allowed_directories
 
 logging.basicConfig(
@@ -105,6 +106,33 @@ Set `EXCEL_MCP_TOOLS=full` (or launch `server --tool-mode full`) for all 33 gran
 """
 
 
+def _attach_metrics_middleware(mcp: Any) -> None:
+    """Attach FastMCP tool-call metrics middleware when EXCEL_MCP_METRICS_LOG is set."""
+    if not is_metrics_enabled() or not hasattr(mcp, "add_middleware"):
+        return
+    try:
+        from fastmcp.server.middleware import Middleware
+    except ImportError:
+        return
+
+    class _MetricsMiddleware(Middleware):
+        async def on_call_tool(self, context: Any, call_next: Any) -> Any:
+            msg = getattr(context, "message", None)
+            tool_name = getattr(msg, "name", None) or "unknown"
+            args = getattr(msg, "arguments", None) or {}
+            action = args.get("action") if isinstance(args, dict) else None
+            with track_tool_metrics(tool_name, action) as tracker:
+                try:
+                    result = await call_next(context)
+                    tracker.observe_result(result)
+                    return result
+                except Exception as exc:
+                    tracker.observe_exception(exc)
+                    raise
+
+    mcp.add_middleware(_MetricsMiddleware())
+
+
 def create_server(mode: str | None = None) -> FastMCP:
     """Create and configure the Excel MCP Server instance."""
     resolved_mode = normalize_tool_mode(mode)
@@ -119,6 +147,7 @@ def create_server(mode: str | None = None) -> FastMCP:
         on_duplicate="error",
     )
 
+    _attach_metrics_middleware(mcp)
     register_all_tools(mcp, mode=resolved_mode)
     return mcp
 

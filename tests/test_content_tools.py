@@ -69,7 +69,7 @@ async def test_read_data_from_excel_error(tmp_path) -> None:
         result = await content_tools.read_data_from_excel(str(test_file), TEST_SHEET)
 
     assert result["status"] == "error"
-    assert "Failed to read Excel data" in result["message"]
+    assert "Read error" in result["message"]
 
 
 @pytest.mark.asyncio  # type: ignore[misc]

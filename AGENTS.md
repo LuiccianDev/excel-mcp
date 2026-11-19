@@ -113,6 +113,9 @@ To guarantee consistency, cleanliness, and maintainability across the project:
 - **Module & Function Size Limits:**
   - Keep modules in `src/excel_mcp/` under **600 lines** (hard ceiling: 1,000 lines) and individual functions under **150 lines**.
   - Extract focused, pure helpers for parameter normalization, column resolution (`_resolve_col_index`), and rule validation (`apply_data_validation_to_sheet`) instead of growing monolithic functions or copy-pasting logic across modules.
+- **Graphify Navigation & Documentation Synchronization:**
+  - Query Graphify MCP tools (`query_graph`, `get_node`, `get_neighbors`, `shortest_path`, `god_nodes`) and `graphify-out/GRAPH_REPORT.md` first to locate architectural hubs instead of reading entire source files.
+  - Whenever modules, tools, or behavior change, update `README.md`, `docs/`, `skills/`, and the knowledge graph (`uvx --from graphifyy graphify update .`).
 - **Mandatory Pre-PR Audit & Quality Gate:**
   - Before opening any Pull Request that touches `src/` or `tests/`, verify that every parameter documented in `compound_tools.py` docstrings matches the underlying handler signature, run a branch diff audit (e.g., Thermos bug/security + code-quality review), and pass the full local verification gate:
     1. `uv run python scripts/generate-tools-doc.py`

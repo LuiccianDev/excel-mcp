@@ -2,7 +2,7 @@ from typing import Any
 
 from excel_mcp.core.data import read_excel_range
 from excel_mcp.exceptions.exception_tools import DataError, ValidationError
-from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_access
+from excel_mcp.utils.file_utils import validate_file_access
 from excel_mcp.utils.guards import tool_guard
 
 
@@ -50,45 +50,26 @@ async def read_data_from_excel(
         • The specified worksheet must already exist; the function does not create new sheets.
         • If the target range is empty, status will be "error" with a descriptive message.
     """
-    try:
-        # Ensure filename has .xlsx extension
-        filename = ensure_xlsx_extension(filename)
+    data = read_excel_range(
+        filename=filename,
+        sheet_name=sheet_name,
+        start_cell=start_cell,
+        end_cell=end_cell,
+        preview_only=preview_only,
+    )
 
-        # Read data from Excel
-        data = read_excel_range(
-            filename=filename,
-            sheet_name=sheet_name,
-            start_cell=start_cell,
-            end_cell=end_cell,
-            preview_only=preview_only,
-        )
-
-        # Handle empty results
-        if not data:
-            return {
-                "status": "error",
-                "message": "No data found in the specified range",
-                "data": [],
-            }
-
-        return {
-            "status": "success",
-            "data": data,
-            "message": f"Successfully read {len(data)} rows from {sheet_name}",
-        }
-
-    except FileNotFoundError:
+    if not data:
         return {
             "status": "error",
-            "message": f"File not found: {filename}",
-            "data": None,
+            "message": "No data found in the specified range",
+            "data": [],
         }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Failed to read Excel data: {str(e)}",
-            "data": None,
-        }
+
+    return {
+        "status": "success",
+        "data": data,
+        "message": f"Successfully read {len(data)} rows from {sheet_name}",
+    }
 
 
 @validate_file_access("filename")
@@ -129,7 +110,6 @@ async def write_data_to_excel(
         • The function does not create new worksheets; the target sheet must already exist.
         • Input data is written as-is, without formula injection or type conversion.
     """
-    filename = ensure_xlsx_extension(filename)
     try:
         from excel_mcp.core.data import write_data
 

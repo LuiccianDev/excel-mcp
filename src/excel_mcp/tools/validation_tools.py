@@ -10,9 +10,10 @@ from typing import Any, Literal
 
 from excel_mcp.core.data_validation import add_data_validation as _add_data_validation
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import resolve_and_check_path
+from excel_mcp.utils.security import require_valid_path
 
 
+@require_valid_path()
 @tool_guard()
 def add_data_validation(
     filename: str | None = None,
@@ -64,19 +65,15 @@ def add_data_validation(
     Returns:
         Structured result with the sheet, range and applied validation type.
     """
-    target, err = resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
-
     if not cell_range:
         return {
             "status": "error",
             "message": "Missing required parameter 'cell_range'.",
         }
+    assert filename is not None
 
     res = _add_data_validation(
-        filename=target,
+        filename=filename,
         cell_range=cell_range,
         validation_type=validation_type,
         operator=operator,

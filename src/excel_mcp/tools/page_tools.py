@@ -10,9 +10,10 @@ from typing import Any, Literal
 
 from excel_mcp.core.page_setup import configure_page_setup as _configure_page_setup
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import resolve_and_check_path
+from excel_mcp.utils.security import require_valid_path
 
 
+@require_valid_path()
 @tool_guard()
 def configure_page_setup(
     filename: str | None = None,
@@ -51,13 +52,9 @@ def configure_page_setup(
     Returns:
         Structured result with the applied print layout settings.
     """
-    target, err = resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
-
+    assert filename is not None
     res = _configure_page_setup(
-        filename=target,
+        filename=filename,
         orientation=orientation,
         paper_size=paper_size,
         fit_to_width=fit_to_width,

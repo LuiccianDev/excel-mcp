@@ -17,9 +17,10 @@ from excel_mcp.core.structure import (
     sort_worksheet_range,
 )
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import resolve_and_check_path
+from excel_mcp.utils.security import require_valid_path
 
 
+@require_valid_path()
 @tool_guard()
 def append_rows(
     filename: str | None = None,
@@ -43,16 +44,13 @@ def append_rows(
     Returns:
         Structured result with sheet name and appended row boundaries.
     """
-    target, err = resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
+    assert filename is not None
 
     if rows is None:
         return {"status": "error", "message": "Missing required parameter 'rows'."}
 
     res = append_rows_to_sheet(
-        filename=target,
+        filename=filename,
         rows=rows,
         sheet_name=sheet_name,
         start_column=start_column,
@@ -60,6 +58,7 @@ def append_rows(
     return {"status": "success", "data": res}
 
 
+@require_valid_path()
 @tool_guard()
 def insert_rows_columns(
     filename: str | None = None,
@@ -82,13 +81,10 @@ def insert_rows_columns(
     Returns:
         Summary of the dimension inserted.
     """
-    target, err = resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
+    assert filename is not None
 
     res = insert_worksheet_dimension(
-        filename=target,
+        filename=filename,
         dimension=dimension,
         idx=index,
         amount=amount,
@@ -97,6 +93,7 @@ def insert_rows_columns(
     return {"status": "success", "data": res}
 
 
+@require_valid_path()
 @tool_guard()
 def delete_rows_columns(
     filename: str | None = None,
@@ -119,13 +116,10 @@ def delete_rows_columns(
     Returns:
         Summary of the dimension deleted.
     """
-    target, err = resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
+    assert filename is not None
 
     res = delete_worksheet_dimension(
-        filename=target,
+        filename=filename,
         dimension=dimension,
         idx=index,
         amount=amount,
@@ -134,6 +128,7 @@ def delete_rows_columns(
     return {"status": "success", "data": res}
 
 
+@require_valid_path()
 @tool_guard()
 def format_sheet(
     filename: str | None = None,
@@ -161,13 +156,10 @@ def format_sheet(
     Returns:
         Summary of sheet properties updated.
     """
-    target, err = resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
+    assert filename is not None
 
     res = format_worksheet_properties(
-        filename=target,
+        filename=filename,
         sheet_name=sheet_name,
         freeze_panes=freeze_panes,
         auto_filter=auto_filter,
@@ -177,6 +169,7 @@ def format_sheet(
     return {"status": "success", "data": res}
 
 
+@require_valid_path()
 @tool_guard()
 def create_table(
     filename: str | None = None,
@@ -202,10 +195,7 @@ def create_table(
     Returns:
         Summary with table name, range, and applied style.
     """
-    target, err = resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
+    assert filename is not None
 
     if not range_string:
         return {
@@ -214,7 +204,7 @@ def create_table(
         }
 
     res = create_excel_table(
-        filename=target,
+        filename=filename,
         range_string=range_string,
         table_name=table_name,
         style_name=style_name,
@@ -223,6 +213,7 @@ def create_table(
     return {"status": "success", "data": res}
 
 
+@require_valid_path()
 @tool_guard()
 def sort_range(
     filename: str | None = None,
@@ -249,10 +240,7 @@ def sort_range(
     Returns:
         Summary with sorted row count and key column used.
     """
-    target, err = resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
+    assert filename is not None
 
     if not range_string:
         return {
@@ -266,7 +254,7 @@ def sort_range(
         }
 
     res = sort_worksheet_range(
-        filename=target,
+        filename=filename,
         range_string=range_string,
         key_column=key_column,
         ascending=ascending,

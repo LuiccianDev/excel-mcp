@@ -14,7 +14,7 @@ from excel_mcp.core.batch import (
     inspect_workbook_outline,
 )
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import resolve_and_check_path as _resolve_and_check_path
+from excel_mcp.utils.security import require_valid_path
 
 
 def _dump(model: Any) -> dict[str, Any]:
@@ -28,6 +28,7 @@ def _dump(model: Any) -> dict[str, Any]:
     return {"data": model}
 
 
+@require_valid_path()
 @tool_guard()
 def build_workbook(
     filename: str | None = None,
@@ -63,18 +64,14 @@ def build_workbook(
     Returns:
         Structured result summary including sheets created and total rows.
     """
-    target, err = _resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
-
+    assert filename is not None
     if not sheets:
         sheets = [
             {"name": "Sheet1", "headers": ["Column 1"], "rows": [["No data provided"]]}
         ]
 
     result = build_single_pass_workbook(
-        filename=target,
+        filename=filename,
         sheets=sheets,
         preset=preset,
         auto_fit=auto_fit,
@@ -84,6 +81,7 @@ def build_workbook(
     return {"status": "success", "data": _dump(result)}
 
 
+@require_valid_path()
 @tool_guard()
 def get_workbook_outline(
     filename: str | None = None,
@@ -99,15 +97,12 @@ def get_workbook_outline(
         Lightweight outline containing sheet names, dimensions (e.g. A1:H45),
         detected header titles, and formula presence.
     """
-    target, err = _resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
-
-    outline = inspect_workbook_outline(target)
+    assert filename is not None
+    outline = inspect_workbook_outline(filename)
     return {"status": "success", "data": _dump(outline)}
 
 
+@require_valid_path()
 @tool_guard()
 def batch_write_data(
     filename: str | None = None,
@@ -128,16 +123,12 @@ def batch_write_data(
     Returns:
         Summary of updated cell range and row/column counts.
     """
-    target, err = _resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
-
     if not data_matrix:
         return {"status": "error", "message": "data_matrix cannot be empty."}
+    assert filename is not None
 
     result = batch_write_matrix(
-        filename=target,
+        filename=filename,
         sheet_name=sheet_name,
         start_cell=start_cell,
         data_matrix=data_matrix,

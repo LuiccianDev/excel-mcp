@@ -15,10 +15,10 @@ from unittest.mock import patch
 import pytest
 
 # Functions under test
-from excel_mcp.utils.file_utils import (
-    _get_allowed_directories,
-    _is_path_in_allowed_directories,
-    resolve_safe_path,
+from excel_mcp.utils.file_utils import resolve_safe_path
+from excel_mcp.utils.paths import (
+    is_path_allowed as _is_path_in_allowed_directories,
+    resolve_allowed_directories as _get_allowed_directories,
 )
 
 

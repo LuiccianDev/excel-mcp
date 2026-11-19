@@ -9,13 +9,14 @@ import pytest
 from excel_mcp.config import ConfigurationError
 from excel_mcp.utils.file_utils import (
     _check_file_writeable,
-    _get_allowed_directories,
-    _is_path_in_allowed_directories,
-    create_document_copy,
     ensure_xlsx_extension,
     list_excel_files_in_directory,
     resolve_safe_path,
     validate_file_access,
+)
+from excel_mcp.utils.paths import (
+    is_path_allowed as _is_path_in_allowed_directories,
+    resolve_allowed_directories as _get_allowed_directories,
 )
 
 
@@ -213,44 +214,6 @@ class TestResolveSafePath:
                 resolve_safe_path("test.xlsx")
 
             assert "No allowed directories" in str(exc_info.value)
-
-
-class TestCreateDocumentCopy:
-    """Tests for create_document_copy function."""
-
-    def test_create_copy_success(self, tmp_path: Path) -> None:
-        """Test successful document copy."""
-        source = tmp_path / "source.xlsx"
-        source.write_text("test content")
-
-        success, message, new_path = create_document_copy(str(source))
-
-        assert success is True
-        assert "copied" in message
-        assert new_path is not None
-        assert Path(new_path).exists()
-
-    def test_create_copy_with_dest_path(self, tmp_path: Path) -> None:
-        """Test copy with specified destination path."""
-        source = tmp_path / "source.xlsx"
-        dest = tmp_path / "destination.xlsx"
-        source.write_text("test content")
-
-        success, message, new_path = create_document_copy(str(source), str(dest))
-
-        assert success is True
-        assert new_path == str(dest)
-        assert dest.exists()
-
-    def test_create_copy_source_not_found(self, tmp_path: Path) -> None:
-        """Test copy when source doesn't exist."""
-        source = tmp_path / "nonexistent.xlsx"
-
-        success, message, new_path = create_document_copy(str(source))
-
-        assert success is False
-        assert "does not exist" in message
-        assert new_path is None
 
 
 class TestEnsureXlsxExtension:

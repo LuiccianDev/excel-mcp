@@ -12,6 +12,7 @@ import inspect
 from typing import Any, TypeVar
 
 from excel_mcp.exceptions.exception_tools import ExceptionTool
+from excel_mcp.utils.metrics import is_metrics_enabled, track_tool_metrics
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -30,39 +31,68 @@ def tool_guard(
         name = tool_name or fn.__name__
         sig = inspect.signature(fn)
 
-        def _extract_target_file(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
+        def _extract_call_context(
+            args: tuple[Any, ...], kwargs: dict[str, Any]
+        ) -> tuple[Any, Any]:
             target = kwargs.get("filename") or kwargs.get("file_path")
-            if target is not None:
-                return target
+            action = kwargs.get("action")
+            if target is not None and (
+                action is not None or "action" not in sig.parameters
+            ):
+                return target, action
             try:
                 bound = sig.bind_partial(*args, **kwargs).arguments
-                return bound.get("filename") or bound.get("file_path")
+                if target is None:
+                    target = bound.get("filename") or bound.get("file_path")
+                if action is None:
+                    action = bound.get("action")
             except TypeError:
-                return None
+                pass
+            return target, action
 
         if inspect.iscoroutinefunction(fn):
 
             @functools.wraps(fn)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-                target_file = _extract_target_file(args, kwargs)
-                try:
-                    return await fn(*args, **kwargs)
-                except Exception as e:
-                    return ExceptionTool.handle_error(
-                        e, filename=target_file, operation=name
-                    )
+                target_file, action = (
+                    _extract_call_context(args, kwargs)
+                    if is_metrics_enabled()
+                    else (None, None)
+                )
+                with track_tool_metrics(name, action) as tracker:
+                    try:
+                        result = await fn(*args, **kwargs)
+                        tracker.observe_result(result)
+                        return result
+                    except Exception as e:
+                        if target_file is None:
+                            target_file, _ = _extract_call_context(args, kwargs)
+                        tracker.observe_exception(e)
+                        return ExceptionTool.handle_error(
+                            e, filename=target_file, operation=name
+                        )
 
             return async_wrapper  # type: ignore
 
         @functools.wraps(fn)
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
-            target_file = _extract_target_file(args, kwargs)
-            try:
-                return fn(*args, **kwargs)
-            except Exception as e:
-                return ExceptionTool.handle_error(
-                    e, filename=target_file, operation=name
-                )
+            target_file, action = (
+                _extract_call_context(args, kwargs)
+                if is_metrics_enabled()
+                else (None, None)
+            )
+            with track_tool_metrics(name, action) as tracker:
+                try:
+                    result = fn(*args, **kwargs)
+                    tracker.observe_result(result)
+                    return result
+                except Exception as e:
+                    if target_file is None:
+                        target_file, _ = _extract_call_context(args, kwargs)
+                    tracker.observe_exception(e)
+                    return ExceptionTool.handle_error(
+                        e, filename=target_file, operation=name
+                    )
 
         return sync_wrapper  # type: ignore
 
