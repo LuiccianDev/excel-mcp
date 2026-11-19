@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Literal
 import openpyxl
 
 from excel_mcp.exceptions import SheetNotFoundError, ValidationError
+from excel_mcp.utils.metrics import measure_phase
 
 if TYPE_CHECKING:
     from openpyxl.worksheet.worksheet import Worksheet
@@ -52,14 +53,13 @@ def workbook_session(
         )
 
     is_new = mode == "create" or (mode == "upsert" and not path.exists())
-    if mode == "read":
+    if mode == "read" or mode == "edit" or (mode == "upsert" and not is_new):
         if not path.exists():
             raise FileNotFoundError(f"Workbook not found: {path}")
-        wb = openpyxl.load_workbook(str(path), read_only=True, data_only=data_only)
-    elif mode == "edit" or (mode == "upsert" and not is_new):
-        if not path.exists():
-            raise FileNotFoundError(f"Workbook not found: {path}")
-        wb = openpyxl.load_workbook(str(path), data_only=data_only)
+        with measure_phase("io_read_ms"):
+            wb = openpyxl.load_workbook(
+                str(path), read_only=(mode == "read"), data_only=data_only
+            )
     elif is_new:
         if initial_sheet is not None:
             _validate_new_sheet_name(initial_sheet)
@@ -76,7 +76,8 @@ def workbook_session(
                 wb.create_sheet(initial_sheet)
         yield wb
         if should_save:
-            atomic_save(wb, path)
+            with measure_phase("io_save_ms"):
+                atomic_save(wb, path)
     finally:
         wb.close()
 

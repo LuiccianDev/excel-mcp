@@ -10,9 +10,10 @@ from typing import Any
 
 from excel_mcp.core.search import find_cells_in_workbook, profile_worksheet
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import resolve_and_check_path
+from excel_mcp.utils.security import require_valid_path
 
 
+@require_valid_path()
 @tool_guard()
 def find_cells(
     filename: str | None = None,
@@ -42,16 +43,12 @@ def find_cells(
     Returns:
         Structured list of matching cells with coordinates, values, and formula flags.
     """
-    target, err = resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
-
     if query is None:
         return {"status": "error", "message": "Missing required parameter 'query'."}
+    assert filename is not None
 
     res = find_cells_in_workbook(
-        filename=target,
+        filename=filename,
         query=query,
         sheet_name=sheet_name,
         match_case=match_case,
@@ -62,6 +59,7 @@ def find_cells(
     return {"status": "success", "data": res}
 
 
+@require_valid_path()
 @tool_guard()
 def profile_sheet(
     filename: str | None = None,
@@ -84,13 +82,9 @@ def profile_sheet(
     Returns:
         Structured summary with column data types, min/max, nulls, and sample values.
     """
-    target, err = resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
-
+    assert filename is not None
     res = profile_worksheet(
-        filename=target,
+        filename=filename,
         sheet_name=sheet_name,
         sample_rows=sample_rows,
     )

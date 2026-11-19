@@ -112,3 +112,31 @@ def is_path_allowed(path: str | Path) -> tuple[bool, str | None]:
         if target == root_path or target.is_relative_to(root_path):
             return True, None
     return False, f"Path '{path}' is not in allowed directories: {', '.join(allowed)}"
+
+
+def normalize_xlsx_candidate(path: str | Path) -> str:
+    """Append .xlsx when path has no suffix and is not blank or a hidden dotfile."""
+    raw = str(path)
+    if not raw.strip():
+        return raw
+    candidate = Path(raw)
+    if not candidate.suffix and not candidate.name.startswith("."):
+        return f"{raw}.xlsx"
+    return raw
+
+
+def validate_and_resolve_path(
+    path: str | Path,
+    *,
+    auto_extension: bool = False,
+) -> tuple[Path | None, str | None]:
+    """Validate sandbox access and file constraints, returning (resolved_path, error_msg)."""
+    raw_str = normalize_xlsx_candidate(path) if auto_extension else str(path)
+    is_allowed, dir_error = is_path_allowed(raw_str)
+    if not is_allowed:
+        return None, dir_error
+    resolved = resolve_target_path(raw_str)
+    constraint_error = validate_file_constraints(resolved)
+    if constraint_error:
+        return None, constraint_error
+    return resolved, None

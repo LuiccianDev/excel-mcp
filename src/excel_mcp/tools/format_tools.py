@@ -2,7 +2,7 @@ from typing import Any
 
 from excel_mcp.core.formatting import BorderStyle, format_range
 from excel_mcp.core.workbook import get_workbook_info
-from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_access
+from excel_mcp.utils.file_utils import validate_file_access
 from excel_mcp.utils.guards import tool_guard
 from excel_mcp.utils.sheet_utils import (
     copy_range_operation,
@@ -74,7 +74,6 @@ async def format_range_excel(
         dict[str, Any]: A dictionary indicating the status ("success" or "error") and a descriptive message.
     """
 
-    filename = ensure_xlsx_extension(filename)
     result: dict[str, Any] = format_range(
         filename=filename,
         sheet_name=sheet_name,
@@ -116,7 +115,6 @@ async def copy_worksheet(
     Returns:
         dict[str, Any]: A status dictionary with a confirmation message or error details.
     """
-    filename = ensure_xlsx_extension(filename)
     result: dict[str, Any] = copy_sheet(filename, source_sheet, target_sheet)
     return result
 
@@ -136,7 +134,6 @@ async def delete_worksheet(filename: str, sheet_name: str) -> dict[str, Any]:
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure with a message.
     """
-    filename = ensure_xlsx_extension(filename)
     result: dict[str, Any] = delete_sheet(filename, sheet_name)
     return result
 
@@ -159,7 +156,6 @@ async def rename_worksheet(
     Returns:
         dict[str, Any]: A status dictionary with a confirmation or error message.
     """
-    filename = ensure_xlsx_extension(filename)
     result: dict[str, Any] = rename_sheet(filename, old_name, new_name)
     return result
 
@@ -181,7 +177,6 @@ async def get_workbook_metadata(
     Returns:
         dict[str, Any]: A dictionary containing workbook metadata, such as a list of sheet names and properties.
     """
-    filename = ensure_xlsx_extension(filename)
     result: dict[str, Any] = get_workbook_info(filename, include_ranges=include_ranges)
     return result
 
@@ -205,7 +200,6 @@ async def merge_cells(
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure.
     """
-    filename = ensure_xlsx_extension(filename)
     result: dict[str, Any] = merge_range(filename, sheet_name, start_cell, end_cell)
     return result
 
@@ -229,7 +223,6 @@ async def unmerge_cells(
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure.
     """
-    filename = ensure_xlsx_extension(filename)
     result: dict[str, Any] = unmerge_range(filename, sheet_name, start_cell, end_cell)
     return result
 
@@ -260,7 +253,6 @@ async def copy_range(
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure.
     """
-    filename = ensure_xlsx_extension(filename)
     result: dict[str, Any] = copy_range_operation(
         filename, sheet_name, source_start, source_end, target_start, target_sheet
     )
@@ -291,7 +283,6 @@ async def delete_range(
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure.
     """
-    filename = ensure_xlsx_extension(filename)
     result: dict[str, Any] = delete_range_operation(
         filename, sheet_name, start_cell, end_cell, shift_direction
     )
@@ -317,7 +308,6 @@ async def validate_excel_range(
     Returns:
         dict[str, Any]: A dictionary with validation status ("success" or "error") and a descriptive message.
     """
-    filename = ensure_xlsx_extension(filename)
     from excel_mcp.utils.validation_utils import (
         validate_range_in_sheet_operation as validate_range_impl,
     )

@@ -10,7 +10,6 @@ proper security validation.
 import functools
 import inspect
 import os
-import shutil
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypeVar, cast
@@ -20,26 +19,6 @@ from excel_mcp.utils import paths
 
 
 F = TypeVar("F", bound=Callable[..., Any])
-
-
-# Get allowed directories from the shared resolver
-def _get_allowed_directories() -> list[str]:
-    """Get the list of allowed directories from the shared resolver.
-
-    Delegates to :mod:`excel_mcp.utils.paths` so this module can never honour a
-    different sandbox than :mod:`excel_mcp.utils.security`.
-    """
-    return paths.resolve_allowed_directories()
-
-
-# Check if the given file path is within allowed directories
-def _is_path_in_allowed_directories(file_path: str) -> tuple[bool, str | None]:
-    """Check if the given file path is within allowed directories.
-
-    Uses Path.resolve() to properly resolve symlinks before validation,
-    preventing symlink-based path traversal attacks.
-    """
-    return paths.is_path_allowed(file_path)
 
 
 def resolve_safe_path(filename: str | Path) -> Path:
@@ -54,17 +33,16 @@ def resolve_safe_path(filename: str | Path) -> Path:
     Raises:
         PermissionError: If no allowed directories are available or path escapes sandbox.
     """
-    allowed_dirs = _get_allowed_directories()
+    allowed_dirs = paths.resolve_allowed_directories()
     if not allowed_dirs:
         raise PermissionError("No allowed directories available for file operations")
 
-    resolved = paths.resolve_target_path(filename)
-    allowed, error = _is_path_in_allowed_directories(str(resolved))
+    allowed, error = paths.is_path_allowed(filename)
     if not allowed:
         raise PermissionError(
             error or f"Path '{filename}' is not in allowed directories"
         )
-    return resolved
+    return paths.resolve_target_path(filename)
 
 
 # Check if a file can be written to, including directory permissions
@@ -86,14 +64,12 @@ def _check_file_writeable(filename: str) -> tuple[bool, str | None]:
             - error_message: Empty string if successful, otherwise contains error details
     """
     try:
-        # Normalize and get resolved path anchored to allowed root (resolves symlinks)
-        resolved_path = paths.resolve_target_path(filename)
-        parent_dir = resolved_path.parent
-
-        # Check if path is in allowed directories
-        is_allowed, error = _is_path_in_allowed_directories(str(resolved_path))
+        is_allowed, error = paths.is_path_allowed(filename)
         if not is_allowed:
             return False, error
+
+        resolved_path = paths.resolve_target_path(filename)
+        parent_dir = resolved_path.parent
 
         # If file exists, check write permissions
         if resolved_path.exists():
@@ -112,36 +88,6 @@ def _check_file_writeable(filename: str) -> tuple[bool, str | None]:
 
     except Exception as e:
         return False, f"Error checking file write permissions: {str(e)}"
-
-
-# * Create a copy of a document
-def create_document_copy(
-    source_path: str, dest_path: str | None = None
-) -> tuple[bool, str, str | None]:
-    """
-    Create a copy of a document.
-
-    Args:
-        source_path: Path to the source document
-        dest_path: Optional path for the new document. If not provided, will use source_path + '_copy.docx'
-
-    Returns:
-        Tuple of (success, message, new_filepath)
-    """
-    if not os.path.exists(source_path):
-        return False, f"Source document {source_path} does not exist", None
-
-    if not dest_path:
-        # Generate a new filename if not provided
-        base, ext = os.path.splitext(source_path)
-        dest_path = f"{base}_copy{ext}"
-
-    try:
-        # Simple file copy
-        shutil.copy2(source_path, dest_path)
-        return True, f"Document copied to {dest_path}", dest_path
-    except Exception as e:
-        return False, f"Failed to copy document: {str(e)}", None
 
 
 #! Ensure filename has .xlsx extension
@@ -245,11 +191,12 @@ def validate_file_access(
     """
 
     def decorator(func: F) -> F:
+        sig = inspect.signature(func)
+
         def _validate_file(
             args: tuple[Any, ...], kwargs: dict[str, Any]
         ) -> tuple[tuple[Any, ...], dict[str, Any], str] | dict[str, str]:
             try:
-                sig = inspect.signature(func)
                 bound = sig.bind(*args, **kwargs)
                 bound.apply_defaults()
 
@@ -266,32 +213,16 @@ def validate_file_access(
                         "message": f"Access denied: '{param}' must be a non-empty file path",
                     }
 
-                raw_str = str(raw_value)
-                candidate = Path(raw_str)
-                if not candidate.suffix and not candidate.name.startswith("."):
-                    raw_str = ensure_xlsx_extension(raw_str)
-
-                # Validate allowed directory and OS path hazards before resolving
-                is_allowed, dir_error = _is_path_in_allowed_directories(raw_str)
-                if not is_allowed:
+                resolved_obj, validation_error = paths.validate_and_resolve_path(
+                    raw_value, auto_extension=True
+                )
+                if validation_error or resolved_obj is None:
                     return {
                         "status": "error",
-                        "message": f"Access denied: {dir_error}",
-                        "path": raw_str,
+                        "message": f"Access denied: {validation_error}",
+                        "path": paths.normalize_xlsx_candidate(raw_value),
                     }
-
-                # Anchor relative paths to primary allowed root and resolve symlinks
-                resolved_obj = paths.resolve_target_path(raw_str)
                 file_path: str = str(resolved_obj)
-
-                # Enforce .xlsx extension and max_file_size
-                constraint_error = paths.validate_file_constraints(resolved_obj)
-                if constraint_error:
-                    return {
-                        "status": "error",
-                        "message": f"Access denied: {constraint_error}",
-                        "path": file_path,
-                    }
 
                 if read_only:
                     if resolved_obj.exists():
@@ -333,15 +264,8 @@ def validate_file_access(
                 result = _validate_file(args, kwargs)
                 if isinstance(result, dict):
                     return result
-                bound_args, bound_kwargs, resolved_path = result
-                try:
-                    return await func(*bound_args, **bound_kwargs)
-                except Exception as e:
-                    return {
-                        "status": "error",
-                        "message": f"Error in async function: {str(e)}",
-                        "path": resolved_path,
-                    }
+                bound_args, bound_kwargs, _resolved_path = result
+                return await func(*bound_args, **bound_kwargs)
 
             return cast(F, async_wrapper)
 
@@ -352,15 +276,8 @@ def validate_file_access(
                 result = _validate_file(args, kwargs)
                 if isinstance(result, dict):
                     return result
-                bound_args, bound_kwargs, resolved_path = result
-                try:
-                    return func(*bound_args, **bound_kwargs)
-                except Exception as e:
-                    return {
-                        "status": "error",
-                        "message": f"Error in function: {str(e)}",
-                        "path": resolved_path,
-                    }
+                bound_args, bound_kwargs, _resolved_path = result
+                return func(*bound_args, **bound_kwargs)
 
             return cast(F, sync_wrapper)
 

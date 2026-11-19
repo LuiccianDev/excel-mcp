@@ -2,7 +2,7 @@
 from typing import Any
 
 from excel_mcp.core.calculations import apply_formula
-from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_access
+from excel_mcp.utils.file_utils import validate_file_access
 from excel_mcp.utils.guards import tool_guard
 
 # Import core/tools/utils with new structure
@@ -31,7 +31,6 @@ async def validate_formula_syntax(
     Returns:
         dict[str, Any]: A dictionary with validation status ("success" or "error") and a message.
     """
-    filename = ensure_xlsx_extension(filename)
     result: dict[str, Any] = validate_formula_in_cell_operation(
         filename, sheet_name, cell, formula
     )
@@ -70,8 +69,6 @@ async def apply_formula_excel(
         • The tool automatically validates the formula's syntax before attempting to apply it.
         • The cell's existing value or formula will be overwritten.
     """
-    filename = ensure_xlsx_extension(filename)
-
     # First validate the formula
     validation: dict[str, Any] = validate_formula_in_cell_operation(
         filename, sheet_name, cell, formula

@@ -2,10 +2,7 @@ from typing import Any
 
 from excel_mcp.core.chart import create_chart_in_sheet as create_chart_impl
 from excel_mcp.core.pivot import create_pivot_table as create_pivot_table_impl
-
-# Import exceptions
-from excel_mcp.exceptions.exception_tools import ChartError, PivotError, ValidationError
-from excel_mcp.utils.file_utils import ensure_xlsx_extension, validate_file_access
+from excel_mcp.utils.file_utils import validate_file_access
 from excel_mcp.utils.guards import tool_guard
 
 
@@ -41,26 +38,19 @@ async def create_chart(
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure, with a descriptive message.
     """
-    filename = ensure_xlsx_extension(filename)
-
-    try:
-        extra_kwargs: dict[str, Any] = {"style": style} if style is not None else {}
-        result: dict[str, Any] = create_chart_impl(
-            filename=filename,
-            sheet_name=sheet_name,
-            data_range=data_range,
-            chart_type=chart_type,
-            target_cell=target_cell,
-            title=title,
-            x_axis=x_axis,
-            y_axis=y_axis,
-            **extra_kwargs,
-        )
-        return result
-    except (ValidationError, ChartError) as e:
-        return {"error": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"error": f"Failed to create chart: {str(e)}"}
+    extra_kwargs: dict[str, Any] = {"style": style} if style is not None else {}
+    result: dict[str, Any] = create_chart_impl(
+        filename=filename,
+        sheet_name=sheet_name,
+        data_range=data_range,
+        chart_type=chart_type,
+        target_cell=target_cell,
+        title=title,
+        x_axis=x_axis,
+        y_axis=y_axis,
+        **extra_kwargs,
+    )
+    return result
 
 
 @validate_file_access("filename")
@@ -91,20 +81,13 @@ async def create_pivot_table(
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure, with a descriptive message.
     """
-    filename = ensure_xlsx_extension(filename)
-
-    try:
-        result: dict[str, Any] = create_pivot_table_impl(
-            filename=filename,
-            sheet_name=sheet_name,
-            data_range=data_range,
-            rows=rows,
-            values=values,
-            columns=columns or [],
-            agg_func=agg_func,
-        )
-        return result
-    except (ValidationError, PivotError) as e:
-        return {"error": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"error": f"Failed to create pivot table: {str(e)}"}
+    result: dict[str, Any] = create_pivot_table_impl(
+        filename=filename,
+        sheet_name=sheet_name,
+        data_range=data_range,
+        rows=rows,
+        values=values,
+        columns=columns or [],
+        agg_func=agg_func,
+    )
+    return result

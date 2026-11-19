@@ -2,9 +2,8 @@
 from typing import Any
 
 from excel_mcp.core.workbook import create_sheet, create_workbook
-from excel_mcp.exceptions.exception_tools import WorkbookError
+from excel_mcp.utils import paths
 from excel_mcp.utils.file_utils import (
-    ensure_xlsx_extension,
     list_excel_files_in_directory,
     resolve_safe_path,
     validate_file_access,
@@ -35,26 +34,14 @@ async def create_excel_workbook(filename: str) -> dict[str, Any]:
             Example: {"status": "success", "filename": "/secure/path/reporte_diario.xlsx"}
         On failure, returns an error dictionary with a descriptive message.
     """
-    try:
-        from pathlib import Path
+    filename = paths.normalize_xlsx_candidate(filename)
+    resolved_path = resolve_safe_path(filename)
+    constraint_error = paths.validate_file_constraints(resolved_path)
+    if constraint_error:
+        return {"status": "error", "message": f"Access denied: {constraint_error}"}
 
-        from excel_mcp.utils import paths
-
-        candidate = Path(filename)
-        if not candidate.suffix and not candidate.name.startswith("."):
-            filename = ensure_xlsx_extension(filename)
-
-        resolved_path = resolve_safe_path(filename)
-        constraint_error = paths.validate_file_constraints(resolved_path)
-        if constraint_error:
-            return {"error": f"Access denied: {constraint_error}"}
-
-        result: dict[str, Any] = create_workbook(str(resolved_path))
-        return result
-    except WorkbookError as e:
-        return {"error": f"Error: {str(e)}"}
-    except Exception as e:
-        return {"error": f"Failed to create workbook: {str(e)}"}
+    result: dict[str, Any] = create_workbook(str(resolved_path))
+    return result
 
 
 # * Create new worksheet in workbook
@@ -80,7 +67,6 @@ async def create_excel_worksheet(filename: str, sheet_name: str) -> dict[str, An
             Example: {"status": "success", "sheet": "NewData"}
         On error, returns a dictionary with status "error" and a descriptive message.
     """
-    filename = ensure_xlsx_extension(filename)
     result: dict[str, Any] = create_sheet(filename, sheet_name)
     return result
 

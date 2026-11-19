@@ -77,8 +77,8 @@ async def test_create_chart_validation_error(tmp_path) -> None:
             target_cell=TEST_TARGET_CELL,
         )
 
-        assert "error" in result
-        assert "Invalid chart type" in result["error"]
+        assert result["status"] == "error"
+        assert "Invalid chart type" in result["message"]
 
 
 @pytest.mark.asyncio  # type: ignore[misc]
@@ -102,8 +102,8 @@ async def test_create_chart_chart_error(tmp_path) -> None:
             target_cell=TEST_TARGET_CELL,
         )
 
-        assert "error" in result
-        assert "Data range is empty" in result["error"]
+        assert result["status"] == "error"
+        assert "Data range is empty" in result["message"]
 
 
 # Test for create_pivot_table
@@ -171,8 +171,8 @@ async def test_create_pivot_table_validation_error(tmp_path) -> None:
             values=["Sales"],
         )
 
-        assert "error" in result
-        assert "Invalid data range" in result["error"]
+        assert result["status"] == "error"
+        assert "Invalid data range" in result["message"]
 
 
 @pytest.mark.asyncio  # type: ignore[misc]
@@ -198,5 +198,5 @@ async def test_create_pivot_table_pivot_error(tmp_path) -> None:
             values=["NonNumericColumn"],
         )
 
-        assert "error" in result
-        assert "No numeric data" in result["error"]
+        assert result["status"] == "error"
+        assert "No numeric data" in result["message"]

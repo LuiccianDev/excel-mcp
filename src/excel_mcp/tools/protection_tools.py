@@ -10,9 +10,10 @@ from typing import Any
 
 from excel_mcp.core.protection import protect_sheet as _protect_sheet
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import resolve_and_check_path
+from excel_mcp.utils.security import require_valid_path
 
 
+@require_valid_path()
 @tool_guard()
 def protect_sheet(
     filename: str | None = None,
@@ -67,13 +68,9 @@ def protect_sheet(
     Returns:
         Structured result with the sheet name and resulting protection state.
     """
-    target, err = resolve_and_check_path(filename, file_path)
-    if err:
-        return err
-    assert target is not None
-
+    assert filename is not None
     res = _protect_sheet(
-        filename=target,
+        filename=filename,
         enabled=enabled,
         password=password,
         sheet_name=sheet_name,

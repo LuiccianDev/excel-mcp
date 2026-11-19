@@ -7,11 +7,16 @@ Delegates the actual resolution to :mod:`excel_mcp.utils.paths`.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+import functools
+import inspect
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from excel_mcp.utils import paths
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 
 def get_allowed_directories() -> list[str]:
@@ -41,8 +46,10 @@ def is_path_in_allowed_directories(file_path: str | Path) -> tuple[bool, str | N
 def resolve_and_check_path(
     filename: str | None,
     file_path: str | None = None,
+    *,
+    create_dirs: bool = False,
 ) -> tuple[str | None, dict[str, Any] | None]:
-    """Resolve target path, enforce allowed directory security, and ensure parent directory exists."""
+    """Resolve target path and enforce allowed directory and file-type security."""
     target = filename or file_path
     if not target or not target.strip():
         return None, {
@@ -50,30 +57,70 @@ def resolve_and_check_path(
             "message": "Missing required parameter 'filename' (or 'file_path').",
         }
 
-    is_allowed, error_msg = is_path_in_allowed_directories(target)
-    if not is_allowed:
+    resolved_path, error_msg = paths.validate_and_resolve_path(target)
+    if error_msg or resolved_path is None:
         return None, {
             "status": "error",
             "message": f"Security restriction: {error_msg}",
         }
-
-    resolved_path = paths.resolve_target_path(target)
-    constraint_err = paths.validate_file_constraints(resolved_path)
-    if constraint_err:
+    if resolved_path.is_dir():
         return None, {
             "status": "error",
-            "message": f"Security restriction: {constraint_err}",
+            "message": f"Security restriction: Path is a directory: '{resolved_path}'",
         }
 
     resolved_target = str(resolved_path)
-    directory = os.path.dirname(resolved_target)
-    if directory and not os.path.exists(directory):
-        try:
-            os.makedirs(directory, exist_ok=True)
-        except OSError as e:
-            return None, {
-                "status": "error",
-                "message": f"Cannot create directory '{directory}': {e}",
-            }
+    if create_dirs:
+        directory = os.path.dirname(resolved_target)
+        if directory and not os.path.exists(directory):
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except OSError as e:
+                return None, {
+                    "status": "error",
+                    "message": f"Cannot create directory '{directory}': {e}",
+                }
 
     return resolved_target, None
+
+
+def require_valid_path(*, create_dirs: bool = False) -> Callable[[F], F]:
+    """Decorator that resolves (filename, file_path) via resolve_and_check_path and injects resolved filename."""
+
+    def decorator(fn: F) -> F:
+        sig = inspect.signature(fn)
+
+        def _prepare(args: tuple[Any, ...], kwargs: dict[str, Any]) -> tuple[Any, Any]:
+            bound = sig.bind_partial(*args, **kwargs)
+            bound.apply_defaults()
+            target, err = resolve_and_check_path(
+                bound.arguments.get("filename"),
+                bound.arguments.get("file_path"),
+                create_dirs=create_dirs,
+            )
+            if err is not None:
+                return None, err
+            bound.arguments["filename"] = target
+            return bound, None
+
+        if inspect.iscoroutinefunction(fn):
+
+            @functools.wraps(fn)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                bound, err = _prepare(args, kwargs)
+                if err is not None:
+                    return err
+                return await fn(*bound.args, **bound.kwargs)
+
+            return async_wrapper  # type: ignore[return-value]
+
+        @functools.wraps(fn)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            bound, err = _prepare(args, kwargs)
+            if err is not None:
+                return err
+            return fn(*bound.args, **bound.kwargs)
+
+        return sync_wrapper  # type: ignore[return-value]
+
+    return decorator
