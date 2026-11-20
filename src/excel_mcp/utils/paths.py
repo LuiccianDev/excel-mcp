@@ -7,11 +7,14 @@ one module and ignored by another.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from pathlib import Path
 
 from excel_mcp.config import get_directory
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 _WINDOWS_RESERVED_NAMES = frozenset(
@@ -20,11 +23,21 @@ _WINDOWS_RESERVED_NAMES = frozenset(
     | {f"LPT{i}" for i in range(1, 10)}
 )
 _DRIVE_PREFIX_RE = re.compile(r"^[A-Za-z]:")
+_UNEXPANDED_PLACEHOLDER_RE = re.compile(r"\$\{[^}]+\}")
 
 
 def _split(value: str) -> list[str]:
     """Split a comma-separated list of directories, dropping empty entries."""
-    return [item.strip() for item in value.split(",") if item.strip()]
+    items: list[str] = []
+    for item in value.split(","):
+        stripped = item.strip()
+        if not stripped:
+            continue
+        if _UNEXPANDED_PLACEHOLDER_RE.search(stripped):
+            logger.warning("Ignoring unexpanded directory placeholder: %r", stripped)
+            continue
+        items.append(stripped)
+    return items
 
 
 def resolve_allowed_directories() -> list[str]:
@@ -65,7 +78,7 @@ def validate_path_safety(path: str | Path) -> str | None:
         )
 
     for part in Path(raw).parts:
-        stem = part.rstrip(".").split(".", 1)[0].upper()
+        stem = part.rstrip(". ").split(".", 1)[0].upper()
         if stem in _WINDOWS_RESERVED_NAMES:
             return f"Reserved Windows device name '{part}' is not permitted."
     return None

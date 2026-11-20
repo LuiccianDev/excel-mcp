@@ -84,6 +84,7 @@ COMPOUND_REGISTRY: dict[str, dict[str, CompoundActionSpec]] = {
             excel_tools.create_excel_workbook,
             "Create a new empty .xlsx workbook.",
             full_name="excel_create_workbook",
+            destructive=True,
         ),
         "list": CompoundActionSpec(
             excel_tools.list_excel_documents,

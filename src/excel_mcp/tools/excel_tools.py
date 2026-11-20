@@ -36,6 +36,11 @@ async def create_excel_workbook(filename: str) -> dict[str, Any]:
     """
     filename = paths.normalize_xlsx_candidate(filename)
     resolved_path = resolve_safe_path(filename)
+    if resolved_path.exists() and resolved_path.is_dir():
+        return {
+            "status": "error",
+            "message": f"Access denied: Path '{resolved_path.name}' is a directory.",
+        }
     constraint_error = paths.validate_file_constraints(resolved_path)
     if constraint_error:
         return {"status": "error", "message": f"Access denied: {constraint_error}"}
