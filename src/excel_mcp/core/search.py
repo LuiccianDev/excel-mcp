@@ -10,13 +10,20 @@ from datetime import date, datetime
 import logging
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, Final
 
 from openpyxl.utils.cell import get_column_letter
 
 from excel_mcp.core._io import resolve_sheet, workbook_session
+from excel_mcp.exceptions.exception_core import ValidationError
 
 logger = logging.getLogger(__name__)
+
+MAX_REGEX_LENGTH: Final[int] = 256
+MAX_SEARCH_CELLS: Final[int] = 500_000
+_NESTED_QUANTIFIER_RE: Final[re.Pattern[str]] = re.compile(
+    r"\([^)]*[+*][^)]*\)[+*{]"
+)
 
 
 def find_cells_in_workbook(
@@ -41,6 +48,14 @@ def find_cells_in_workbook(
 
     pattern: re.Pattern[str] | None = None
     if use_regex:
+        if len(query) > MAX_REGEX_LENGTH:
+            raise ValidationError(
+                f"Regex query exceeds maximum length of {MAX_REGEX_LENGTH} characters."
+            )
+        if _NESTED_QUANTIFIER_RE.search(query):
+            raise ValidationError(
+                "Regex query contains nested quantifiers that may cause catastrophic backtracking."
+            )
         flags = 0 if match_case else re.IGNORECASE
         pattern = re.compile(query, flags)
     else:
@@ -53,10 +68,18 @@ def find_cells_in_workbook(
             sheets_to_search = wb.worksheets
 
         matches: list[dict[str, Any]] = []
+        cells_scanned = 0
 
         for ws in sheets_to_search:
             for row in ws.iter_rows():
                 for cell in row:
+                    cells_scanned += 1
+                    if cells_scanned > MAX_SEARCH_CELLS:
+                        return {
+                            "total_matches": len(matches),
+                            "matches": matches,
+                            "limit_reached": True,
+                        }
                     val = cell.value
                     if val is None:
                         continue

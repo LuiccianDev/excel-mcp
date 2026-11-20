@@ -6,19 +6,50 @@ from contextlib import contextmanager
 import os
 from pathlib import Path
 import uuid
+import zipfile
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Final, Literal
 
 import openpyxl
 
 from excel_mcp.exceptions import SheetNotFoundError, ValidationError
 from excel_mcp.utils.metrics import measure_phase
+from excel_mcp.utils.paths import DEFAULT_MAX_FILE_SIZE
 
 if TYPE_CHECKING:
     from openpyxl.worksheet.worksheet import Worksheet
 
 SessionMode = Literal["read", "edit", "create", "upsert"]
 _INVALID_SHEET_CHARS = frozenset(r"[]:*?/\\")
+MAX_XLSX_ENTRIES: Final[int] = 10_000
+MAX_XLSX_UNCOMPRESSED_BYTES: Final[int] = 250 * 1024 * 1024
+MAX_XLSX_COMPRESSION_RATIO: Final[float] = 100.0
+_RATIO_CHECK_MIN_BYTES: Final[int] = 1024 * 1024
+
+
+def _validate_xlsx_archive(path: Path) -> None:
+    if not zipfile.is_zipfile(path):
+        return
+    with zipfile.ZipFile(path, "r") as zf:
+        infos = zf.infolist()
+        if len(infos) > MAX_XLSX_ENTRIES:
+            raise ValidationError(
+                f"Archive '{path.name}' has {len(infos)} entries, exceeding limit of {MAX_XLSX_ENTRIES}."
+            )
+        total_uncompressed = 0
+        for info in infos:
+            total_uncompressed += info.file_size
+            if total_uncompressed > MAX_XLSX_UNCOMPRESSED_BYTES:
+                raise ValidationError(
+                    f"Archive '{path.name}' decompressed size exceeds {MAX_XLSX_UNCOMPRESSED_BYTES} bytes."
+                )
+            if info.file_size > _RATIO_CHECK_MIN_BYTES and (
+                info.compress_size == 0
+                or info.file_size / info.compress_size > MAX_XLSX_COMPRESSION_RATIO
+            ):
+                raise ValidationError(
+                    f"Archive member '{info.filename}' in '{path.name}' exceeds compression ratio limit."
+                )
 
 
 def _validate_new_sheet_name(name: str) -> None:
@@ -56,6 +87,7 @@ def workbook_session(
     if mode == "read" or mode == "edit" or (mode == "upsert" and not is_new):
         if not path.exists():
             raise FileNotFoundError(f"Workbook not found: {path}")
+        _validate_xlsx_archive(path)
         with measure_phase("io_read_ms"):
             wb = openpyxl.load_workbook(
                 str(path), read_only=(mode == "read"), data_only=data_only
@@ -105,7 +137,12 @@ def resolve_sheet(
     return wb.active
 
 
-def atomic_save(wb: openpyxl.Workbook, target_path: str | Path) -> Path:
+def atomic_save(
+    wb: openpyxl.Workbook,
+    target_path: str | Path,
+    *,
+    max_file_size: int = DEFAULT_MAX_FILE_SIZE,
+) -> Path:
     """Save an openpyxl Workbook to target_path atomically.
 
     Writes to a temporary file in the same directory (guaranteeing the same filesystem)
@@ -115,6 +152,7 @@ def atomic_save(wb: openpyxl.Workbook, target_path: str | Path) -> Path:
     Args:
         wb: The openpyxl Workbook object to serialize.
         target_path: Destination path for the .xlsx file.
+        max_file_size: Maximum allowed serialized file size in bytes.
 
     Returns:
         Path: Resolved destination Path.
@@ -129,6 +167,11 @@ def atomic_save(wb: openpyxl.Workbook, target_path: str | Path) -> Path:
 
     try:
         wb.save(str(temp_path))
+        size = temp_path.stat().st_size
+        if size > max_file_size:
+            raise ValidationError(
+                f"Saved workbook ({size} bytes) exceeds maximum allowed size ({max_file_size} bytes)."
+            )
         os.replace(temp_path, dest)
         return dest
     finally:

@@ -1,4 +1,4 @@
-from typing import Any, Literal, TypedDict
+from typing import Any, Final, Literal, TypedDict
 
 from openpyxl.formatting.rule import (
     CellIsRule,
@@ -19,6 +19,8 @@ from openpyxl.styles import (
 
 from excel_mcp.core._io import atomic_save, workbook_session
 from excel_mcp.utils.cell_utils import parse_cell_range, validate_cell_reference
+
+MAX_FORMAT_CELLS: Final[int] = 100_000
 
 
 # Define valid border styles
@@ -100,6 +102,15 @@ def format_range(
                 end_row = start_row
             if end_col is None:
                 end_col = start_col
+            cell_count = (end_row - start_row + 1) * (end_col - start_col + 1)
+            if cell_count > MAX_FORMAT_CELLS:
+                return {
+                    "status": "error",
+                    "message": (
+                        f"Range too large ({cell_count} cells); "
+                        f"maximum allowed for formatting is {MAX_FORMAT_CELLS} cells."
+                    ),
+                }
             # Font configuration with proper typing
             font_args: FontArgs = {
                 "bold": bold,

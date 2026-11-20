@@ -5,7 +5,7 @@ writing data, and detecting headers, following the Model Context Protocol (MCP) 
 """
 
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, Final, TypedDict
 
 from openpyxl.utils import get_column_letter
 from openpyxl.workbook.workbook import Workbook as OpenpyxlWorkbook
@@ -30,6 +30,11 @@ CellValue = Any
 RowData = list[CellValue]
 SheetData = list[RowData]
 CellRange = str
+
+MAX_READ_CELLS: Final[int] = 250_000
+MAX_USED_RANGE_SCAN_ROWS: Final[int] = 10_000
+MAX_USED_RANGE_SCAN_COLS: Final[int] = 200
+PREVIEW_MAX_ROWS: Final[int] = 100
 
 
 class RangeCoordinates(TypedDict):
@@ -93,24 +98,32 @@ def _get_used_range(
     Returns:
         Tuple of (end_row, end_col) coordinates.
     """
-    end_row = start_row
-    end_col = start_col
+    if worksheet.max_row < start_row or worksheet.max_column < start_col:
+        return start_row - 1, start_col - 1
 
-    # Find last used row
-    while end_row <= worksheet.max_row and any(
-        worksheet.cell(row=end_row, column=c).value is not None
-        for c in range(start_col, worksheet.max_column + 1)
+    max_scan_row = min(worksheet.max_row, start_row + MAX_USED_RANGE_SCAN_ROWS - 1)
+    max_scan_col = min(worksheet.max_column, start_col + MAX_USED_RANGE_SCAN_COLS - 1)
+
+    last_row = start_row - 1
+    last_col = start_col - 1
+    for r_idx, row in enumerate(
+        worksheet.iter_rows(
+            min_row=start_row,
+            max_row=max_scan_row,
+            min_col=start_col,
+            max_col=max_scan_col,
+            values_only=True,
+        ),
+        start=start_row,
     ):
-        end_row += 1
+        for c_idx, val in enumerate(row, start=start_col):
+            if val is not None:
+                if r_idx > last_row:
+                    last_row = r_idx
+                if c_idx > last_col:
+                    last_col = c_idx
 
-    # Find last used column
-    while end_col <= worksheet.max_column and any(
-        worksheet.cell(row=r, column=end_col).value is not None
-        for r in range(start_row, worksheet.max_row + 1)
-    ):
-        end_col += 1
-
-    return end_row - 1, end_col - 1  # Convert to 0-based exclusive
+    return last_row, last_col
 
 
 # * Read a range of data from an Excel worksheet
@@ -169,14 +182,31 @@ def read_excel_range(
                 )
 
             # Read the data
+            if preview_only:
+                end_row = min(end_row, start_row + PREVIEW_MAX_ROWS - 1)
+
+            effective_end_row = min(end_row, ws.max_row)
+            effective_end_col = min(end_col, ws.max_column)
+
             data: SheetData = []
-            for row in range(start_row, min(end_row, ws.max_row) + 1):
-                row_data = [
-                    ws.cell(row=row, column=col).value
-                    for col in range(start_col, min(end_col, ws.max_column) + 1)
-                ]
-                if any(v is not None for v in row_data):
-                    data.append(row_data)
+            if effective_end_row >= start_row and effective_end_col >= start_col:
+                cell_count = (effective_end_row - start_row + 1) * (
+                    effective_end_col - start_col + 1
+                )
+                if cell_count > MAX_READ_CELLS:
+                    raise RangeError(
+                        f"Requested range exceeds maximum of {MAX_READ_CELLS} cells."
+                    )
+                for row in ws.iter_rows(
+                    min_row=start_row,
+                    max_row=effective_end_row,
+                    min_col=start_col,
+                    max_col=effective_end_col,
+                    values_only=True,
+                ):
+                    row_data = list(row)
+                    if any(v is not None for v in row_data):
+                        data.append(row_data)
 
             return data
 
