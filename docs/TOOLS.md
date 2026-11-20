@@ -12,14 +12,14 @@
 | [`excel_append_rows`](#excel-append-rows) | `Write` | Append batch rows of data below the existing content in a worksheet in an atomic operation. |
 | [`excel_apply_formula`](#excel-apply-formula) | `Write` | Apply a validated Excel formula to a specific cell in a worksheet. |
 | [`excel_batch_write_data`](#excel-batch-write-data) | `Write` | Write a 2D matrix of values or formulas into a worksheet starting from a specific cell in one atomic operation. |
-| [`excel_build_workbook`](#excel-build-workbook) | `Write` | Build a complete Excel workbook with typography, zebra striping, currency/date formats, formulas, and charts in a single pass. |
+| [`excel_build_workbook`](#excel-build-workbook) | `Destructive` | Build a complete Excel workbook with typography, zebra striping, currency/date formats, formulas, and charts in a single pass. |
 | [`excel_configure_page_setup`](#excel-configure-page-setup) | `Write` | Configure the print layout of a worksheet. |
 | [`excel_copy_range`](#excel-copy-range) | `Write` | Copy a range of cells, including their values and formatting, to a new location, potentially in a different worksheet. |
 | [`excel_copy_worksheet`](#excel-copy-worksheet) | `Write` | Create a duplicate of an existing worksheet within the same Excel workbook. |
 | [`excel_create_chart`](#excel-create-chart) | `Write` | Create a chart in a worksheet based on a specified data range. |
 | [`excel_create_pivot_table`](#excel-create-pivot-table) | `Write` | Create a pivot table in a worksheet to summarize and analyze data from a given range. |
 | [`excel_create_table`](#excel-create-table) | `Write` | Convert a range of cells into a native, styled Excel Table. |
-| [`excel_create_workbook`](#excel-create-workbook) | `Write` | Create an empty Excel workbook (.xlsx) in a secure, validated path. |
+| [`excel_create_workbook`](#excel-create-workbook) | `Destructive` | Create an empty Excel workbook (.xlsx) in a secure, validated path. |
 | [`excel_create_worksheet`](#excel-create-worksheet) | `Write` | Add a new worksheet to an existing Excel workbook. |
 | [`excel_delete_range`](#excel-delete-range) | `Destructive` | Delete a range of cells and optionally shift the surrounding cells to fill the gap. |
 | [`excel_delete_rows_columns`](#excel-delete-rows-columns) | `Destructive` | Delete rows or columns starting at the specified 1-based index in a worksheet. |
@@ -46,7 +46,7 @@
 
 ### `excel_build_workbook`
 
-- **Access Mode:** `Write`
+- **Access Mode:** `Destructive`
 - **Signature:** `excel_build_workbook(filename: 'str | None' = None, file_path: 'str | None' = None, sheets: 'list[dict[str, Any]] | None' = None, preset: 'str' = 'corporate', auto_fit: 'bool' = True, font_name: 'str | None' = None, font_size: 'float | None' = None) -> 'dict[str, Any]'`
 
 ```text
@@ -138,7 +138,7 @@ Returns:
 
 ### `excel_create_workbook`
 
-- **Access Mode:** `Write`
+- **Access Mode:** `Destructive`
 - **Signature:** `excel_create_workbook(filename: str) -> dict[str, typing.Any]`
 
 ```text

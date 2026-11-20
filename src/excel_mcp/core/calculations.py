@@ -59,9 +59,7 @@ _OOXML_FUNC_PREFIX_RE: Final[re.Pattern[str]] = re.compile(
     r"^(?:_?(?:XLFN|XLWS|XLPM|XLETA)\.)+"
 )
 _FUNC_CALL_RE: Final[re.Pattern[str]] = re.compile(r"([A-Z_][A-Z0-9_.]*)\s*\(")
-_CELL_FUNC_CALL_RE: Final[re.Pattern[str]] = re.compile(
-    r"[A-Za-z_][A-Za-z0-9_.]*\s*\("
-)
+_CELL_FUNC_CALL_RE: Final[re.Pattern[str]] = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*\s*\(")
 _CELL_DDE_PREFIX_RE: Final[re.Pattern[str]] = re.compile(
     r"^[+\-@]\s*(?:cmd|powershell|msexc)\b", re.IGNORECASE
 )

@@ -78,7 +78,7 @@ def validate_path_safety(path: str | Path) -> str | None:
         )
 
     for part in Path(raw).parts:
-        stem = part.rstrip(". ").split(".", 1)[0].upper()
+        stem = part.rstrip(". ").split(".", 1)[0].rstrip(". ").upper()
         if stem in _WINDOWS_RESERVED_NAMES:
             return f"Reserved Windows device name '{part}' is not permitted."
     return None

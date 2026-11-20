@@ -21,9 +21,7 @@ logger = logging.getLogger(__name__)
 
 MAX_REGEX_LENGTH: Final[int] = 256
 MAX_SEARCH_CELLS: Final[int] = 500_000
-_NESTED_QUANTIFIER_RE: Final[re.Pattern[str]] = re.compile(
-    r"\([^)]*[+*][^)]*\)[+*{]"
-)
+_NESTED_QUANTIFIER_RE: Final[re.Pattern[str]] = re.compile(r"\([^)]*[+*][^)]*\)[+*{]")
 
 
 def find_cells_in_workbook(

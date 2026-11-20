@@ -240,9 +240,7 @@ def _build_sheet_with_stats(
 
     # 1. Optional Title Banner
     if title_banner:
-        _assert_safe_cell_value(
-            title_banner, f"in sheet '{ws.title}' title banner"
-        )
+        _assert_safe_cell_value(title_banner, f"in sheet '{ws.title}' title banner")
         ws.merge_cells(
             start_row=current_row,
             start_column=1,
