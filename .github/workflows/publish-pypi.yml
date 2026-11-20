@@ -52,7 +52,9 @@ jobs:
           enable-cache: true
 
       - name: Verify tag matches package version
-        run: uv run python scripts/check-repository-consistency.py --tag "${{ github.event.inputs.tag }}"
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: uv run python scripts/check-repository-consistency.py --tag "$INPUT_TAG"
 
       - name: Build sdist and wheel
         run: uv build

@@ -35,6 +35,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
 
       - name: Setup uv
@@ -44,8 +45,14 @@ jobs:
 
       - name: Validate tag consistency
         id: state
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          TAG="${{ github.ref_name || inputs.tag }}"
+          git fetch origin master
+          git merge-base --is-ancestor HEAD origin/master || {
+            echo "::error::Tag $TAG commit is not an ancestor of master"
+            exit 1
+          }
           uv run python scripts/check-repository-consistency.py --tag "$TAG"
           VERSION="${TAG#v}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -59,6 +66,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3

@@ -62,8 +62,11 @@ jobs:
 
       - name: Bump Version in pyproject.toml & CHANGELOG.md
         id: bump
+        env:
+          BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+          CUSTOM_VERSION: ${{ github.event.inputs.custom_version }}
         run: |
-          uv run python scripts/bump-version.py --type "${{ github.event.inputs.bump_type }}" --custom "${{ github.event.inputs.custom_version }}"
+          uv run python scripts/bump-version.py --type "$BUMP_TYPE" --custom "$CUSTOM_VERSION"
           VERSION=$(grep -m1 '^version = ' pyproject.toml | cut -d '"' -f2)
           TAG="v$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
