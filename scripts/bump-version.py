@@ -41,7 +41,12 @@ def calculate_next_version(
             raise ValueError(
                 "custom_version must be provided when bump_type is 'custom'"
             )
-        return custom_version.lstrip("v").strip()
+        normalized = custom_version.lstrip("v").strip()
+        if not re.fullmatch(r"\d+\.\d+\.\d+", normalized):
+            raise ValueError(
+                f"Custom version '{custom_version}' must match strict semver X.Y.Z"
+            )
+        return normalized
 
     # Parse semver (e.g., 2.0.0)
     match = re.match(r"^(\d+)\.(\d+)\.(\d+)(.*)$", current)

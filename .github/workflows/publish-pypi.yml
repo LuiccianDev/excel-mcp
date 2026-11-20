@@ -1,9 +1,5 @@
 name: Publish to PyPI (manual recovery)
 
-# Recovery only. The normal path is release.yml, which builds once, creates the tag
-# and the GitHub Release, and publishes the same artifacts to PyPI. Use this workflow
-# only when a PyPI upload failed after the GitHub Release already exists.
-
 on:
   workflow_dispatch:
     inputs:
@@ -36,8 +32,8 @@ jobs:
       name: ${{ github.event.inputs.target_env }}
       url: ${{ (github.event.inputs.target_env == 'testpypi') && 'https://test.pypi.org/p/luiccian-excel-mcp' || 'https://pypi.org/p/luiccian-excel-mcp' }}
     permissions:
-      id-token: write        # Trusted Publishing (OIDC)
-      attestations: write    # PEP 740 attestations
+      id-token: write
+      attestations: write
       contents: read
 
     steps:

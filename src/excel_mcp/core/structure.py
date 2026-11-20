@@ -19,10 +19,7 @@ from openpyxl.utils.cell import (
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from excel_mcp.core._io import atomic_save, resolve_sheet, workbook_session
-from excel_mcp.core.calculations import (
-    FormulaSecurityError,
-    validate_cell_value_secure,
-)
+from excel_mcp.core.calculations import assert_safe_cell_value
 from excel_mcp.exceptions.exception_core import ValidationError
 
 logger = logging.getLogger(__name__)
@@ -77,11 +74,7 @@ def append_rows_to_sheet(
             curr_row = start_row + r_offset
             for c_offset, val in enumerate(row):
                 curr_col = start_column + c_offset
-                is_valid, msg = validate_cell_value_secure(val)
-                if not is_valid:
-                    raise FormulaSecurityError(
-                        f"Formula security validation failed at row {curr_row}, col {curr_col}: {msg}"
-                    )
+                assert_safe_cell_value(val, f"at row {curr_row}, col {curr_col}")
                 ws.cell(row=curr_row, column=curr_col, value=val)
 
         end_row = start_row + len(rows) - 1

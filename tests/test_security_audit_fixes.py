@@ -1,5 +1,3 @@
-"""Regression tests for security audit remediation across formula, resource, path, and annotation controls."""
-
 from __future__ import annotations
 
 import asyncio
@@ -9,22 +7,29 @@ import zipfile
 import openpyxl
 import pytest
 
+from excel_mcp.core import search as search_module
 from excel_mcp.core._io import (
     MAX_XLSX_ENTRIES,
     atomic_save,
     workbook_session,
 )
-from excel_mcp.core.batch import build_single_pass_workbook
+from excel_mcp.core.batch import batch_write_matrix, build_single_pass_workbook
 from excel_mcp.core.calculations import (
     FormulaSecurityError,
     apply_formula,
     validate_cell_value_secure,
     validate_formula_secure,
 )
-from excel_mcp.core.data import MAX_READ_CELLS, PREVIEW_MAX_ROWS, read_excel_range
+from excel_mcp.core.data import (
+    MAX_READ_CELLS,
+    PREVIEW_MAX_ROWS,
+    read_excel_range,
+    write_data,
+)
 from excel_mcp.core.data_validation import add_data_validation
 from excel_mcp.core.formatting import format_range
 from excel_mcp.core.search import find_cells_in_workbook
+from excel_mcp.core.structure import append_rows_to_sheet
 from excel_mcp.exceptions.exception_core import RangeError, ValidationError
 from excel_mcp.tools.excel_tools import create_excel_workbook
 from excel_mcp.tools.formulas_excel_tools import (
@@ -74,7 +79,7 @@ def test_apply_formula_and_tools_enforce_secure_validation(
         assert res_val["status"] == "error"
 
 
-def test_cell_value_secure_blocks_prefix_and_xlfn_bypasses() -> None:
+def test_cell_value_secure_blocks_bypasses_and_allows_prose(tmp_path: Path) -> None:
     for unsafe in (
         '+HYPERLINK("http://evil.example","x")',
         '-WEBSERVICE("http://evil.example")',
@@ -95,9 +100,21 @@ def test_cell_value_secure_blocks_prefix_and_xlfn_bypasses() -> None:
         "+1 (555) 123-4567",
         "@alice",
         "+SUM(A1:A10)",
+        "- Please call (555) 123-4567",
+        "- Open (9am-5pm)",
+        "- https://example.com",
+        "- Status (WIP",
     ):
         ok, _ = validate_cell_value_secure(safe)
         assert ok is True, f"Expected safe allowance for {safe}"
+
+    target = _make_workbook(tmp_path / "cell_sinks.xlsx")
+    with pytest.raises(FormulaSecurityError):
+        write_data(target, "Sheet1", [['+HYPERLINK("http://evil.example","x")']])
+    with pytest.raises(FormulaSecurityError):
+        batch_write_matrix(str(target), "Sheet1", "A1", [["=_xlfn.CALL('a','b')"]])
+    with pytest.raises(FormulaSecurityError):
+        append_rows_to_sheet(target, [["+msexcel|a!b"]], sheet_name="Sheet1")
 
 
 def test_data_validation_and_batch_headers_enforce_formula_security(
@@ -120,10 +137,19 @@ def test_data_validation_and_batch_headers_enforce_formula_security(
         add_data_validation(
             filename=str(target),
             cell_range="A2:A5",
+            validation_type="list",
+            formula1='WEBSERVICE("http://evil.example")',
+            sheet_name="Sheet1",
+        )
+
+    with pytest.raises(FormulaSecurityError):
+        add_data_validation(
+            filename=str(target),
+            cell_range="A2:A5",
             validation_type="whole",
             operator="between",
             formula1="1",
-            formula2="=CALL('a','b')",
+            formula2="CALL('a','b')",
             sheet_name="Sheet1",
         )
 
@@ -207,24 +233,52 @@ def test_range_bounds_and_preview_clamp(tmp_path: Path) -> None:
     sparse_ws = sparse_wb.active
     assert sparse_ws is not None
     sparse_ws.title = "Sparse"
+    sparse_ws["A1"] = "top"
     sparse_ws["Z15000"] = "far"
     sparse_wb.save(sparse_target)
     sparse_wb.close()
+
+    sparse_preview = read_excel_range(
+        str(sparse_target), "Sparse", "A1", None, preview_only=True
+    )
+    assert sparse_preview == [["top"]]
 
     with pytest.raises(RangeError, match=str(MAX_READ_CELLS)):
         read_excel_range(str(sparse_target), "Sparse", "A1", "Z15000")
 
 
-def test_search_regex_guards_and_metrics_rotation(
+def test_search_regex_guards_truncation_and_metrics_rotation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    target = _make_workbook(tmp_path / "search.xlsx")
+    target = tmp_path / "search.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    assert ws is not None
+    ws.title = "Sheet1"
+    ws.append(["alpha", "beta"])
+    ws.append(["gamma", "delta"])
+    wb.save(target)
+    wb.close()
 
-    with pytest.raises(ValidationError, match="nested quantifiers"):
-        find_cells_in_workbook(str(target), query="(a+)+$", use_regex=True)
+    for bad_regex in ("(a+)+$", "((a)+)+$", "((?:a+)+)$", "(a{1,})+$", "(a|aa)+$"):
+        with pytest.raises(ValidationError, match="nested quantifiers"):
+            find_cells_in_workbook(str(target), query=bad_regex, use_regex=True)
 
     with pytest.raises(ValidationError, match="maximum length"):
         find_cells_in_workbook(str(target), query="a" * 300, use_regex=True)
+
+    with pytest.raises(ValidationError, match="Invalid regex pattern"):
+        find_cells_in_workbook(str(target), query="[unclosed", use_regex=True)
+
+    ok_regex = find_cells_in_workbook(
+        str(target), query="^(alpha|beta)$", use_regex=True
+    )
+    assert ok_regex["total_matches"] == 2
+
+    monkeypatch.setattr(search_module, "MAX_SEARCH_CELLS", 2)
+    truncated = find_cells_in_workbook(str(target), query="delta")
+    assert truncated["scan_truncated"] is True
+    assert truncated["limit_reached"] is False
 
     log_path = tmp_path / "metrics.jsonl"
     monkeypatch.setenv("EXCEL_MCP_METRICS_LOG", str(log_path))

@@ -63,11 +63,6 @@ def resolve_and_check_path(
             "status": "error",
             "message": f"Security restriction: {error_msg}",
         }
-    if resolved_path.is_dir():
-        return None, {
-            "status": "error",
-            "message": f"Security restriction: Path is a directory: '{resolved_path}'",
-        }
 
     resolved_target = str(resolved_path)
     if create_dirs:

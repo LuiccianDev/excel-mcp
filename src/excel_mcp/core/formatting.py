@@ -16,14 +16,17 @@ from openpyxl.styles import (
     Protection,
     Side,
 )
+from openpyxl.worksheet.worksheet import Worksheet
 
 from excel_mcp.core._io import atomic_save, workbook_session
-from excel_mcp.utils.cell_utils import parse_cell_range, validate_cell_reference
+from excel_mcp.utils.cell_utils import (
+    assert_range_cell_limit,
+    parse_cell_range,
+    validate_cell_reference,
+)
 
 MAX_FORMAT_CELLS: Final[int] = 100_000
 
-
-# Define valid border styles
 BorderStyle = Literal[
     "dashDot",
     "dashDotDot",
@@ -42,7 +45,6 @@ BorderStyle = Literal[
     None,
 ]
 
-# Define valid underline styles
 UnderlineStyle = Literal[
     "single", "double", "singleAccounting", "doubleAccounting", "none"
 ]
@@ -54,6 +56,92 @@ class FontArgs(TypedDict, total=False):
     underline: UnderlineStyle | None
     size: int
     color: Color
+
+
+_CONDITIONAL_RULE_BUILDERS: Final[dict[str, Any]] = {
+    "color_scale": ColorScaleRule,
+    "data_bar": DataBarRule,
+    "icon_set": IconSetRule,
+    "formula": FormulaRule,
+    "cell_is": CellIsRule,
+}
+
+
+def _normalize_argb(color: str) -> str:
+    return color if color.startswith("FF") else f"FF{color}"
+
+
+def _build_font(
+    bold: bool,
+    italic: bool,
+    underline: bool,
+    font_size: int | None,
+    font_color: str | None,
+) -> Font:
+    font_args: FontArgs = {
+        "bold": bold,
+        "italic": italic,
+        "underline": "single" if underline else None,
+    }
+    if font_size is not None:
+        font_args["size"] = font_size
+    if font_color is not None:
+        font_args["color"] = Color(rgb=_normalize_argb(font_color))
+    return Font(**font_args)
+
+
+def _build_fill(bg_color: str | None) -> PatternFill | None:
+    if bg_color is None:
+        return None
+    normalized = _normalize_argb(bg_color)
+    return PatternFill(
+        start_color=Color(rgb=normalized),
+        end_color=Color(rgb=normalized),
+        fill_type="solid",
+    )
+
+
+def _build_border(border_style: BorderStyle, border_color: str | None) -> Border | None:
+    if border_style is None or border_style == "none":
+        return None
+    side = Side(
+        style=border_style,
+        color=Color(rgb=_normalize_argb(border_color or "000000")),
+    )
+    return Border(left=side, right=side, top=side, bottom=side)
+
+
+def _apply_conditional_formatting(
+    sheet: Worksheet, range_str: str, conditional_format: dict[str, Any]
+) -> dict[str, Any] | None:
+    rule_type = conditional_format.get("type")
+    if not rule_type:
+        return {
+            "status": "error",
+            "message": "Conditional format type not specified",
+        }
+    builder = _CONDITIONAL_RULE_BUILDERS.get(rule_type)
+    if builder is None:
+        return {
+            "status": "error",
+            "message": f"Invalid conditional format type: {rule_type}",
+        }
+    params = dict(conditional_format.get("params", {}))
+    if rule_type == "cell_is" and isinstance(params.get("fill"), dict):
+        fill_color = _normalize_argb(params["fill"].get("fgColor", "FFC7CE"))
+        params["fill"] = PatternFill(
+            start_color=fill_color,
+            end_color=fill_color,
+            fill_type="solid",
+        )
+    try:
+        sheet.conditional_formatting.add(range_str, builder(**params))
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to apply conditional formatting: {str(e)}",
+        }
+    return None
 
 
 def format_range(
@@ -76,7 +164,6 @@ def format_range(
     protection: dict[str, Any] | None = None,
     conditional_format: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    # Cell validation
     if not validate_cell_reference(start_cell):
         return {
             "status": "error",
@@ -85,7 +172,6 @@ def format_range(
     if end_cell and not validate_cell_reference(end_cell):
         return {"status": "error", "message": f"Invalid end cell reference: {end_cell}"}
     try:
-        # Use data_only=False to preserve existing formulas when applying formatting
         with workbook_session(
             filename, mode="upsert", initial_sheet=None, save=False
         ) as wb:
@@ -98,70 +184,33 @@ def format_range(
                 )
             except ValueError as e:
                 return {"status": "error", "message": f"Invalid cell range: {str(e)}"}
-            if end_row is None:
-                end_row = start_row
-            if end_col is None:
-                end_col = start_col
-            cell_count = (end_row - start_row + 1) * (end_col - start_col + 1)
-            if cell_count > MAX_FORMAT_CELLS:
-                return {
-                    "status": "error",
-                    "message": (
-                        f"Range too large ({cell_count} cells); "
-                        f"maximum allowed for formatting is {MAX_FORMAT_CELLS} cells."
-                    ),
-                }
-            # Font configuration with proper typing
-            font_args: FontArgs = {
-                "bold": bold,
-                "italic": italic,
-                "underline": "single" if underline else None,
-            }
-            if font_size is not None:
-                font_args["size"] = font_size
-            if font_color is not None:
-                font_color = (
-                    font_color if font_color.startswith("FF") else f"FF{font_color}"
+            eff_end_row = end_row if end_row is not None else start_row
+            eff_end_col = end_col if end_col is not None else start_col
+            try:
+                assert_range_cell_limit(
+                    start_row,
+                    start_col,
+                    eff_end_row,
+                    eff_end_col,
+                    MAX_FORMAT_CELLS,
+                    ValueError,
+                    label="formatting",
                 )
-                font_args["color"] = Color(rgb=font_color)
+            except ValueError as e:
+                return {"status": "error", "message": str(e)}
 
-            font = Font(**font_args)
-
-            # Fill configuration
-            fill = None
-            if bg_color is not None:
-                bg_color = bg_color if bg_color.startswith("FF") else f"FF{bg_color}"
-                fill = PatternFill(
-                    start_color=Color(rgb=bg_color),
-                    end_color=Color(rgb=bg_color),
-                    fill_type="solid",
-                )
-
-            # Border configuration
-            border = None
-            if border_style is not None and border_style != "none":
-                border_color = border_color if border_color else "000000"
-                border_color = (
-                    border_color
-                    if border_color.startswith("FF")
-                    else f"FF{border_color}"
-                )
-                side = Side(style=border_style, color=Color(rgb=border_color))
-                border = Border(left=side, right=side, top=side, bottom=side)
-
-            # Alignment
-            align = None
-            if alignment is not None or wrap_text:
-                align = Alignment(
-                    horizontal=alignment, vertical="center", wrap_text=wrap_text
-                )
-
-            # Protection
+            font = _build_font(bold, italic, underline, font_size, font_color)
+            fill = _build_fill(bg_color)
+            border = _build_border(border_style, border_color)
+            align = (
+                Alignment(horizontal=alignment, vertical="center", wrap_text=wrap_text)
+                if alignment is not None or wrap_text
+                else None
+            )
             protect = Protection(**protection) if protection else None
 
-            # Apply formatting
-            for row in range(start_row, end_row + 1):
-                for col in range(start_col, end_col + 1):
+            for row in range(start_row, eff_end_row + 1):
+                for col in range(start_col, eff_end_col + 1):
                     cell = sheet.cell(row=row, column=col)
                     cell.font = font
                     if fill:
@@ -174,7 +223,7 @@ def format_range(
                         cell.protection = protect
                     if number_format:
                         cell.number_format = number_format
-            # Merge
+
             if merge_cells and end_cell:
                 try:
                     sheet.merge_cells(f"{start_cell}:{end_cell}")
@@ -183,54 +232,16 @@ def format_range(
                         "status": "error",
                         "message": f"Failed to merge cells: {str(e)}",
                     }
-            # Conditional formatting
-            if conditional_format:
-                range_str = f"{start_cell}:{end_cell}" if end_cell else start_cell
-                rule_type = conditional_format.get("type")
-                if not rule_type:
-                    return {
-                        "status": "error",
-                        "message": "Conditional format type not specified",
-                    }
-                params = conditional_format.get("params", {})
-                if rule_type == "cell_is" and "fill" in params:
-                    fill_params = params["fill"]
-                    if isinstance(fill_params, dict):
-                        fill_color = fill_params.get("fgColor", "FFC7CE")
-                        fill_color = (
-                            fill_color
-                            if fill_color.startswith("FF")
-                            else f"FF{fill_color}"
-                        )
-                        params["fill"] = PatternFill(
-                            start_color=fill_color,
-                            end_color=fill_color,
-                            fill_type="solid",
-                        )
-                try:
-                    if rule_type == "color_scale":
-                        rule = ColorScaleRule(**params)
-                    elif rule_type == "data_bar":
-                        rule = DataBarRule(**params)
-                    elif rule_type == "icon_set":
-                        rule = IconSetRule(**params)
-                    elif rule_type == "formula":
-                        rule = FormulaRule(**params)
-                    elif rule_type == "cell_is":
-                        rule = CellIsRule(**params)
-                    else:
-                        return {
-                            "status": "error",
-                            "message": f"Invalid conditional format type: {rule_type}",
-                        }
-                    sheet.conditional_formatting.add(range_str, rule)
-                except Exception as e:
-                    return {
-                        "status": "error",
-                        "message": f"Failed to apply conditional formatting: {str(e)}",
-                    }
-            atomic_save(wb, filename)
+
             range_str = f"{start_cell}:{end_cell}" if end_cell else start_cell
+            if conditional_format:
+                cf_err = _apply_conditional_formatting(
+                    sheet, range_str, conditional_format
+                )
+                if cf_err is not None:
+                    return cf_err
+
+            atomic_save(wb, filename)
             return {
                 "status": "success",
                 "message": f"Applied formatting to range {range_str}",

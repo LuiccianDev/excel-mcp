@@ -1,178 +1,66 @@
-"""Core functionality for Excel workbook operations.
-
-This module provides functions to apply formulas to cells with enhanced
-security validation.
-"""
-
-import re
 from pathlib import Path
-from typing import Any, Final
+from typing import Any
 
 from excel_mcp.core._io import workbook_session
 from excel_mcp.exceptions.exception_core import FormulaError, ValidationError
 from excel_mcp.utils.cell_utils import validate_cell_reference
-from excel_mcp.utils.validation_utils import validate_formula
+from excel_mcp.utils.validation_utils import (
+    DANGEROUS_FUNCTIONS,
+    FORMULA_PREFIX,
+    INJECTION_PATTERNS,
+    MAX_FORMULA_LENGTH,
+    validate_cell_value_secure,
+    validate_formula_secure,
+)
 
-
-# Constants
-FORMULA_PREFIX: Final[str] = "="
-
-# Security: Dangerous Excel functions that should be blocked
-DANGEROUS_FUNCTIONS: Final[set[str]] = {
-    "CALL",
-    "EXEC",
-    "RUN",
-    "SYSTEM",
-    "SHELL",
-    "EVAL",
-    "REGISTER.ID",
-    "XLM.CALL",
-    "XLM.EXEC",
-    "XLM.RUN",
-    "REGISTER",
-    "CALL.LIBRARY",
-    "VBA.CALL",
-}
-
-# Security: Patterns that indicate potential injection attacks
-INJECTION_PATTERNS: Final[list[str]] = [
-    r"\b(?:http|ftp|https)://",  # URLs in formulas (data exfiltration)
-    r"<script",  # Script tags
-    r"document\.write",  # JavaScript injection
-    r"eval\s*\(",  # JavaScript eval
-    r"__import__",  # Python imports
-    r"os\.",  # OS module access
-    r"subprocess",  # Subprocess calls
-    r"sys\.exit",  # System exit calls
-    r"open\s*\(",  # File operations
-    r"file://",  # File protocol
-    r"\bcmd\|",  # Windows DDE command execution
-    r"\bpowershell\|",  # PowerShell DDE execution
-    r"\|\s*['\"]",  # General DDE pipe execution syntax
-    r"\|[^|]*!",  # Unquoted DDE target syntax
+__all__ = [
+    "DANGEROUS_FUNCTIONS",
+    "FORMULA_PREFIX",
+    "FormulaSecurityError",
+    "INJECTION_PATTERNS",
+    "MAX_FORMULA_LENGTH",
+    "apply_formula",
+    "apply_formula_secure",
+    "assert_safe_cell_value",
+    "validate_cell_value_secure",
+    "validate_formula_secure",
 ]
-
-_UNSAFE_FUNCTIONS: Final[frozenset[str]] = frozenset(
-    {"INDIRECT", "HYPERLINK", "WEBSERVICE", "DGET", "RTD"}
-)
-_OOXML_FUNC_PREFIX_RE: Final[re.Pattern[str]] = re.compile(
-    r"^(?:_?(?:XLFN|XLWS|XLPM|XLETA)\.)+"
-)
-_FUNC_CALL_RE: Final[re.Pattern[str]] = re.compile(r"([A-Z_][A-Z0-9_.]*)\s*\(")
-_CELL_FUNC_CALL_RE: Final[re.Pattern[str]] = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*\s*\(")
-_CELL_DDE_PREFIX_RE: Final[re.Pattern[str]] = re.compile(
-    r"^[+\-@]\s*(?:cmd|powershell|msexc)\b", re.IGNORECASE
-)
-
-# Maximum formula length (Excel limit is 8192)
-MAX_FORMULA_LENGTH: Final[int] = 8192
 
 
 class FormulaSecurityError(FormulaError):
     """Exception raised when formula fails security validation."""
 
-    pass
 
-
-def validate_formula_secure(formula: str) -> tuple[bool, str]:
-    """Comprehensive security validation for Excel formulas.
-
-    Performs multiple security checks to prevent formula injection
-    attacks and malicious code execution.
-
-    Args:
-        formula: Excel formula to validate
-
-    Returns:
-        Tuple[bool, str]: (is_valid, message)
-
-    Checks performed:
-        1. Dangerous function detection (CALL, EXEC, etc.)
-        2. Injection pattern detection (URLs, scripts)
-        3. Parentheses balancing
-        4. Formula length validation
-        5. Syntax validation
-    """
-    # Normalize formula for analysis
-    normalized = formula.strip()
-    if not normalized:
-        return False, "Formula cannot be empty"
-
-    # Ensure formula starts with '='
-    if not normalized.startswith("="):
-        normalized = "=" + normalized
-
-    normalized_upper = normalized.upper()
-
-    raw_functions = set(_FUNC_CALL_RE.findall(normalized_upper))
-    functions_found = raw_functions | {
-        _OOXML_FUNC_PREFIX_RE.sub("", name) for name in raw_functions
-    }
-
-    dangerous_found = functions_found.intersection(DANGEROUS_FUNCTIONS)
-    if dangerous_found:
-        return False, f"Dangerous functions detected: {dangerous_found}"
-
-    unsafe_found = functions_found.intersection(_UNSAFE_FUNCTIONS)
-    if unsafe_found:
-        return False, f"Unsafe function: {sorted(unsafe_found)[0]}"
-
-    # Check 2: Injection patterns
-    formula_lower = normalized.lower()
-    for pattern in INJECTION_PATTERNS:
-        if re.search(pattern, formula_lower):
-            return False, "Suspicious pattern detected (potential injection)"
-
-    # Check 3: Parentheses balance
-    open_count = normalized.count("(")
-    close_count = normalized.count(")")
-    if open_count != close_count:
-        return False, f"Unbalanced parentheses: {open_count} open, {close_count} close"
-
-    # Check 4: Formula length
-    if len(normalized) > MAX_FORMULA_LENGTH:
-        return (
-            False,
-            f"Formula exceeds maximum length of {MAX_FORMULA_LENGTH} characters",
+def assert_safe_cell_value(value: Any, context: str) -> None:
+    is_valid, msg = validate_cell_value_secure(value)
+    if not is_valid:
+        raise FormulaSecurityError(
+            f"Formula security validation failed {context}: {msg}"
         )
 
-    # Check 5: Basic syntax validation (delegates to existing validator)
-    is_valid, message = validate_formula(normalized)
-    if not is_valid:
-        return False, message
 
-    return True, "Formula is valid and secure"
+def _write_formula_cell(
+    filename: str | Path,
+    sheet_name: str,
+    cell: str,
+    formula: str,
+) -> dict[str, Any]:
+    with workbook_session(filename, mode="upsert", initial_sheet=None) as workbook:
+        if sheet_name not in workbook.sheetnames:
+            raise ValidationError(f"Sheet '{sheet_name}' not found")
+        worksheet = workbook[sheet_name]
 
+        try:
+            worksheet[cell].value = formula
+        except Exception as e:
+            raise FormulaError(f"Failed to apply formula to cell: {str(e)}") from e
 
-def validate_cell_value_secure(value: Any) -> tuple[bool, str]:
-    """Validate an arbitrary cell value against formula and DDE injection.
-
-    Normal strings, numbers, and None values are permitted. Strings that begin
-    with '=' (even after leading whitespace) or use DDE/command-execution
-    prefixes ('+cmd|', '-cmd|', '@SUM(', etc.) are validated through
-    validate_formula_secure().
-    """
-    if not isinstance(value, str):
-        return True, "Non-string value is safe"
-
-    stripped = value.lstrip()
-    if not stripped:
-        return True, "Empty string is safe"
-
-    if stripped.startswith("="):
-        return validate_formula_secure(stripped)
-
-    if stripped[0] in "+-@":
-        lowered = stripped.lower()
-        if (
-            "|" in stripped
-            or _CELL_FUNC_CALL_RE.search(stripped)
-            or _CELL_DDE_PREFIX_RE.match(stripped)
-            or any(re.search(pattern, lowered) for pattern in INJECTION_PATTERNS)
-        ):
-            return validate_formula_secure("=" + stripped[1:].lstrip())
-
-    return True, "String value is safe"
+    return {
+        "status": "success",
+        "message": f"Applied formula '{formula}' to cell {cell}",
+        "cell": cell,
+        "formula": formula,
+    }
 
 
 def apply_formula_secure(
@@ -194,16 +82,7 @@ def apply_formula_secure(
 
     Returns:
         Dict containing operation result details
-
-    Example:
-        result = apply_formula_secure(
-            "workbook.xlsx",
-            "Sheet1",
-            "B2",
-            "=SUM(A1:A10)"
-        )
     """
-    # Security validation
     is_valid, message = validate_formula_secure(formula)
     if not is_valid:
         return {
@@ -213,9 +92,16 @@ def apply_formula_secure(
             "cell": cell,
         }
 
-    # Apply formula using existing function
+    if not validate_cell_reference(cell):
+        return {
+            "status": "error",
+            "message": f"Invalid cell reference: {cell}",
+            "cell": cell,
+        }
+
+    normalized = formula if formula.startswith("=") else f"={formula}"
     try:
-        return apply_formula(filename, sheet_name, cell, formula)
+        return _write_formula_cell(filename, sheet_name, cell, normalized)
     except (FormulaError, ValidationError) as e:
         return {
             "status": "error",
@@ -230,8 +116,7 @@ def apply_formula(
     cell: str,
     formula: str,
 ) -> dict[str, Any]:
-    """
-    Apply an Excel formula to a specific cell in a worksheet.
+    """Apply an Excel formula to a specific cell in a worksheet.
 
     Args:
         filename: Path to the Excel file.
@@ -246,31 +131,12 @@ def apply_formula(
         ValidationError: If cell reference or sheet is invalid.
         FormulaError: If formula application or file save fails.
     """
-    # Input validation before opening workbook
     if not validate_cell_reference(cell):
         raise ValidationError(f"Invalid cell reference: {cell}")
 
-    formula = formula if formula.startswith("=") else f"={formula}"
-    is_valid, message = validate_formula_secure(formula)
+    normalized = formula if formula.startswith("=") else f"={formula}"
+    is_valid, message = validate_formula_secure(normalized)
     if not is_valid:
         raise FormulaSecurityError(f"Invalid formula: {message}")
 
-    # Load or create workbook; use data_only=False to preserve existing formulas
-    with workbook_session(filename, mode="upsert", initial_sheet=None) as workbook:
-        if sheet_name not in workbook.sheetnames:
-            raise ValidationError(f"Sheet '{sheet_name}' not found")
-        worksheet = workbook[sheet_name]
-
-        try:
-            worksheet[cell].value = formula
-        except Exception as e:
-            raise FormulaError(f"Failed to apply formula to cell: {str(e)}") from e
-
-    # Return success result
-    result = {
-        "status": "success",
-        "message": f"Applied formula '{formula}' to cell {cell}",
-        "cell": cell,
-        "formula": formula,
-    }
-    return result
+    return _write_formula_cell(filename, sheet_name, cell, normalized)

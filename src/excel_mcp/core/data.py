@@ -12,7 +12,7 @@ from openpyxl.workbook.workbook import Workbook as OpenpyxlWorkbook
 from openpyxl.worksheet.worksheet import Worksheet
 
 from excel_mcp.core._io import resolve_sheet, workbook_session
-from excel_mcp.core.calculations import FormulaSecurityError, validate_cell_value_secure
+from excel_mcp.core.calculations import FormulaSecurityError, assert_safe_cell_value
 from excel_mcp.exceptions.exception_core import (
     DataError,
     InvalidCellReferenceError,
@@ -22,7 +22,7 @@ from excel_mcp.exceptions.exception_core import (
     SheetNotFoundError,
     WorkbookError,
 )
-from excel_mcp.utils.cell_utils import parse_cell_range
+from excel_mcp.utils.cell_utils import assert_range_cell_limit, parse_cell_range
 
 
 # Type aliases for better code readability
@@ -86,7 +86,11 @@ def _parse_cell_reference(cell_ref: str) -> tuple[int, int]:
 
 
 def _get_used_range(
-    worksheet: Worksheet, start_row: int, start_col: int
+    worksheet: Worksheet,
+    start_row: int,
+    start_col: int,
+    *,
+    max_rows: int | None = None,
 ) -> tuple[int, int]:
     """Find the used range in a worksheet starting from given coordinates.
 
@@ -94,6 +98,7 @@ def _get_used_range(
         worksheet: The worksheet to search.
         start_row: Starting row (1-based).
         start_col: Starting column (1-based).
+        max_rows: Optional explicit row window (e.g. preview mode).
 
     Returns:
         Tuple of (end_row, end_col) coordinates.
@@ -101,7 +106,17 @@ def _get_used_range(
     if worksheet.max_row < start_row or worksheet.max_column < start_col:
         return start_row - 1, start_col - 1
 
-    max_scan_row = min(worksheet.max_row, start_row + MAX_USED_RANGE_SCAN_ROWS - 1)
+    if max_rows is None and (
+        worksheet.max_row - start_row + 1 > MAX_USED_RANGE_SCAN_ROWS
+        or worksheet.max_column - start_col + 1 > MAX_USED_RANGE_SCAN_COLS
+    ):
+        raise RangeError(
+            f"Worksheet dimensions ({worksheet.max_row}x{worksheet.max_column}) exceed "
+            f"auto-scan limit ({MAX_USED_RANGE_SCAN_ROWS}x{MAX_USED_RANGE_SCAN_COLS}); specify an explicit range."
+        )
+
+    row_limit = max_rows if max_rows is not None else MAX_USED_RANGE_SCAN_ROWS
+    max_scan_row = min(worksheet.max_row, start_row + row_limit - 1)
     max_scan_col = min(worksheet.max_column, start_col + MAX_USED_RANGE_SCAN_COLS - 1)
 
     last_row = start_row - 1
@@ -172,7 +187,12 @@ def read_excel_range(
             if end_cell:
                 end_row, end_col = _parse_cell_reference(end_cell)
             else:
-                end_row, end_col = _get_used_range(ws, start_row, start_col)
+                end_row, end_col = _get_used_range(
+                    ws,
+                    start_row,
+                    start_col,
+                    max_rows=PREVIEW_MAX_ROWS if preview_only else None,
+                )
 
             # Validate range is within worksheet bounds
             if start_row > ws.max_row or start_col > ws.max_column:
@@ -181,7 +201,6 @@ def read_excel_range(
                     f"Start cell out of bounds. Sheet dimensions are A1:{max_cell}"
                 )
 
-            # Read the data
             if preview_only:
                 end_row = min(end_row, start_row + PREVIEW_MAX_ROWS - 1)
 
@@ -190,13 +209,15 @@ def read_excel_range(
 
             data: SheetData = []
             if effective_end_row >= start_row and effective_end_col >= start_col:
-                cell_count = (effective_end_row - start_row + 1) * (
-                    effective_end_col - start_col + 1
+                assert_range_cell_limit(
+                    start_row,
+                    start_col,
+                    effective_end_row,
+                    effective_end_col,
+                    MAX_READ_CELLS,
+                    RangeError,
+                    label="reading",
                 )
-                if cell_count > MAX_READ_CELLS:
-                    raise RangeError(
-                        f"Requested range exceeds maximum of {MAX_READ_CELLS} cells."
-                    )
                 for row in ws.iter_rows(
                     min_row=start_row,
                     max_row=effective_end_row,
@@ -238,12 +259,10 @@ def _write_data_to_worksheet(
     """
     for row_idx, row_data in enumerate(data):
         for col_idx, value in enumerate(row_data):
-            if value is not None:  # Skip None values to preserve cell formatting
-                is_valid, msg = validate_cell_value_secure(value)
-                if not is_valid:
-                    raise FormulaSecurityError(
-                        f"Formula security validation failed at row offset {row_idx}, col offset {col_idx}: {msg}"
-                    )
+            if value is not None:
+                assert_safe_cell_value(
+                    value, f"at row offset {row_idx}, col offset {col_idx}"
+                )
                 worksheet.cell(
                     row=start_row + row_idx, column=start_col + col_idx, value=value
                 )

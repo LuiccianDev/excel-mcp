@@ -62,3 +62,22 @@ def validate_cell_reference(cell_ref: str) -> bool:
             return False
 
     return bool(col and row)
+
+
+def assert_range_cell_limit(
+    start_row: int,
+    start_col: int,
+    end_row: int,
+    end_col: int,
+    max_cells: int,
+    error_cls: type[Exception] = ValueError,
+    label: str = "operation",
+) -> int:
+    if end_row < start_row or end_col < start_col:
+        return 0
+    cell_count = (end_row - start_row + 1) * (end_col - start_col + 1)
+    if cell_count > max_cells:
+        raise error_cls(
+            f"Range too large ({cell_count} cells); maximum allowed for {label} is {max_cells} cells."
+        )
+    return cell_count
