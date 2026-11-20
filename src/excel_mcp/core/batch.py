@@ -186,9 +186,19 @@ def _apply_sheet_data_validations(
                 error_title=dv_spec.get("error_title"),
                 error_message=dv_spec.get("error_message"),
             )
+        except FormulaSecurityError:
+            raise
         except Exception as e:
             if warnings is not None:
                 warnings.append(f"Sheet '{ws.title}' data validation warning: {e}")
+
+
+def _assert_safe_cell_value(val: Any, context: str) -> None:
+    is_valid, msg = validate_cell_value_secure(val)
+    if not is_valid:
+        raise FormulaSecurityError(
+            f"Formula security validation failed {context}: {msg}"
+        )
 
 
 def _build_sheet_with_stats(
@@ -230,6 +240,9 @@ def _build_sheet_with_stats(
 
     # 1. Optional Title Banner
     if title_banner:
+        _assert_safe_cell_value(
+            title_banner, f"in sheet '{ws.title}' title banner"
+        )
         ws.merge_cells(
             start_row=current_row,
             start_column=1,
@@ -257,6 +270,9 @@ def _build_sheet_with_stats(
     if headers:
         ws.row_dimensions[current_row].height = 22
         for col_idx, header_text in enumerate(headers, start=1):
+            _assert_safe_cell_value(
+                header_text, f"in sheet '{ws.title}' header col {col_idx}"
+            )
             cell = ws.cell(row=current_row, column=col_idx, value=header_text)
             apply_header_style(
                 cell,
@@ -272,11 +288,9 @@ def _build_sheet_with_stats(
     for r_idx, row_values in enumerate(rows, start=1):
         ws.row_dimensions[current_row].height = 20
         for col_idx, val in enumerate(row_values, start=1):
-            is_valid, msg = validate_cell_value_secure(val)
-            if not is_valid:
-                raise FormulaSecurityError(
-                    f"Formula security validation failed in sheet '{ws.title}' row {current_row} col {col_idx}: {msg}"
-                )
+            _assert_safe_cell_value(
+                val, f"in sheet '{ws.title}' row {current_row} col {col_idx}"
+            )
             cell = ws.cell(row=current_row, column=col_idx, value=val)
             zero_idx = col_idx - 1
             is_curr = zero_idx in currency_indices
@@ -565,11 +579,9 @@ def batch_write_matrix(
 
         for r_offset, row in enumerate(data_matrix):
             for c_offset, val in enumerate(row):
-                is_valid, msg = validate_cell_value_secure(val)
-                if not is_valid:
-                    raise FormulaSecurityError(
-                        f"Formula security validation failed at row offset {r_offset}, col offset {c_offset}: {msg}"
-                    )
+                _assert_safe_cell_value(
+                    val, f"at row offset {r_offset}, col offset {c_offset}"
+                )
                 ws.cell(
                     row=start_row + r_offset, column=start_col + c_offset, value=val
                 )

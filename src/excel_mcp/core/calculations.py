@@ -49,7 +49,22 @@ INJECTION_PATTERNS: Final[list[str]] = [
     r"\bcmd\|",  # Windows DDE command execution
     r"\bpowershell\|",  # PowerShell DDE execution
     r"\|\s*['\"]",  # General DDE pipe execution syntax
+    r"\|[^|]*!",  # Unquoted DDE target syntax
 ]
+
+_UNSAFE_FUNCTIONS: Final[frozenset[str]] = frozenset(
+    {"INDIRECT", "HYPERLINK", "WEBSERVICE", "DGET", "RTD"}
+)
+_OOXML_FUNC_PREFIX_RE: Final[re.Pattern[str]] = re.compile(
+    r"^(?:_?(?:XLFN|XLWS|XLPM|XLETA)\.)+"
+)
+_FUNC_CALL_RE: Final[re.Pattern[str]] = re.compile(r"([A-Z_][A-Z0-9_.]*)\s*\(")
+_CELL_FUNC_CALL_RE: Final[re.Pattern[str]] = re.compile(
+    r"[A-Za-z_][A-Za-z0-9_.]*\s*\("
+)
+_CELL_DDE_PREFIX_RE: Final[re.Pattern[str]] = re.compile(
+    r"^[+\-@]\s*(?:cmd|powershell|msexc)\b", re.IGNORECASE
+)
 
 # Maximum formula length (Excel limit is 8192)
 MAX_FORMULA_LENGTH: Final[int] = 8192
@@ -91,14 +106,18 @@ def validate_formula_secure(formula: str) -> tuple[bool, str]:
 
     normalized_upper = normalized.upper()
 
-    # Check 1: Dangerous functions
-    # Extract function names using regex (supports dots for XLM functions like REGISTER.ID)
-    function_pattern = r"([A-Z][A-Z0-9_.]*)\s*\("
-    functions_found = set(re.findall(function_pattern, normalized_upper))
+    raw_functions = set(_FUNC_CALL_RE.findall(normalized_upper))
+    functions_found = raw_functions | {
+        _OOXML_FUNC_PREFIX_RE.sub("", name) for name in raw_functions
+    }
 
     dangerous_found = functions_found.intersection(DANGEROUS_FUNCTIONS)
     if dangerous_found:
         return False, f"Dangerous functions detected: {dangerous_found}"
+
+    unsafe_found = functions_found.intersection(_UNSAFE_FUNCTIONS)
+    if unsafe_found:
+        return False, f"Unsafe function: {sorted(unsafe_found)[0]}"
 
     # Check 2: Injection patterns
     formula_lower = normalized.lower()
@@ -145,15 +164,15 @@ def validate_cell_value_secure(value: Any) -> tuple[bool, str]:
     if stripped.startswith("="):
         return validate_formula_secure(stripped)
 
-    if stripped[0] in "+-@" and (
-        "|" in stripped
-        or re.match(
-            r"^[+\-@]\s*(?:cmd|powershell|msexc|call|exec|run|system|shell|webservice)\b",
-            stripped,
-            re.IGNORECASE,
-        )
-    ):
-        return validate_formula_secure("=" + stripped[1:].lstrip())
+    if stripped[0] in "+-@":
+        lowered = stripped.lower()
+        if (
+            "|" in stripped
+            or _CELL_FUNC_CALL_RE.search(stripped)
+            or _CELL_DDE_PREFIX_RE.match(stripped)
+            or any(re.search(pattern, lowered) for pattern in INJECTION_PATTERNS)
+        ):
+            return validate_formula_secure("=" + stripped[1:].lstrip())
 
     return True, "String value is safe"
 
@@ -234,9 +253,9 @@ def apply_formula(
         raise ValidationError(f"Invalid cell reference: {cell}")
 
     formula = formula if formula.startswith("=") else f"={formula}"
-    is_valid, message = validate_formula(formula)
+    is_valid, message = validate_formula_secure(formula)
     if not is_valid:
-        raise FormulaError(f"Invalid formula syntax: {message}")
+        raise FormulaSecurityError(f"Invalid formula: {message}")
 
     # Load or create workbook; use data_only=False to preserve existing formulas
     with workbook_session(filename, mode="upsert", initial_sheet=None) as workbook:

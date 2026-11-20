@@ -25,6 +25,14 @@ def validate_formula_in_cell_operation(
                     "status": "error",
                     "message": f"Invalid formula syntax: {message}",
                 }
+            from excel_mcp.core.calculations import validate_formula_secure
+
+            sec_valid, sec_message = validate_formula_secure(formula)
+            if not sec_valid:
+                return {
+                    "status": "error",
+                    "message": f"Formula security validation failed: {sec_message}",
+                }
             cell_refs = re.findall(r"[A-Z]+[0-9]+(?::[A-Z]+[0-9]+)?", formula)
             for ref in cell_refs:
                 if ":" in ref:
@@ -128,11 +136,11 @@ def validate_formula(formula: str) -> tuple[bool, str]:
             return False, "Unmatched closing parenthesis"
     if parens > 0:
         return False, "Unclosed parenthesis"
-    func_pattern = r"([A-Za-z]+)\("
+    func_pattern = r"([A-Za-z_][A-Za-z0-9_.]*)\s*\("
     funcs = re.findall(func_pattern, formula)
     unsafe_funcs = {"INDIRECT", "HYPERLINK", "WEBSERVICE", "DGET", "RTD"}
     for func in funcs:
-        upper_func = func.upper()
+        upper_func = re.sub(r"^(?:_?(?:XLFN|XLWS|XLPM|XLETA)\.)+", "", func.upper())
         if upper_func in unsafe_funcs:
             return False, f"Unsafe function: {upper_func}"
     return True, "Formula is valid"

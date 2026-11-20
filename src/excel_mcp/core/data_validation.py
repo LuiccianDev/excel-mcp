@@ -14,6 +14,11 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.worksheet import Worksheet
 
 from excel_mcp.core._io import resolve_sheet, workbook_session
+from excel_mcp.core.calculations import (
+    FormulaSecurityError,
+    validate_cell_value_secure,
+    validate_formula_secure,
+)
 from excel_mcp.exceptions.exception_core import ValidationError
 from excel_mcp.utils.cell_utils import parse_cell_range
 
@@ -76,7 +81,22 @@ def _validate_data_validation_params(
     except ValueError as exc:
         raise ValidationError(f"Invalid cell range '{cell_range}': {exc}") from exc
 
-    return str(formula1), (str(formula2) if formula2 is not None else None)
+    norm_f1 = str(formula1)
+    norm_f2 = str(formula2) if formula2 is not None else None
+
+    if validation_type == "custom":
+        is_valid, msg = validate_formula_secure(norm_f1)
+    else:
+        is_valid, msg = validate_cell_value_secure(norm_f1)
+    if not is_valid:
+        raise FormulaSecurityError(f"Unsafe formula1 in data validation: {msg}")
+
+    if norm_f2 is not None:
+        is_valid_f2, msg_f2 = validate_cell_value_secure(norm_f2)
+        if not is_valid_f2:
+            raise FormulaSecurityError(f"Unsafe formula2 in data validation: {msg_f2}")
+
+    return norm_f1, norm_f2
 
 
 def apply_data_validation_to_sheet(
