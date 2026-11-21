@@ -62,7 +62,7 @@ To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=f
 ### A. Batch & Single-Pass Tools (Priority 1)
 
 1. **`excel_build_workbook`**
-   - **Access Mode:** Write
+   - **Access Mode:** Destructive
    - **Purpose:** Construct complete, publication-ready workbooks with multiple sheets in a single atomic pass.
    - **Arguments:** `filename`, `sheets` (list of sheet dicts with `name`, `title`, `headers`, `rows`, `auto_totals` [bool, list, or `{col: "SUM"|"AVERAGE"|"COUNT"|"COUNTA"|"MIN"|"MAX"|"SUBTOTAL"}` dict], `currency_columns`, `chart`, `charts` [list of chart dicts], `data_validations` [list of validation rule dicts], `freeze_panes`, `auto_filter`), `preset` (`"corporate"`, `"financial"`, `"modern"`, `"compact"`), `auto_fit` (`bool`), `font_name` (*optional*, e.g. `"Calibri"`, `"Arial"`), `font_size` (*optional*, e.g. `11`).
 
@@ -121,9 +121,9 @@ To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=f
 
 11. **`excel_merge_cells`**: Merge cell range (`filename`, `sheet_name`, `start_cell`, `end_cell`).
 12. **`excel_unmerge_cells`**: Unmerge cell range (`filename`, `sheet_name`, `start_cell`, `end_cell`).
-13. **`excel_copy_range`**: Copy cell values and formatting (`filename`, `source_sheet`, `target_sheet`, `source_range`, `target_start_cell`).
+13. **`excel_copy_range`**: Copy cell values and formatting (`filename`, `sheet_name`, `source_start`, `source_end`, `target_start`, `target_sheet`).
 14. **`excel_delete_range`**: Delete cell range with shift direction (`filename`, `sheet_name`, `start_cell`, `end_cell`, `shift_direction`).
-15. **`excel_validate_range`**: Validate range coordinate syntax (`filename`, `sheet_name`, `range_string`).
+15. **`excel_validate_range`**: Validate range coordinate syntax (`filename`, `sheet_name`, `start_cell`, `end_cell`).
 
 ---
 
@@ -131,12 +131,12 @@ To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=f
 
 16. **`excel_create_workbook`**: Initialize a new empty workbook (`filename`, `sheet_name`).
 17. **`excel_create_worksheet`**: Add a new worksheet tab (`filename`, `sheet_name`, `index`).
-18. **`excel_copy_worksheet`**: Duplicate a worksheet (`filename`, `source_sheet_name`, `new_sheet_name`).
+18. **`excel_copy_worksheet`**: Duplicate a worksheet (`filename`, `source_sheet`, `target_sheet`).
 19. **`excel_delete_worksheet`**: Permanently remove a worksheet (`filename`, `sheet_name`).
-20. **`excel_rename_worksheet`**: Rename a worksheet tab (`filename`, `old_sheet_name`, `new_sheet_name`).
+20. **`excel_rename_worksheet`**: Rename a worksheet tab (`filename`, `old_name`, `new_name`).
 21. **`excel_insert_rows_columns`**: Insert empty rows or columns (`filename`, `dimension`, `index`, `amount`, `sheet_name`).
 22. **`excel_delete_rows_columns`**: Delete rows or columns (`filename`, `dimension`, `index`, `amount`, `sheet_name`).
-23. **`excel_list_documents`**: List .xlsx files in directory (`directory`).
+23. **`excel_list_documents`**: List `.xlsx` files in allowed directories (no parameters).
 24. **`excel_get_workbook_metadata`**: Read sheet names, dimensions, and named ranges (`filename`).
 
 ---
@@ -146,7 +146,7 @@ To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=f
 25. **`excel_validate_formula_syntax`**: Validate formula syntax without applying (`formula`).
 26. **`excel_apply_formula`**: Assign validated formula to cell (`filename`, `sheet_name`, `cell`, `formula`).
 27. **`excel_create_chart`**: Generate native bar, line, or pie chart (`filename`, `sheet_name`, `chart_type`, `data_range`, `title`, `target_cell`).
-28. **`excel_create_pivot_table`**: Generate analytical pivot summary (`filename`, `source_sheet`, `target_sheet`, `source_range`, `target_cell`, `rows`, `columns`, `values`, `aggfunc`).
+28. **`excel_create_pivot_table`**: Generate analytical pivot summary (`filename`, `sheet_name`, `data_range`, `rows`, `values`, `columns`, `agg_func`).
 
 ---
 
@@ -167,9 +167,10 @@ To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=f
 
 ## 3. Security & Safety Standards
 
-- **Formula Injection Defense:** All formulas written via `excel_build_workbook`, `excel_batch_write_data`, `excel_append_rows`, or `excel_apply_formula` pass strict AST security validation blocking DDE commands (`cmd|`, `powershell|`, `|'`), external URLs, and dangerous functions (`EXEC`, `SHELL`, `CALL`).
-- **Crash-Safe Atomic Writes:** All mutating operations write to an isolated temporary file in the target directory and commit atomically via `atomic_save` (`os.replace`).
-- **Path Confinement:** Files must reside within paths permitted by `EXCEL_MCP_DIRS`.
+- **Formula & DDE Injection Defense:** All formulas and cell inputs across `excel_build_workbook` (including title banners, headers, and `data_validations`), `excel_batch_write_data`, `excel_append_rows`, `excel_apply_formula`, `excel_write_data`, and `excel_add_data_validation` pass `validate_formula_secure`, blocking leading-whitespace smuggling, `_xlfn.`/`_xlws.`/`_xlpm.`/`_xleta.` prefixes, DDE commands (`cmd|`, `powershell|`, `|'`), external URLs, and dangerous functions (`EXEC`, `SHELL`, `CALL`).
+- **Archive, Range & Regex Bounds:** `workbook_session` validates ZIP entry counts, uncompressed size, and compression ratios against archive bombs, range operations enforce cell limits, and `excel_find_cells` applies depth-aware ReDoS protection.
+- **Crash-Safe Atomic Writes:** All mutating operations write to an isolated temporary file in the target directory and commit atomically via `atomic_save` (`os.replace`), with `destructive_hint=True` annotations on file-creating and destructive tools.
+- **Path Confinement:** Files must reside within paths permitted by `EXCEL_MCP_DIRS` (with unexpanded `${...}` placeholder filtering and symlink traversal checks).
 
 ---
 
