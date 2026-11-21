@@ -1,19 +1,15 @@
-<div align="center">
-  <h1>Excel MCP Server</h1>
-  <p>
-    <em>High-performance Model Context Protocol (MCP) server for programmatic Excel (.xlsx) spreadsheet generation and manipulation</em>
-  </p>
+# Excel MCP Server
 
-  [![PyPI Version](https://img.shields.io/pypi/v/luiccian-excel-mcp.svg)](https://pypi.org/project/luiccian-excel-mcp/)
-  [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-  [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
-  [![CodeQL](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml/badge.svg)](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml)
-  [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](SECURITY.md)
-  [![Rules for AI](https://img.shields.io/badge/rules-AGENTS.md-blue.svg)](AGENTS.md)
-  [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-  [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-brightgreen)](https://modelcontextprotocol.io)
+High-performance Model Context Protocol (MCP) server for programmatic Excel (`.xlsx`) spreadsheet generation and manipulation.
 
-</div>
+[![PyPI Version](https://img.shields.io/pypi/v/luiccian-excel-mcp.svg)](https://pypi.org/project/luiccian-excel-mcp/)
+[![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![CodeQL](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml/badge.svg)](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml)
+[![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](https://github.com/LuiccianDev/excel-mcp/blob/master/SECURITY.md)
+[![Rules for AI](https://img.shields.io/badge/rules-AGENTS.md-blue.svg)](https://github.com/LuiccianDev/excel-mcp/blob/master/AGENTS.md)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/LuiccianDev/excel-mcp/blob/master/LICENSE)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-brightgreen)](https://modelcontextprotocol.io)
 
 **Excel MCP Server** (`excel-mcp`, PyPI: [`luiccian-excel-mcp`](https://pypi.org/project/luiccian-excel-mcp/)) is a high-performance Python server implementing the Model Context Protocol (MCP) to provide advanced, token-optimized Excel spreadsheet (`.xlsx`) creation, batch synthesis, formula automation, and inspection capabilities for AI assistants (Claude Desktop, Claude Code, Cursor, VS Code / GitHub Copilot, Antigravity, Windsurf, Cline).
 
@@ -29,7 +25,7 @@ Designed from the ground up for maximum token efficiency, it replaces chatty mic
 - **Dynamic Formula Discipline**: Native support for validated live Excel formulas (`SUM`, `AVERAGE`, `IFERROR`, `SUMIF`, cross-sheet references) without hardcoded static results.
 - **Lightweight Outline Inspection**: Extract sheet names, populated dimensions (`A1:H50`), column headers, and formula presence without dumping massive cell grids (`excel_get_workbook_outline`), saving thousands of context tokens.
 - **Batch Data Ingestion**: Append or overwrite 2D matrices of values into existing sheets in a single atomic operation (`excel_batch_write_data`, `excel_append_rows`).
-- **Zero-Install Execution**: Instant launch with `uvx luiccian-excel-mcp` (see also [docs/MCPB.md](docs/MCPB.md)).
+- **Zero-Install Execution**: Instant launch with `uvx luiccian-excel-mcp` (see also [docs/MCPB.md](https://github.com/LuiccianDev/excel-mcp/blob/master/docs/MCPB.md)).
 
 ---
 
@@ -64,8 +60,7 @@ Configure your AI client by passing environment variables directly in the client
 }
 ```
 
-> [!TIP]
-> **Windows path example:** Use forward slashes or escaped backslashes (e.g., `"C:/Users/YourName/Documents/Spreadsheets"`). You can allow multiple roots separated by commas.
+> **Tip — Windows path example:** Use forward slashes or escaped backslashes (e.g., `"C:/Users/YourName/Documents/Spreadsheets"`). You can allow multiple roots separated by commas.
 >
 > **Local checkout:** If running from a local git repository instead of PyPI:
 > ```json
@@ -181,8 +176,7 @@ All runtime configuration is supplied via standard OS environment variables or t
 | `modern` | Slate / Charcoal (`#2F3542`) | White | Cool Gray (`#F8F9FA`) | Segoe UI 10.5pt | Minimalist soft borders | SaaS metrics, tech product analytics, modern dashboards |
 | `compact` | Steel Gray (`#4A6572`) | White | Off-White (`#F5F5F5`) | Arial 9.5pt | Dense grid, high data density | Inventory lists, master catalogs, high-volume exports |
 
-> [!TIP]
-> Pass `font_name` and `font_size` to `excel_build_workbook` to apply any color preset with uniform typography (e.g., `preset: "modern", font_name: "Arial", font_size: 11`) or to honor a user's explicit font request.
+> **Tip:** Pass `font_name` and `font_size` to `excel_build_workbook` to apply any color preset with uniform typography (e.g., `preset: "modern", font_name: "Arial", font_size: 11`) or to honor a user's explicit font request.
 
 ---
 
@@ -199,7 +193,7 @@ The repository includes pre-built agent skills under `skills/`:
 
 ## Tool Taxonomy
 
-The server defaults to `compound` mode (8 tools) and exposes all 33 granular `excel_*` tools when `EXCEL_MCP_TOOLS=full` or `server --tool-mode full` is set. Each domain dispatcher accepts `(action, filename=None, params=None)` and transparently normalizes `range_string` / `cell_range` parameter aliases; for the underlying `full`-mode parameter schemas (`params` keys), see [docs/TOOLS.md](docs/TOOLS.md).
+The server defaults to `compound` mode (8 tools) and exposes all 33 granular `excel_*` tools when `EXCEL_MCP_TOOLS=full` or `server --tool-mode full` is set. Each domain dispatcher accepts `(action, filename=None, params=None)` and transparently normalizes `range_string` / `cell_range` parameter aliases; for the underlying `full`-mode parameter schemas (`params` keys), see [docs/TOOLS.md](https://github.com/LuiccianDev/excel-mcp/blob/master/docs/TOOLS.md).
 
 ### Default `compound` Mode (8 Tools)
 
@@ -256,9 +250,10 @@ The server defaults to `compound` mode (8 tools) and exposes all 33 granular `ex
 
 ## Security
 
-- **Restricted Directories**: Access is strictly limited to paths listed in `EXCEL_MCP_DIRS` (supporting multiple comma-separated roots and symlink traversal protection).
-- **Formula & DDE Sanitization**: All formula inputs pass strict AST validation (`validate_cell_value_secure`) blocking leading-whitespace formula smuggling, DDE command prefixes (`cmd|`, `powershell|`), and dangerous functions.
-- **Crash-Safe Atomic Writes**: Mutating operations write to isolated temporary files and commit atomically via `os.replace`.
+- **Restricted Directories**: Access is strictly limited to paths listed in `EXCEL_MCP_DIRS` (supporting multiple comma-separated roots, symlink traversal protection, and filtering of unexpanded `${...}` placeholders).
+- **Formula & DDE Sanitization**: All formula inputs, `data_validation` rules, and batch title/header values pass `validate_formula_secure`, blocking leading-whitespace formula smuggling, `_xlfn.`/`_xlws.`/`_xlpm.`/`_xleta.` prefixes, DDE command prefixes (`cmd|`, `powershell|`), and dangerous functions.
+- **Resource & Regex Bounds**: `workbook_session` validates ZIP entry counts, uncompressed size, and compression ratios against archive bombs, range operations enforce cell limits, and search queries apply depth-aware ReDoS protection.
+- **Crash-Safe Atomic Writes**: Mutating operations write to isolated temporary files and commit atomically via `os.replace`, with `destructive_hint=True` annotations on file-creating and mutating tools.
 - **Trusted Publishing**: Tag-driven PyPI releases (`v*.*.*`) use GitHub Actions OIDC and PEP 740 artifact attestation.
 
 ---
@@ -290,11 +285,10 @@ uv run pytest --cov --cov-report=term-missing
 uv run python -m build
 ```
 
-> [!NOTE]
-> The commands above run through `uv` and are the local source of truth for CI across Python 3.11–3.14. A clean checkout is reproducible with `uv sync --all-groups`.
+> **Note:** The commands above run through `uv` and are the local source of truth for CI across Python 3.11–3.14. A clean checkout is reproducible with `uv sync --all-groups`.
 
 ---
 
 ## License
 
-This project is licensed under the [Apache License 2.0](LICENSE).
+This project is licensed under the [Apache License 2.0](https://github.com/LuiccianDev/excel-mcp/blob/master/LICENSE).
