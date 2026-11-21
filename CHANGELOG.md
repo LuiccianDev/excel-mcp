@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [2.4.1] - 2026-11-21
+
 ### Security
 - **Unified Formula & Cell Injection Validation**: Consolidated pure formula, DDE, and cell-value validation into `utils/validation_utils.py`, enforcing `validate_formula_secure` across `apply_formula`, `validate_formula_in_cell_operation`, `data_validation` (`formula1`/`formula2` across all validation types), and `batch.py` title banners and headers while blocking `_xlfn.`/`_xlws.`/`_xlpm.`/`_xleta.` prefixes and unquoted DDE payloads without false positives on bulleted prose.
 - **Archive, Range, Regex & Metrics Resource Bounds**: Added ZIP entry-count, uncompressed-size, and compression-ratio validation in `core/_io.py` (`workbook_session`) plus post-save `DEFAULT_MAX_FILE_SIZE` enforcement in `atomic_save`, shared `assert_range_cell_limit` bounds across `data.py`, `formatting.py`, and `sheet_utils.py`, `preview_only` scan clamping in `_get_used_range`, depth-aware nested-quantifier ReDoS protection and `scan_truncated` reporting in `core/search.py`, and log rotation in `utils/metrics.py`.

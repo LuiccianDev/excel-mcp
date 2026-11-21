@@ -49,9 +49,12 @@ jobs:
           enable-cache: true
 
       - name: Configure Git Identity
+        env:
+          COMMIT_AUTHOR_NAME: ${{ vars.RELEASE_AUTHOR_NAME || 'LuiccianDev' }}
+          COMMIT_AUTHOR_EMAIL: ${{ vars.RELEASE_AUTHOR_EMAIL || '181299053+LuiccianDev@users.noreply.github.com' }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "$COMMIT_AUTHOR_NAME"
+          git config user.email "$COMMIT_AUTHOR_EMAIL"
 
       - name: Install dependencies
         run: uv sync --all-groups
