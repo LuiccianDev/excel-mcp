@@ -109,3 +109,5 @@ graphify-out/
 docs/benchmarks/
 tests/benchmarks/
 benchmarks/
+.agents/
+skills-lock.json

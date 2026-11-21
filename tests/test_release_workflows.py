@@ -98,8 +98,6 @@ def test_matrix_matches_classifiers() -> None:
 
 
 def test_release_commit_does_not_skip_ci() -> None:
-    # A squash-merged release PR reuses the bump commit message; "[skip ci]" in it
-    # would also suppress the push-triggered release workflow.
     bump = _read("bump-and-release.yml")
     assert "[skip ci]" not in bump
     assert "[ci skip]" not in bump
@@ -112,3 +110,18 @@ def test_release_pr_runs_ci_through_workflow_call() -> None:
     assert "uses: ./.github/workflows/ci.yml" in bump
     assert "create_pr" not in bump
     assert "--tags" not in bump
+
+
+def test_bump_and_release_uses_force_with_lease_and_checks_existing_pr() -> None:
+    bump = _read("bump-and-release.yml")
+    assert "--force-with-lease" in bump
+    assert "--force\n" not in bump
+    assert "gh pr list" in bump
+    assert "|| echo" not in bump
+
+
+def test_publish_pypi_validates_tag_format_and_master_ancestry() -> None:
+    publish = _read("publish-pypi.yml")
+    assert "^v[0-9]+\\.[0-9]+\\.[0-9]+$" in publish
+    assert "fetch-depth: 0" in publish
+    assert "git merge-base --is-ancestor" in publish

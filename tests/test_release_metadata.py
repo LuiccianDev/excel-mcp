@@ -8,6 +8,8 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -131,3 +133,34 @@ def test_release_state_without_previous_ref_only_checks_tag(tmp_path: Path) -> N
     assert module.release_state(tmp_path, None)["should_release"] == "true"
     _git(tmp_path, "tag", "v1.0.0")
     assert module.release_state(tmp_path, None)["should_release"] == "false"
+
+
+def test_calculate_next_version_rejects_downgrade_or_invalid_semver() -> None:
+    module = _load_bump_module()
+    assert module.calculate_next_version("2.4.0", "custom", "2.4.1") == "2.4.1"
+
+    with pytest.raises(ValueError, match="strictly greater"):
+        module.calculate_next_version("2.4.0", "custom", "2.4.0")
+
+    with pytest.raises(ValueError, match="strictly greater"):
+        module.calculate_next_version("2.4.0", "custom", "2.3.9")
+
+    with pytest.raises(ValueError, match="standard semver"):
+        module.calculate_next_version("2.4.0", "custom", "2.4.0-rc1")
+
+
+def test_ensure_unreleased_notes_requires_non_empty_entries(tmp_path: Path) -> None:
+    module = _load_bump_module()
+    changelog = tmp_path / "CHANGELOG.md"
+
+    changelog.write_text(
+        "## [Unreleased]\n\n---\n\n## [2.4.0] - 2026-11-18\n- x\n", encoding="utf-8"
+    )
+    with pytest.raises(ValueError, match="empty"):
+        module._ensure_unreleased_notes(changelog)
+
+    changelog.write_text(
+        "## [Unreleased]\n\n### Security\n- Hardened validation.\n\n---\n\n## [2.4.0] - 2026-11-18\n",
+        encoding="utf-8",
+    )
+    module._ensure_unreleased_notes(changelog)
