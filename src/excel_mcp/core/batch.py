@@ -1,23 +1,15 @@
-"""Single-pass batch workbook building and lightweight outline inspection.
-
-Enables generation of entire multi-sheet Excel workbooks with typography,
-formulas, zebra striping, currency formatting, and charts in a single MCP tool call,
-saving >90% tokens and preventing chatty micro-iterations.
-"""
-
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 import openpyxl
 from openpyxl.chart import BarChart, LineChart, PieChart, Reference
 from openpyxl.utils import get_column_letter
 
 from excel_mcp.core._io import resolve_sheet, workbook_session
-from excel_mcp.core.calculations import (
-    FormulaSecurityError,
-    validate_cell_value_secure,
-)
+from excel_mcp.core.calculations import assert_safe_cell_value
 from excel_mcp.core.data_validation import apply_data_validation_to_sheet
+from excel_mcp.exceptions.exception_core import ValidationError
 from excel_mcp.core.presets import (
     apply_data_cell_style,
     apply_header_style,
@@ -43,38 +35,26 @@ def _render_chart(
     end_row: int,
     num_cols: int,
 ) -> None:
-    """Render an openpyxl chart into the worksheet if configured."""
     ctype = chart_config.get("type", "bar").lower()
     title = chart_config.get("title", "Chart")
     chart_cell = chart_config.get("position", f"B{end_row + 3}")
 
-    data_col = chart_config.get("data_column", 2)  # 1-indexed
-    label_col = chart_config.get("label_column", 1)  # 1-indexed
+    data_col = chart_config.get("data_column", 2)
+    label_col = chart_config.get("label_column", 1)
 
-    if (
-        isinstance(data_col, bool)
-        or not isinstance(data_col, int)
-        or data_col < 1
-        or data_col > num_cols
-    ):
-        raise ValueError(f"chart data_column {data_col!r} out of bounds (1-{num_cols})")
-    if (
-        isinstance(label_col, bool)
-        or not isinstance(label_col, int)
-        or label_col < 1
-        or label_col > num_cols
-    ):
-        raise ValueError(
-            f"chart label_column {label_col!r} out of bounds (1-{num_cols})"
-        )
+    for col_name, col_val in (("data_column", data_col), ("label_column", label_col)):
+        if (
+            isinstance(col_val, bool)
+            or not isinstance(col_val, int)
+            or col_val < 1
+            or col_val > num_cols
+        ):
+            raise ValueError(
+                f"chart {col_name} {col_val!r} out of bounds (1-{num_cols})"
+            )
 
-    if ctype == "line":
-        chart = LineChart()
-    elif ctype == "pie":
-        chart = PieChart()
-    else:
-        chart = BarChart()
-
+    chart_cls = {"line": LineChart, "pie": PieChart}.get(ctype, BarChart)
+    chart = chart_cls()
     chart.title = title
     chart.style = 10
     chart.height = chart_config.get("height", 12)
@@ -89,7 +69,6 @@ def _render_chart(
 
 
 def _resolve_col_index(key: Any, headers: list[str]) -> int | None:
-    """Resolve a 0-based column index from an int, header name, or digit string."""
     if isinstance(key, bool):
         return None
     if isinstance(key, int):
@@ -102,7 +81,6 @@ def _resolve_col_index(key: Any, headers: list[str]) -> int | None:
 
 
 def _resolve_col_indices(keys: Any, headers: list[str]) -> set[int]:
-    """Resolve an iterable of column names or indices into a set of 0-based indices."""
     resolved: set[int] = set()
     for key in keys or ():
         idx = _resolve_col_index(key, headers)
@@ -118,7 +96,6 @@ def _build_total_map(
     sheet_title: str,
     warnings: list[str] | None,
 ) -> dict[int, str]:
-    """Build {0-based col_idx: SQL/Excel agg_func} mapping for auto_totals."""
     total_map: dict[int, str] = {}
     if isinstance(auto_totals, dict):
         items = list(auto_totals.items())
@@ -152,7 +129,6 @@ def _apply_sheet_data_validations(
     data_validations: Any,
     warnings: list[str] | None,
 ) -> None:
-    """Apply inline data validation rule specs via canonical core.data_validation."""
     specs = (
         [data_validations] if isinstance(data_validations, dict) else data_validations
     )
@@ -164,11 +140,10 @@ def _apply_sheet_data_validations(
                 )
             continue
         target_range = dv_spec.get("range") or dv_spec.get("cell_range")
-        formula1 = dv_spec.get("formula1")
-        if not target_range or formula1 is None or str(formula1) == "":
+        if not target_range:
             if warnings is not None:
                 warnings.append(
-                    f"Sheet '{ws.title}' skipped data validation missing range or formula1."
+                    f"Sheet '{ws.title}' skipped data validation missing range."
                 )
             continue
         dv_type = dv_spec.get("type") or dv_spec.get("validation_type", "list")
@@ -178,17 +153,184 @@ def _apply_sheet_data_validations(
                 cell_range=str(target_range),
                 validation_type=str(dv_type),
                 operator=str(dv_spec.get("operator", "between")),
-                formula1=formula1,
-                formula2=dv_spec.get("formula2"),
                 allow_blank=bool(dv_spec.get("allow_blank", True)),
-                prompt_title=dv_spec.get("prompt_title"),
-                prompt=dv_spec.get("prompt"),
-                error_title=dv_spec.get("error_title"),
-                error_message=dv_spec.get("error_message"),
+                **{
+                    k: dv_spec.get(k)
+                    for k in (
+                        "formula1",
+                        "formula2",
+                        "prompt_title",
+                        "prompt",
+                        "error_title",
+                        "error_message",
+                    )
+                },
             )
-        except Exception as e:
+        except (ValidationError, ValueError, TypeError) as e:
             if warnings is not None:
                 warnings.append(f"Sheet '{ws.title}' data validation warning: {e}")
+
+
+@dataclass(frozen=True, slots=True)
+class _SheetStyle:
+    preset_name: str
+    preset: dict[str, Any]
+    font_name: str | None
+    font_size: float | None
+
+    @property
+    def header_kwargs(self) -> dict[str, Any]:
+        return {
+            "preset_name": self.preset_name,
+            "font_name": self.font_name,
+            "font_size": self.font_size,
+        }
+
+
+def _write_title_banner(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    title_banner: Any,
+    num_cols: int,
+    style: _SheetStyle,
+) -> int:
+    if not title_banner:
+        return 1
+    assert_safe_cell_value(title_banner, f"in sheet '{ws.title}' title banner")
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(num_cols, 1))
+    banner_cell = ws.cell(row=1, column=1, value=title_banner)
+    apply_header_style(banner_cell, **style.header_kwargs)
+    effective_name = style.font_name or style.preset["font_name"]
+    effective_size = (
+        style.font_size
+        if style.font_size is not None
+        else style.preset["header_font_size"]
+    )
+    banner_cell.font = openpyxl.styles.Font(
+        name=effective_name,
+        size=min(effective_size + 1, 12),
+        bold=True,
+        color=style.preset["header_font_color"],
+    )
+    ws.row_dimensions[1].height = 24
+    return 3
+
+
+def _write_headers(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    headers: list[Any],
+    current_row: int,
+    style: _SheetStyle,
+) -> int:
+    if not headers:
+        return current_row
+    ws.row_dimensions[current_row].height = 22
+    for col_idx, header_text in enumerate(headers, start=1):
+        assert_safe_cell_value(
+            header_text, f"in sheet '{ws.title}' header col {col_idx}"
+        )
+        cell = ws.cell(row=current_row, column=col_idx, value=header_text)
+        apply_header_style(cell, **style.header_kwargs)
+    return current_row + 1
+
+
+def _write_data_rows(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    rows: list[list[Any]],
+    current_row: int,
+    currency_indices: set[int],
+    numeric_indices: set[int],
+    style: _SheetStyle,
+) -> int:
+    for r_idx, row_values in enumerate(rows, start=1):
+        ws.row_dimensions[current_row].height = 20
+        for col_idx, val in enumerate(row_values, start=1):
+            assert_safe_cell_value(
+                val, f"in sheet '{ws.title}' row {current_row} col {col_idx}"
+            )
+            cell = ws.cell(row=current_row, column=col_idx, value=val)
+            zero_idx = col_idx - 1
+            is_curr = zero_idx in currency_indices
+            is_num = (
+                is_curr or (zero_idx in numeric_indices) or isinstance(val, int | float)
+            )
+            apply_data_cell_style(
+                cell=cell,
+                row_idx=r_idx,
+                is_total=False,
+                is_numeric=is_num,
+                is_currency=is_curr,
+                **style.header_kwargs,
+            )
+        current_row += 1
+    return current_row
+
+
+def _write_auto_totals(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    auto_totals: Any,
+    headers: list[Any],
+    num_cols: int,
+    current_row: int,
+    data_start_row: int,
+    data_end_row: int,
+    currency_indices: set[int],
+    style: _SheetStyle,
+    warnings: list[str] | None,
+) -> int:
+    if not auto_totals:
+        return current_row
+    ws.row_dimensions[current_row].height = 22
+    first_cell = ws.cell(row=current_row, column=1, value="Total")
+    apply_data_cell_style(first_cell, row_idx=1, is_total=True, **style.header_kwargs)
+    total_map = _build_total_map(auto_totals, headers, num_cols, ws.title, warnings)
+    for col_idx in range(2, num_cols + 1):
+        cell = ws.cell(row=current_row, column=col_idx)
+        zero_idx = col_idx - 1
+        agg_func = total_map.get(zero_idx)
+        if agg_func is not None:
+            col_letter = get_column_letter(col_idx)
+            cell_range = f"{col_letter}{data_start_row}:{col_letter}{data_end_row}"
+            cell.value = (
+                f"=SUBTOTAL(9,{cell_range})"
+                if agg_func == "SUBTOTAL"
+                else f"={agg_func}({cell_range})"
+            )
+        apply_data_cell_style(
+            cell,
+            row_idx=1,
+            is_total=True,
+            is_numeric=agg_func is not None,
+            is_currency=(zero_idx in currency_indices) and (agg_func is not None),
+            **style.header_kwargs,
+        )
+    return current_row + 1
+
+
+def _render_sheet_charts(
+    ws: openpyxl.worksheet.worksheet.Worksheet,
+    chart_config: Any,
+    charts_config: list[Any],
+    header_start_row: int,
+    data_end_row: int,
+    num_cols: int,
+    warnings: list[str] | None,
+) -> int:
+    charts_rendered = 0
+    all_charts = ([chart_config] if chart_config else []) + list(charts_config)
+    for chart_spec in all_charts:
+        try:
+            _render_chart(
+                ws=ws,
+                chart_config=chart_spec,
+                start_row=header_start_row,
+                end_row=data_end_row,
+                num_cols=num_cols,
+            )
+            charts_rendered += 1
+        except Exception as e:
+            if warnings is not None:
+                warnings.append(f"Sheet '{ws.title}' chart generation warning: {e}")
+    return charts_rendered
 
 
 def _build_sheet_with_stats(
@@ -200,11 +342,8 @@ def _build_sheet_with_stats(
     font_name: str | None = None,
     font_size: float | None = None,
 ) -> tuple[int, int]:
-    """Build a complete formatted sheet and return (rows_inserted, charts_rendered)."""
     headers = sheet_data.get("headers", [])
     rows = sheet_data.get("rows", [])
-    title_banner = sheet_data.get("title")
-    auto_totals = sheet_data.get("auto_totals", False)
     currency_indices = _resolve_col_indices(
         sheet_data.get("currency_columns", []), headers
     )
@@ -219,133 +358,35 @@ def _build_sheet_with_stats(
     freeze_panes = sheet_data.get("freeze_panes")
     auto_filter = sheet_data.get("auto_filter", False)
 
-    preset = get_preset(preset_name)
-    effective_font_name = font_name or preset["font_name"]
-    effective_font_size = (
-        font_size if font_size is not None else preset["header_font_size"]
+    style = _SheetStyle(
+        preset_name=preset_name,
+        preset=get_preset(preset_name),
+        font_name=font_name,
+        font_size=font_size,
     )
-
-    current_row = 1
     num_cols = len(headers) if headers else (len(rows[0]) if rows else 1)
 
-    # 1. Optional Title Banner
-    if title_banner:
-        ws.merge_cells(
-            start_row=current_row,
-            start_column=1,
-            end_row=current_row,
-            end_column=max(num_cols, 1),
-        )
-        banner_cell = ws.cell(row=current_row, column=1, value=title_banner)
-        apply_header_style(
-            banner_cell,
-            preset_name,
-            font_name=font_name,
-            font_size=font_size,
-        )
-        banner_cell.font = openpyxl.styles.Font(
-            name=effective_font_name,
-            size=min(effective_font_size + 1, 12),
-            bold=True,
-            color=preset["header_font_color"],
-        )
-        ws.row_dimensions[current_row].height = 24
-        current_row += 2
-
-    # 2. Table Headers
-    header_start_row = current_row
-    if headers:
-        ws.row_dimensions[current_row].height = 22
-        for col_idx, header_text in enumerate(headers, start=1):
-            cell = ws.cell(row=current_row, column=col_idx, value=header_text)
-            apply_header_style(
-                cell,
-                preset_name,
-                font_name=font_name,
-                font_size=font_size,
-            )
-        current_row += 1
-
-    data_start_row = current_row
-
-    # 3. Data Rows
-    for r_idx, row_values in enumerate(rows, start=1):
-        ws.row_dimensions[current_row].height = 20
-        for col_idx, val in enumerate(row_values, start=1):
-            is_valid, msg = validate_cell_value_secure(val)
-            if not is_valid:
-                raise FormulaSecurityError(
-                    f"Formula security validation failed in sheet '{ws.title}' row {current_row} col {col_idx}: {msg}"
-                )
-            cell = ws.cell(row=current_row, column=col_idx, value=val)
-            zero_idx = col_idx - 1
-            is_curr = zero_idx in currency_indices
-            is_num = (
-                is_curr or (zero_idx in numeric_indices) or isinstance(val, int | float)
-            )
-            apply_data_cell_style(
-                cell=cell,
-                row_idx=r_idx,
-                preset_name=preset_name,
-                is_total=False,
-                is_numeric=is_num,
-                is_currency=is_curr,
-                font_name=font_name,
-                font_size=font_size,
-            )
-        current_row += 1
-
+    header_start_row = _write_title_banner(ws, sheet_data.get("title"), num_cols, style)
+    data_start_row = _write_headers(ws, headers, header_start_row, style)
+    current_row = _write_data_rows(
+        ws, rows, data_start_row, currency_indices, numeric_indices, style
+    )
     data_end_row = current_row - 1
 
-    # 4. Optional Auto-Totals Row
-    if auto_totals and rows:
-        ws.row_dimensions[current_row].height = 22
-        first_cell = ws.cell(row=current_row, column=1, value="Total")
-        apply_data_cell_style(
-            first_cell,
-            row_idx=1,
-            preset_name=preset_name,
-            is_total=True,
-            font_name=font_name,
-            font_size=font_size,
+    if rows:
+        _write_auto_totals(
+            ws,
+            sheet_data.get("auto_totals", False),
+            headers,
+            num_cols,
+            current_row,
+            data_start_row,
+            data_end_row,
+            currency_indices,
+            style,
+            warnings,
         )
 
-        total_map = _build_total_map(auto_totals, headers, num_cols, ws.title, warnings)
-        for col_idx in range(2, num_cols + 1):
-            cell = ws.cell(row=current_row, column=col_idx)
-            zero_idx = col_idx - 1
-            is_curr = zero_idx in currency_indices
-            agg_func = total_map.get(zero_idx)
-            if agg_func is not None:
-                col_letter = get_column_letter(col_idx)
-                cell_range = f"{col_letter}{data_start_row}:{col_letter}{data_end_row}"
-                cell.value = (
-                    f"=SUBTOTAL(9,{cell_range})"
-                    if agg_func == "SUBTOTAL"
-                    else f"={agg_func}({cell_range})"
-                )
-                apply_data_cell_style(
-                    cell,
-                    row_idx=1,
-                    preset_name=preset_name,
-                    is_total=True,
-                    is_numeric=True,
-                    is_currency=is_curr,
-                    font_name=font_name,
-                    font_size=font_size,
-                )
-            else:
-                apply_data_cell_style(
-                    cell,
-                    row_idx=1,
-                    preset_name=preset_name,
-                    is_total=True,
-                    font_name=font_name,
-                    font_size=font_size,
-                )
-        current_row += 1
-
-    # 4.5 Optional Sheet Navigation (Freeze Panes & Auto-Filter)
     if freeze_panes:
         ws.freeze_panes = freeze_panes
     if auto_filter and headers:
@@ -354,29 +395,23 @@ def _build_sheet_with_stats(
             f"A{header_start_row}:{get_column_letter(num_cols)}{filter_end_row}"
         )
 
-    # 4.75 Optional Inline Data Validations
     if data_validations:
         _apply_sheet_data_validations(ws, data_validations, warnings)
 
-    # 5. Optional Chart Generation (supports single `chart` and/or list `charts`)
-    charts_rendered = 0
-    if rows:
-        all_charts = ([chart_config] if chart_config else []) + list(charts_config)
-        for chart_spec in all_charts:
-            try:
-                _render_chart(
-                    ws=ws,
-                    chart_config=chart_spec,
-                    start_row=header_start_row,
-                    end_row=data_end_row,
-                    num_cols=num_cols,
-                )
-                charts_rendered += 1
-            except Exception as e:
-                if warnings is not None:
-                    warnings.append(f"Sheet '{ws.title}' chart generation warning: {e}")
+    charts_rendered = (
+        _render_sheet_charts(
+            ws,
+            chart_config,
+            charts_config,
+            header_start_row,
+            data_end_row,
+            num_cols,
+            warnings,
+        )
+        if rows
+        else 0
+    )
 
-    # 6. Auto-fit column widths
     if auto_fit:
         auto_fit_column_widths(ws)
 
@@ -394,13 +429,7 @@ def build_single_pass_sheet(
 ) -> int:
     """Build a complete formatted sheet from structured data."""
     rows_inserted, _ = _build_sheet_with_stats(
-        ws=ws,
-        sheet_data=sheet_data,
-        preset_name=preset_name,
-        auto_fit=auto_fit,
-        warnings=warnings,
-        font_name=font_name,
-        font_size=font_size,
+        ws, sheet_data, preset_name, auto_fit, warnings, font_name, font_size
     )
     return rows_inserted
 
@@ -477,8 +506,6 @@ def inspect_workbook_outline(filename: str) -> WorkbookOutline:
             sheet_warnings: list[str] = []
 
             if max_r > 0 and max_c > 0:
-                # Find the most likely header row among the first 5 rows
-                # (skipping single-cell title banners or leading empty rows)
                 best_headers: list[str] = []
                 best_row = 1
                 for r_idx, row in enumerate(
@@ -502,7 +529,6 @@ def inspect_workbook_outline(filename: str) -> WorkbookOutline:
                 headers = best_headers
                 header_row_idx = best_row
 
-                # Count formulas and populated cells within a reasonable inspection window (first 500 rows, 50 cols)
                 for row_cells in ws.iter_rows(
                     min_row=1,
                     max_row=min(max_r, 500),
@@ -565,11 +591,9 @@ def batch_write_matrix(
 
         for r_offset, row in enumerate(data_matrix):
             for c_offset, val in enumerate(row):
-                is_valid, msg = validate_cell_value_secure(val)
-                if not is_valid:
-                    raise FormulaSecurityError(
-                        f"Formula security validation failed at row offset {r_offset}, col offset {c_offset}: {msg}"
-                    )
+                assert_safe_cell_value(
+                    val, f"at row offset {r_offset}, col offset {c_offset}"
+                )
                 ws.cell(
                     row=start_row + r_offset, column=start_col + c_offset, value=val
                 )

@@ -11,7 +11,9 @@ import json
 import os
 from pathlib import Path
 import time
-from typing import Any
+from typing import Any, Final
+
+DEFAULT_MAX_METRICS_LOG_BYTES: Final[int] = 10 * 1024 * 1024
 
 _current_phases: ContextVar[dict[str, float] | None] = ContextVar(
     "_current_phases", default=None
@@ -136,6 +138,8 @@ def record_tool_metric(
     try:
         path = Path(metrics_path)
         path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and path.stat().st_size >= DEFAULT_MAX_METRICS_LOG_BYTES:
+            path.replace(path.with_name(f"{path.name}.1"))
         with path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record) + "\n")
     except OSError:

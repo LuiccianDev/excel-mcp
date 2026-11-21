@@ -1,11 +1,13 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from excel_mcp.utils.cell_utils import parse_cell_range
+from excel_mcp.utils.cell_utils import assert_range_cell_limit, parse_cell_range
+
+MAX_RANGE_CELLS: Final[int] = 250_000
 
 
 def _edit_session(filename: Path | str) -> Any:
@@ -95,6 +97,16 @@ def copy_range(
         src_end_row = src_start_row
     if src_end_col is None:
         src_end_col = src_start_col
+
+    assert_range_cell_limit(
+        src_start_row,
+        src_start_col,
+        src_end_row,
+        src_end_col,
+        MAX_RANGE_CELLS,
+        ValueError,
+        label="copying",
+    )
 
     if target_start is None:
         target_start = source_start
@@ -198,6 +210,16 @@ def delete_range(
     if end_col is None:
         end_col = start_col
 
+    assert_range_cell_limit(
+        start_row,
+        start_col,
+        end_row,
+        end_col,
+        MAX_RANGE_CELLS,
+        ValueError,
+        label="deletion",
+    )
+
     for row in range(start_row, end_row + 1):
         for col in range(start_col, end_col + 1):
             cell = worksheet.cell(row=row, column=col)
@@ -297,6 +319,15 @@ def copy_range_operation(
                 return {"error": f"Invalid target cell: {str(e)}"}
             row_offset = target_row - start_row
             col_offset = target_col - start_col
+            assert_range_cell_limit(
+                start_row,
+                start_col,
+                end_row,
+                end_col,
+                MAX_RANGE_CELLS,
+                ValueError,
+                label="copying",
+            )
             for i in range(start_row, end_row + 1):
                 for j in range(start_col, end_col + 1):
                     source_cell = source_ws.cell(row=i, column=j)

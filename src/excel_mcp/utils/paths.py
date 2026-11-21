@@ -7,24 +7,36 @@ one module and ignored by another.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from pathlib import Path
 
 from excel_mcp.config import get_directory
 
-DEFAULT_MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
+logger = logging.getLogger(__name__)
+
+DEFAULT_MAX_FILE_SIZE = 100 * 1024 * 1024
 _WINDOWS_RESERVED_NAMES = frozenset(
     {"CON", "PRN", "AUX", "NUL"}
     | {f"COM{i}" for i in range(1, 10)}
     | {f"LPT{i}" for i in range(1, 10)}
 )
 _DRIVE_PREFIX_RE = re.compile(r"^[A-Za-z]:")
+_UNEXPANDED_PLACEHOLDER_RE = re.compile(r"\$\{[^}]+\}")
 
 
-def _split(value: str) -> list[str]:
-    """Split a comma-separated list of directories, dropping empty entries."""
-    return [item.strip() for item in value.split(",") if item.strip()]
+def _parse_dir_entries(value: str) -> list[str]:
+    items: list[str] = []
+    for item in value.split(","):
+        stripped = item.strip()
+        if not stripped:
+            continue
+        if _UNEXPANDED_PLACEHOLDER_RE.search(stripped):
+            logger.warning("Ignoring unexpanded directory placeholder: %r", stripped)
+            continue
+        items.append(stripped)
+    return items
 
 
 def resolve_allowed_directories() -> list[str]:
@@ -34,9 +46,9 @@ def resolve_allowed_directories() -> list[str]:
     variable, then the configured default directory. ``Path.resolve()``
     normalizes separators, resolves symlinks and removes trailing separators.
     """
-    candidates = _split(os.environ.get("EXCEL_MCP_DIRS", "").strip())
+    candidates = _parse_dir_entries(os.environ.get("EXCEL_MCP_DIRS", "").strip())
     if not candidates:
-        candidates = _split(os.environ.get("DIRECTORY", "").strip())
+        candidates = _parse_dir_entries(os.environ.get("DIRECTORY", "").strip())
     if not candidates:
         candidates = [get_directory()]
 
@@ -65,7 +77,7 @@ def validate_path_safety(path: str | Path) -> str | None:
         )
 
     for part in Path(raw).parts:
-        stem = part.rstrip(".").split(".", 1)[0].upper()
+        stem = part.split(".", 1)[0].rstrip(". ").upper()
         if stem in _WINDOWS_RESERVED_NAMES:
             return f"Reserved Windows device name '{part}' is not permitted."
     return None
@@ -78,13 +90,16 @@ def validate_file_constraints(
     if target.suffix.lower() != ".xlsx":
         return f"Disallowed file extension '{target.suffix}': only '.xlsx' files are permitted."
     try:
-        if target.exists() and target.is_file():
-            size = target.stat().st_size
-            if size > max_file_size:
-                return (
-                    f"File '{target.name}' ({size} bytes) exceeds maximum allowed size "
-                    f"({max_file_size} bytes)."
-                )
+        if target.exists():
+            if target.is_dir():
+                return f"Path '{target.name}' is a directory."
+            if target.is_file():
+                size = target.stat().st_size
+                if size > max_file_size:
+                    return (
+                        f"File '{target.name}' ({size} bytes) exceeds maximum allowed size "
+                        f"({max_file_size} bytes)."
+                    )
     except OSError as exc:
         return f"Cannot stat file '{target}': {exc}"
     return None

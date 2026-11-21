@@ -1,17 +1,14 @@
-# Import exceptions
 from typing import Any
 
 from excel_mcp.core.workbook import create_sheet, create_workbook
 from excel_mcp.utils import paths
 from excel_mcp.utils.file_utils import (
     list_excel_files_in_directory,
-    resolve_safe_path,
     validate_file_access,
 )
 from excel_mcp.utils.guards import tool_guard
 
 
-# * Create a new Excel workbook
 @tool_guard()
 async def create_excel_workbook(filename: str) -> dict[str, Any]:
     """
@@ -34,17 +31,16 @@ async def create_excel_workbook(filename: str) -> dict[str, Any]:
             Example: {"status": "success", "filename": "/secure/path/reporte_diario.xlsx"}
         On failure, returns an error dictionary with a descriptive message.
     """
-    filename = paths.normalize_xlsx_candidate(filename)
-    resolved_path = resolve_safe_path(filename)
-    constraint_error = paths.validate_file_constraints(resolved_path)
-    if constraint_error:
+    resolved_path, constraint_error = paths.validate_and_resolve_path(
+        filename, auto_extension=True
+    )
+    if constraint_error or resolved_path is None:
         return {"status": "error", "message": f"Access denied: {constraint_error}"}
 
     result: dict[str, Any] = create_workbook(str(resolved_path))
     return result
 
 
-# * Create new worksheet in workbook
 @validate_file_access("filename")
 @tool_guard()
 async def create_excel_worksheet(filename: str, sheet_name: str) -> dict[str, Any]:

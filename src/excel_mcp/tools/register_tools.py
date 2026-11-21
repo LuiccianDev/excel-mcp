@@ -11,14 +11,7 @@ import logging
 import os
 from typing import Any
 
-try:
-    from mcp.types import ToolAnnotations
-except ImportError:
-
-    class ToolAnnotations:  # type: ignore
-        def __init__(self, **kwargs: Any) -> None:
-            self.kwargs = kwargs
-
+from mcp.types import ToolAnnotations
 
 from excel_mcp.tools import batch_tools, compound_tools
 
@@ -75,10 +68,13 @@ def register_all_tools(mcp: Any, mode: str | None = None) -> None:
         try:
             mcp.tool(name=canonical_name, annotations=annotations)(fn)
         except TypeError:
+            logger.warning(
+                "Failed to attach ToolAnnotations for '%s'; registering without annotations.",
+                canonical_name,
+            )
             mcp.tool(name=canonical_name)(fn)
 
-    # 1. BATCH & SINGLE-PASS TOOLS (always registered in both modes)
-    _reg("excel_build_workbook", batch_tools.build_workbook, write)
+    _reg("excel_build_workbook", batch_tools.build_workbook, destructive)
     _reg("excel_get_workbook_outline", batch_tools.get_workbook_outline, read_only)
     _reg("excel_batch_write_data", batch_tools.batch_write_data, write)
 

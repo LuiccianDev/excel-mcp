@@ -10,13 +10,101 @@ from datetime import date, datetime
 import logging
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, Final
 
 from openpyxl.utils.cell import get_column_letter
 
 from excel_mcp.core._io import resolve_sheet, workbook_session
+from excel_mcp.exceptions.exception_core import ValidationError
 
 logger = logging.getLogger(__name__)
+
+MAX_REGEX_LENGTH: Final[int] = 256
+MAX_SEARCH_CELLS: Final[int] = 500_000
+
+
+def _read_brace_quantifier_end(pattern: str, start: int) -> int | None:
+    if start >= len(pattern) or pattern[start] != "{":
+        return None
+    end = pattern.find("}", start + 1)
+    if end == -1:
+        return None
+    body = pattern[start + 1 : end]
+    if re.fullmatch(r"\d+(?:,\d*)?", body):
+        return end
+    return None
+
+
+def _has_nested_quantifier(pattern: str) -> bool:
+    stack: list[dict[str, bool]] = []
+    in_char_class = False
+    escaped = False
+    last_closed_risky = False
+    idx = 0
+    length = len(pattern)
+
+    while idx < length:
+        ch = pattern[idx]
+        if escaped:
+            escaped = False
+            last_closed_risky = False
+            idx += 1
+            continue
+        if ch == "\\":
+            escaped = True
+            last_closed_risky = False
+            idx += 1
+            continue
+        if in_char_class:
+            if ch == "]":
+                in_char_class = False
+            idx += 1
+            continue
+        if ch == "[":
+            in_char_class = True
+            last_closed_risky = False
+            idx += 1
+            continue
+        if ch == "(":
+            stack.append({"has_quantifier": False, "has_alt": False})
+            last_closed_risky = False
+            idx += 1
+            continue
+        if ch == ")":
+            frame = (
+                stack.pop() if stack else {"has_quantifier": False, "has_alt": False}
+            )
+            last_closed_risky = frame["has_quantifier"] or frame["has_alt"]
+            if stack and frame["has_quantifier"]:
+                stack[-1]["has_quantifier"] = True
+            idx += 1
+            continue
+        if ch == "|" and stack:
+            stack[-1]["has_alt"] = True
+            last_closed_risky = False
+            idx += 1
+            continue
+
+        quant_end: int | None = None
+        if ch in "+*":
+            quant_end = idx
+        elif ch == "{":
+            quant_end = _read_brace_quantifier_end(pattern, idx)
+
+        if quant_end is not None:
+            if last_closed_risky:
+                return True
+            for frame in stack:
+                frame["has_quantifier"] = True
+            last_closed_risky = False
+            idx = quant_end + 1
+            continue
+
+        if ch != "?":
+            last_closed_risky = False
+        idx += 1
+
+    return False
 
 
 def find_cells_in_workbook(
@@ -41,8 +129,19 @@ def find_cells_in_workbook(
 
     pattern: re.Pattern[str] | None = None
     if use_regex:
+        if len(query) > MAX_REGEX_LENGTH:
+            raise ValidationError(
+                f"Regex query exceeds maximum length of {MAX_REGEX_LENGTH} characters."
+            )
+        if _has_nested_quantifier(query):
+            raise ValidationError(
+                "Regex query contains nested quantifiers that may cause catastrophic backtracking."
+            )
         flags = 0 if match_case else re.IGNORECASE
-        pattern = re.compile(query, flags)
+        try:
+            pattern = re.compile(query, flags)
+        except re.error as exc:
+            raise ValidationError(f"Invalid regex pattern: {exc}") from exc
     else:
         norm_query = query if match_case else query.lower()
 
@@ -53,10 +152,19 @@ def find_cells_in_workbook(
             sheets_to_search = wb.worksheets
 
         matches: list[dict[str, Any]] = []
+        cells_scanned = 0
 
         for ws in sheets_to_search:
             for row in ws.iter_rows():
                 for cell in row:
+                    cells_scanned += 1
+                    if cells_scanned > MAX_SEARCH_CELLS:
+                        return {
+                            "total_matches": len(matches),
+                            "matches": matches,
+                            "limit_reached": False,
+                            "scan_truncated": True,
+                        }
                     val = cell.value
                     if val is None:
                         continue

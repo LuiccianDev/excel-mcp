@@ -1,10 +1,167 @@
 import re
-from typing import Any
+from typing import Any, Final
 
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from excel_mcp.utils.cell_utils import parse_cell_range, validate_cell_reference
+
+FORMULA_PREFIX: Final[str] = "="
+MAX_FORMULA_LENGTH: Final[int] = 8192  # Excel hard formula length limit
+
+DANGEROUS_FUNCTIONS: Final[frozenset[str]] = frozenset(
+    {
+        "CALL",
+        "EXEC",
+        "RUN",
+        "SYSTEM",
+        "SHELL",
+        "EVAL",
+        "REGISTER.ID",
+        "XLM.CALL",
+        "XLM.EXEC",
+        "XLM.RUN",
+        "REGISTER",
+        "CALL.LIBRARY",
+        "VBA.CALL",
+    }
+)
+_UNSAFE_FUNCTIONS: Final[frozenset[str]] = frozenset(
+    {"INDIRECT", "HYPERLINK", "WEBSERVICE", "DGET", "RTD"}
+)
+
+_URL_EXFILTRATION_PATTERNS: Final[tuple[str, ...]] = (
+    r"\b(?:http|ftp|https)://",
+    r"file://",
+)
+_SCRIPT_CODE_PATTERNS: Final[tuple[str, ...]] = (
+    r"<script",
+    r"document\.write",
+    r"eval\s*\(",
+    r"__import__",
+    r"os\.",
+    r"subprocess",
+    r"sys\.exit",
+    r"open\s*\(",
+)
+_DDE_PATTERNS: Final[tuple[str, ...]] = (
+    r"\bcmd\|",
+    r"\bpowershell\|",
+    r"\|\s*['\"]",
+    r"\|[^|]*!",
+)
+INJECTION_PATTERNS: Final[list[str]] = [
+    *_URL_EXFILTRATION_PATTERNS,
+    *_SCRIPT_CODE_PATTERNS,
+    *_DDE_PATTERNS,
+]
+_COMPILED_INJECTION_PATTERNS: Final[tuple[re.Pattern[str], ...]] = tuple(
+    re.compile(pattern) for pattern in INJECTION_PATTERNS
+)
+_OOXML_FUNC_PREFIX_RE: Final[re.Pattern[str]] = re.compile(
+    r"^(?:_?(?:XLFN|XLWS|XLPM|XLETA)\.)+"
+)
+_FUNC_CALL_RE: Final[re.Pattern[str]] = re.compile(r"([A-Z_][A-Z0-9_.]*)\s*\(")
+_PREFIXED_FUNC_CALL_RE: Final[re.Pattern[str]] = re.compile(
+    r"^[+\-@]\s*(?:[A-Za-z_][A-Za-z0-9_.]*\(|[0-9A-Za-z_.$:]+\s*[+\-*/^&]\s*[A-Za-z_][A-Za-z0-9_.]*\()"
+)
+_PREFIXED_DDE_RE: Final[re.Pattern[str]] = re.compile(
+    r"^[+\-@](?:[^|]*\|[^|]*!|[^|]*\|\s*['\"]|\s*(?:cmd|powershell|msexc)\s*\|)",
+    re.IGNORECASE,
+)
+
+
+def _strip_ooxml_func_prefix(func_name: str) -> str:
+    return _OOXML_FUNC_PREFIX_RE.sub("", func_name.upper())
+
+
+def _has_balanced_parentheses(expr: str) -> tuple[bool, str]:
+    open_count = expr.count("(")
+    close_count = expr.count(")")
+    if open_count != close_count:
+        return False, f"Unbalanced parentheses: {open_count} open, {close_count} close"
+    depth = 0
+    for ch in expr:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        if depth < 0:
+            return False, "Unmatched closing parenthesis"
+    return True, ""
+
+
+def validate_formula(formula: str) -> tuple[bool, str]:
+    if not formula.startswith("="):
+        return False, "Formula must start with '='"
+    body = formula[1:]
+    balanced, balance_msg = _has_balanced_parentheses(body)
+    if not balanced:
+        return False, balance_msg
+    for func in _FUNC_CALL_RE.findall(body.upper()):
+        stripped_func = _strip_ooxml_func_prefix(func)
+        if stripped_func in _UNSAFE_FUNCTIONS or func in _UNSAFE_FUNCTIONS:
+            return False, f"Unsafe function: {stripped_func}"
+    return True, "Formula is valid"
+
+
+def validate_formula_secure(formula: str) -> tuple[bool, str]:
+    """Comprehensive security validation for Excel formulas."""
+    normalized = formula.strip()
+    if not normalized:
+        return False, "Formula cannot be empty"
+    if not normalized.startswith("="):
+        normalized = "=" + normalized
+
+    raw_functions = set(_FUNC_CALL_RE.findall(normalized.upper()))
+    functions_found = raw_functions | {
+        _strip_ooxml_func_prefix(name) for name in raw_functions
+    }
+
+    dangerous_found = functions_found.intersection(DANGEROUS_FUNCTIONS)
+    if dangerous_found:
+        return False, f"Dangerous functions detected: {dangerous_found}"
+
+    unsafe_found = functions_found.intersection(_UNSAFE_FUNCTIONS)
+    if unsafe_found:
+        return False, f"Unsafe function: {sorted(unsafe_found)[0]}"
+
+    formula_lower = normalized.lower()
+    for pattern in _COMPILED_INJECTION_PATTERNS:
+        if pattern.search(formula_lower):
+            return False, "Suspicious pattern detected (potential injection)"
+
+    balanced, balance_msg = _has_balanced_parentheses(normalized)
+    if not balanced:
+        return False, balance_msg
+
+    if len(normalized) > MAX_FORMULA_LENGTH:
+        return (
+            False,
+            f"Formula exceeds maximum length of {MAX_FORMULA_LENGTH} characters",
+        )
+
+    return True, "Formula is valid and secure"
+
+
+def validate_cell_value_secure(value: Any) -> tuple[bool, str]:
+    """Validate an arbitrary cell value against formula and DDE injection."""
+    if not isinstance(value, str):
+        return True, "Non-string value is safe"
+
+    stripped = value.lstrip()
+    if not stripped:
+        return True, "Empty string is safe"
+
+    if stripped.startswith("="):
+        return validate_formula_secure(stripped)
+
+    if stripped[0] in "+-@" and (
+        _PREFIXED_FUNC_CALL_RE.match(stripped) or _PREFIXED_DDE_RE.match(stripped)
+    ):
+        return validate_formula_secure("=" + stripped[1:].lstrip())
+
+    return True, "String value is safe"
 
 
 def validate_formula_in_cell_operation(
@@ -24,6 +181,12 @@ def validate_formula_in_cell_operation(
                 return {
                     "status": "error",
                     "message": f"Invalid formula syntax: {message}",
+                }
+            sec_valid, sec_message = validate_formula_secure(formula)
+            if not sec_valid:
+                return {
+                    "status": "error",
+                    "message": f"Formula security validation failed: {sec_message}",
                 }
             cell_refs = re.findall(r"[A-Z]+[0-9]+(?::[A-Z]+[0-9]+)?", formula)
             for ref in cell_refs:
@@ -112,30 +275,6 @@ def validate_range_in_sheet_operation(
             }
     except Exception as e:
         return {"status": "error", "message": str(e)}
-
-
-def validate_formula(formula: str) -> tuple[bool, str]:
-    if not formula.startswith("="):
-        return False, "Formula must start with '='"
-    formula = formula[1:]
-    parens = 0
-    for c in formula:
-        if c == "(":
-            parens += 1
-        elif c == ")":
-            parens -= 1
-        if parens < 0:
-            return False, "Unmatched closing parenthesis"
-    if parens > 0:
-        return False, "Unclosed parenthesis"
-    func_pattern = r"([A-Za-z]+)\("
-    funcs = re.findall(func_pattern, formula)
-    unsafe_funcs = {"INDIRECT", "HYPERLINK", "WEBSERVICE", "DGET", "RTD"}
-    for func in funcs:
-        upper_func = func.upper()
-        if upper_func in unsafe_funcs:
-            return False, f"Unsafe function: {upper_func}"
-    return True, "Formula is valid"
 
 
 def validate_range_bounds(

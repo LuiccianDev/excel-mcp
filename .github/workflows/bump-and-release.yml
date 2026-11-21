@@ -1,9 +1,5 @@
 name: Automated Version Bump & Release Preparation
 
-# Opens the release PR and runs the full CI against its branch (workflow_call), so the
-# checks are visible before merging without a personal access token. After merging to master,
-# pushing the release tag (e.g. v2.1.6) triggers the deployment pipeline in release.yml.
-
 on:
   workflow_dispatch:
     inputs:
@@ -62,8 +58,11 @@ jobs:
 
       - name: Bump Version in pyproject.toml & CHANGELOG.md
         id: bump
+        env:
+          BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+          CUSTOM_VERSION: ${{ github.event.inputs.custom_version }}
         run: |
-          uv run python scripts/bump-version.py --type "${{ github.event.inputs.bump_type }}" --custom "${{ github.event.inputs.custom_version }}"
+          uv run python scripts/bump-version.py --type "$BUMP_TYPE" --custom "$CUSTOM_VERSION"
           VERSION=$(grep -m1 '^version = ' pyproject.toml | cut -d '"' -f2)
           TAG="v$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -73,8 +72,10 @@ jobs:
           echo ">>> New Tag: $TAG"
 
       - name: Extract Release Notes from CHANGELOG
+        env:
+          RELEASE_TAG: ${{ steps.bump.outputs.tag }}
         run: |
-          uv run python scripts/extract-release-notes.py --tag "${{ steps.bump.outputs.tag }}" --output pr_body.md
+          uv run python scripts/extract-release-notes.py --tag "$RELEASE_TAG" --output pr_body.md
 
       - name: Synchronize release metadata
         run: |
@@ -85,16 +86,17 @@ jobs:
       - name: Create release branch and Pull Request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ steps.bump.outputs.branch }}
+          RELEASE_TAG: ${{ steps.bump.outputs.tag }}
         run: |
-          BRANCH_NAME="${{ steps.bump.outputs.branch }}"
           git checkout -b "$BRANCH_NAME"
           git add pyproject.toml uv.lock CHANGELOG.md manifest.json docs/TOOLS.md
-          git commit -m "chore(release): bump version to ${{ steps.bump.outputs.tag }}"
+          git commit -m "chore(release): bump version to $RELEASE_TAG"
           git push origin "$BRANCH_NAME" --force
           gh pr create \
             --head "$BRANCH_NAME" \
             --base master \
-            --title "chore(release): prepare release ${{ steps.bump.outputs.tag }}" \
+            --title "chore(release): prepare release $RELEASE_TAG" \
             --body-file pr_body.md || echo "Pull request already exists or created"
 
   ci:
