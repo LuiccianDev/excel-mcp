@@ -1,15 +1,19 @@
-# Excel MCP Server
+<div align="center">
+  <h1>Excel MCP Server</h1>
+  <p>
+    <em>High-performance Model Context Protocol (MCP) server for programmatic Excel (.xlsx) spreadsheet generation and manipulation</em>
+  </p>
 
-High-performance Model Context Protocol (MCP) server for programmatic Excel (`.xlsx`) spreadsheet generation and manipulation.
+  [![PyPI Version](https://img.shields.io/pypi/v/luiccian-excel-mcp.svg)](https://pypi.org/project/luiccian-excel-mcp/)
+  [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+  [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+  [![CodeQL](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml/badge.svg)](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml)
+  [![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](https://github.com/LuiccianDev/excel-mcp/blob/master/SECURITY.md)
+  [![Rules for AI](https://img.shields.io/badge/rules-AGENTS.md-blue.svg)](https://github.com/LuiccianDev/excel-mcp/blob/master/AGENTS.md)
+  [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/LuiccianDev/excel-mcp/blob/master/LICENSE)
+  [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-brightgreen)](https://modelcontextprotocol.io)
 
-[![PyPI Version](https://img.shields.io/pypi/v/luiccian-excel-mcp.svg)](https://pypi.org/project/luiccian-excel-mcp/)
-[![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
-[![CodeQL](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml/badge.svg)](https://github.com/LuiccianDev/excel-mcp/actions/workflows/codeql.yml)
-[![Security Policy](https://img.shields.io/badge/security-policy-blue.svg)](https://github.com/LuiccianDev/excel-mcp/blob/master/SECURITY.md)
-[![Rules for AI](https://img.shields.io/badge/rules-AGENTS.md-blue.svg)](https://github.com/LuiccianDev/excel-mcp/blob/master/AGENTS.md)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/LuiccianDev/excel-mcp/blob/master/LICENSE)
-[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-brightgreen)](https://modelcontextprotocol.io)
+</div>
 
 **Excel MCP Server** (`excel-mcp`, PyPI: [`luiccian-excel-mcp`](https://pypi.org/project/luiccian-excel-mcp/)) is a high-performance Python server implementing the Model Context Protocol (MCP) to provide advanced, token-optimized Excel spreadsheet (`.xlsx`) creation, batch synthesis, formula automation, and inspection capabilities for AI assistants (Claude Desktop, Claude Code, Cursor, VS Code / GitHub Copilot, Antigravity, Windsurf, Cline).
 
