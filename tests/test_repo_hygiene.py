@@ -25,7 +25,7 @@ def test_documentation_uses_supported_uv_workflow() -> None:
     assert "uvx luiccian-excel-mcp" in readme
     assert "uv sync --all-groups" in readme
     assert "EXCEL_MCP_DIRS" in security
-    assert "2.1.x" in security
+    assert "2.4.x" in security
 
 
 def test_documentation_contains_no_retired_tool_names() -> None:
