@@ -50,7 +50,7 @@ jobs:
           ref: ${{ inputs.ref || github.ref }}
 
       - name: Verify PR does not bump version directly
-        if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release/v')
+        if: github.event_name == 'pull_request' && !(startsWith(github.head_ref, 'release/v') && github.event.pull_request.head.repo.full_name == github.repository)
         run: |
           if git diff origin/master...HEAD -- pyproject.toml | grep -E "^\+[[:space:]]*version[[:space:]]*="; then
             echo "::error::Direct version bumps are forbidden in regular PRs. Use the automated release pipeline instead."

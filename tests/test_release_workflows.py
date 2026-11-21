@@ -125,3 +125,30 @@ def test_publish_pypi_validates_tag_format_and_master_ancestry() -> None:
     assert "^v[0-9]+\\.[0-9]+\\.[0-9]+$" in publish
     assert "fetch-depth: 0" in publish
     assert "git merge-base --is-ancestor" in publish
+
+
+def test_release_binds_build_and_github_release_to_verified_sha() -> None:
+    release = _read("release.yml")
+    jobs = _jobs(release)
+    assert "^v[0-9]+\\.[0-9]+\\.[0-9]+$" in jobs["verify-tag"]
+    assert "refs/tags/${TAG}^{commit}" in jobs["verify-tag"]
+    assert "ref: ${{ needs.verify-tag.outputs.sha }}" in jobs["build"]
+    assert "ref: ${{ needs.verify-tag.outputs.sha }}" in jobs["github-release"]
+    assert "enable-cache: false" in jobs["verify-tag"]
+    assert "enable-cache: false" in jobs["build"]
+
+
+def test_publish_pypi_qualifies_tag_ref_checks_lockfile_and_disables_cache() -> None:
+    publish = _read("publish-pypi.yml")
+    assert "ref: refs/tags/${{ github.event.inputs.tag }}" in publish
+    assert "uv lock --check" in publish
+    assert "enable-cache: false" in publish
+
+
+def test_ci_version_bump_guard_rejects_cross_repo_forks_and_codeql_permissions() -> (
+    None
+):
+    ci = _read("ci.yml")
+    codeql = _read("codeql.yml")
+    assert "github.event.pull_request.head.repo.full_name == github.repository" in ci
+    assert "permissions:\n  contents: read" in codeql

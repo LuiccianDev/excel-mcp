@@ -164,3 +164,19 @@ def test_ensure_unreleased_notes_requires_non_empty_entries(tmp_path: Path) -> N
         encoding="utf-8",
     )
     module._ensure_unreleased_notes(changelog)
+
+
+def test_bump_version_ignores_version_keys_outside_project_table(
+    tmp_path: Path,
+) -> None:
+    module = _load_bump_module()
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        '[tool.custom]\nversion = "0.0.1"\n\n[project]\nname = "luiccian-excel-mcp"\nversion = "2.4.0"\n',
+        encoding="utf-8",
+    )
+    assert module.get_current_version(pyproject) == "2.4.0"
+    module._update_pyproject(pyproject, "2.4.1", dry_run=False)
+    updated = pyproject.read_text(encoding="utf-8")
+    assert 'version = "0.0.1"' in updated
+    assert 'version = "2.4.1"' in updated

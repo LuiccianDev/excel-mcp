@@ -23,14 +23,22 @@ from datetime import date
 from pathlib import Path
 
 
+_PROJECT_VERSION_RE = re.compile(
+    r"(\[project\][^\[]*?^\s*version\s*=\s*\")([^\"]+)(\")",
+    re.MULTILINE | re.DOTALL,
+)
+
+
 def get_current_version(pyproject_path: Path) -> str:
     if not pyproject_path.is_file():
         raise FileNotFoundError(f"pyproject.toml not found at {pyproject_path}")
     content = pyproject_path.read_text(encoding="utf-8")
-    match = re.search(r'version\s*=\s*"([^"]+)"', content)
+    match = _PROJECT_VERSION_RE.search(content)
+    if not match:
+        match = re.search(r'^\s*version\s*=\s*"([^"]+)"', content, re.MULTILINE)
     if not match:
         raise ValueError("Could not find 'version = \"...\"' in pyproject.toml")
-    return match.group(1).strip()
+    return match.group(2 if match.re is _PROJECT_VERSION_RE else 1).strip()
 
 
 def _parse_semver(version: str) -> tuple[int, int, int]:
@@ -103,12 +111,15 @@ def _update_pyproject(pyproject_path: Path, new_version: str, dry_run: bool) -> 
     if not pyproject_path.is_file():
         return
     content = pyproject_path.read_text(encoding="utf-8")
-    updated = re.sub(
-        r'version\s*=\s*"[^"]+"',
-        f'version = "{new_version}"',
-        content,
-        count=1,
-    )
+    if _PROJECT_VERSION_RE.search(content):
+        updated = _PROJECT_VERSION_RE.sub(rf"\g<1>{new_version}\3", content, count=1)
+    else:
+        updated = re.sub(
+            r'version\s*=\s*"[^"]+"',
+            f'version = "{new_version}"',
+            content,
+            count=1,
+        )
     if not dry_run:
         pyproject_path.write_text(updated, encoding="utf-8")
     print(f"  [OK] {pyproject_path.name} -> {new_version}")
