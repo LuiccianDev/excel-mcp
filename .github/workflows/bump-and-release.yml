@@ -92,12 +92,17 @@ jobs:
           git checkout -b "$BRANCH_NAME"
           git add pyproject.toml uv.lock CHANGELOG.md manifest.json docs/TOOLS.md
           git commit -m "chore(release): bump version to $RELEASE_TAG"
-          git push origin "$BRANCH_NAME" --force
-          gh pr create \
-            --head "$BRANCH_NAME" \
-            --base master \
-            --title "chore(release): prepare release $RELEASE_TAG" \
-            --body-file pr_body.md || echo "Pull request already exists or created"
+          git push origin "$BRANCH_NAME" --force-with-lease
+          EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --base master --json number --jq '.[0].number // empty')
+          if [ -z "$EXISTING_PR" ]; then
+            gh pr create \
+              --head "$BRANCH_NAME" \
+              --base master \
+              --title "chore(release): prepare release $RELEASE_TAG" \
+              --body-file pr_body.md
+          else
+            echo "Pull request #$EXISTING_PR already exists for $BRANCH_NAME"
+          fi
 
   ci:
     name: CI on release branch

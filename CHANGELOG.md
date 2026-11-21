@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **Unified Formula & Cell Injection Validation**: Consolidated pure formula, DDE, and cell-value validation into `utils/validation_utils.py`, enforcing `validate_formula_secure` across `apply_formula`, `validate_formula_in_cell_operation`, `data_validation` (`formula1`/`formula2` across all validation types), and `batch.py` title banners and headers while blocking `_xlfn.`/`_xlws.`/`_xlpm.`/`_xleta.` prefixes and unquoted DDE payloads without false positives on bulleted prose.
+- **Archive, Range, Regex & Metrics Resource Bounds**: Added ZIP entry-count, uncompressed-size, and compression-ratio validation in `core/_io.py` (`workbook_session`) plus post-save `DEFAULT_MAX_FILE_SIZE` enforcement in `atomic_save`, shared `assert_range_cell_limit` bounds across `data.py`, `formatting.py`, and `sheet_utils.py`, `preview_only` scan clamping in `_get_used_range`, depth-aware nested-quantifier ReDoS protection and `scan_truncated` reporting in `core/search.py`, and log rotation in `utils/metrics.py`.
+- **Path Placeholder Filtering & Destructive Tool Annotations**: Ignored unexpanded `${...}` directory placeholders and trailing-space Windows reserved names in `utils/paths.py`, centralized directory rejection in `validate_file_constraints`, and marked `excel_build_workbook` and `excel_create_workbook` with `destructive_hint=True`.
+- **CI/CD Release & Supply-Chain Hardening**: Moved `workflow_dispatch` inputs and outputs into `env:` across release workflows, bound `build` and `github-release` in `release.yml` to the immutable `needs.verify-tag.outputs.sha` commit after verifying `refs/tags/${TAG}^{commit}` and `master` ancestry, qualified `refs/tags/` checkout and enforced `uv lock --check` in `publish-pypi.yml`, disabled shared runner caching (`enable-cache: false`) in release and PyPI publish jobs, restricted the `release/v*` version-bump exemption in `ci.yml` to same-repository PRs, added top-level `contents: read` permissions in `codeql.yml`, and anchored `[project].version` updates with monotonic semver and non-empty `[Unreleased]` validation in `scripts/bump-version.py`.
+
+### Changed
+- **Modular Sheet & Formatting Helpers**: Decomposed `_build_sheet_with_stats` (`core/batch.py`) and `format_range` (`core/formatting.py`) into focused helpers under 150 lines per function and removed the `ToolAnnotations` fallback stub in `tools/register_tools.py`.
+
 ---
 
 ## [2.4.0] - 2026-11-18

@@ -98,8 +98,6 @@ def test_matrix_matches_classifiers() -> None:
 
 
 def test_release_commit_does_not_skip_ci() -> None:
-    # A squash-merged release PR reuses the bump commit message; "[skip ci]" in it
-    # would also suppress the push-triggered release workflow.
     bump = _read("bump-and-release.yml")
     assert "[skip ci]" not in bump
     assert "[ci skip]" not in bump
@@ -112,3 +110,45 @@ def test_release_pr_runs_ci_through_workflow_call() -> None:
     assert "uses: ./.github/workflows/ci.yml" in bump
     assert "create_pr" not in bump
     assert "--tags" not in bump
+
+
+def test_bump_and_release_uses_force_with_lease_and_checks_existing_pr() -> None:
+    bump = _read("bump-and-release.yml")
+    assert "--force-with-lease" in bump
+    assert "--force\n" not in bump
+    assert "gh pr list" in bump
+    assert "|| echo" not in bump
+
+
+def test_publish_pypi_validates_tag_format_and_master_ancestry() -> None:
+    publish = _read("publish-pypi.yml")
+    assert "^v[0-9]+\\.[0-9]+\\.[0-9]+$" in publish
+    assert "fetch-depth: 0" in publish
+    assert "git merge-base --is-ancestor" in publish
+
+
+def test_release_binds_build_and_github_release_to_verified_sha() -> None:
+    release = _read("release.yml")
+    jobs = _jobs(release)
+    assert "^v[0-9]+\\.[0-9]+\\.[0-9]+$" in jobs["verify-tag"]
+    assert "refs/tags/${TAG}^{commit}" in jobs["verify-tag"]
+    assert "ref: ${{ needs.verify-tag.outputs.sha }}" in jobs["build"]
+    assert "ref: ${{ needs.verify-tag.outputs.sha }}" in jobs["github-release"]
+    assert "enable-cache: false" in jobs["verify-tag"]
+    assert "enable-cache: false" in jobs["build"]
+
+
+def test_publish_pypi_qualifies_tag_ref_checks_lockfile_and_disables_cache() -> None:
+    publish = _read("publish-pypi.yml")
+    assert "ref: refs/tags/${{ github.event.inputs.tag }}" in publish
+    assert "uv lock --check" in publish
+    assert "enable-cache: false" in publish
+
+
+def test_ci_version_bump_guard_rejects_cross_repo_forks_and_codeql_permissions() -> (
+    None
+):
+    ci = _read("ci.yml")
+    codeql = _read("codeql.yml")
+    assert "github.event.pull_request.head.repo.full_name == github.repository" in ci
+    assert "permissions:\n  contents: read" in codeql
