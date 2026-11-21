@@ -164,10 +164,10 @@ All runtime configuration is supplied via standard OS environment variables or t
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `EXCEL_MCP_DIRS` | *(current directory)* | Comma-separated list of allowed root directories for reading, writing, and listing `.xlsx` files. |
+| `EXCEL_MCP_DIRS` | `~/Documents` *(or `./documents` fallback)* | Comma-separated list of allowed root directories for reading, writing, and listing `.xlsx` files. |
 | `EXCEL_MCP_TOOLS` | `compound` | Tool surface mode: `compound` (8 tools: 3 single-pass + 5 domain dispatchers) or `full` (all 33 granular tools). |
 | `LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). |
-| `DEV_MODE` | `false` | Enables verbose development diagnostics when set to `true`. |
+| `EXCEL_MCP_METRICS_LOG` | *(unset)* | Optional path to a rotating JSONL file for development tool-call metrics logging. |
 
 ---
 
@@ -203,11 +203,11 @@ The server defaults to `compound` mode (8 tools) and exposes all 33 granular `ex
 
 | Category | Tool Name | Type | Actions / Purpose |
 | :--- | :--- | :--- | :--- |
-| **Single-Pass** | `excel_build_workbook` | `Write` | Build full multi-sheet workbooks with styles, uniform fonts, navigation, formulas, and charts in 1 call |
+| **Single-Pass** | `excel_build_workbook` | `Destructive` | Build full multi-sheet workbooks with styles, uniform fonts, navigation, formulas, and charts in 1 call |
 | | `excel_get_workbook_outline` | `Read-Only` | Lightweight outline inspection without loading entire cell matrices |
 | | `excel_batch_write_data` | `Write` | Write 2D matrix of values or formulas into a sheet range atomically |
-| **Domain Dispatchers** | `excel_workbook` | `Write` / `Read-Only` | `create`, `list`, `metadata`, `create_sheet`, `copy_sheet`, `delete_sheet`, `rename_sheet` |
-| | `excel_data` | `Write` / `Read-Only` | `read`, `write`, `append_rows`, `copy_range`, `delete_range`, `merge_cells`, `unmerge_cells`, `insert_rows_columns`, `delete_rows_columns`, `sort_range`, `validate_range`, `find_cells`, `profile_sheet` |
+| **Domain Dispatchers** | `excel_workbook` | `Destructive` / `Read-Only` | `create`, `list`, `metadata`, `create_sheet`, `copy_sheet`, `delete_sheet`, `rename_sheet` |
+| | `excel_data` | `Destructive` / `Read-Only` | `read`, `write`, `append_rows`, `copy_range`, `delete_range`, `merge_cells`, `unmerge_cells`, `insert_rows_columns`, `delete_rows_columns`, `sort_range`, `validate_range`, `find_cells`, `profile_sheet` |
 | | `excel_format` | `Write` | `format_range`, `format_sheet`, `create_table`, `add_data_validation`, `protect_sheet`, `configure_page_setup` |
 | | `excel_formula` | `Write` / `Read-Only` | `validate`, `apply` |
 | | `excel_analytics` | `Write` | `create_chart`, `create_pivot_table` |
@@ -216,7 +216,7 @@ The server defaults to `compound` mode (8 tools) and exposes all 33 granular `ex
 
 | Category | Canonical Tool Name | Type | Description |
 | :--- | :--- | :--- | :--- |
-| **Batch & Single-Pass** | `excel_build_workbook` | `Write` | Build full multi-sheet workbooks with styles, uniform fonts, navigation, formulas, and charts in 1 call |
+| **Batch & Single-Pass** | `excel_build_workbook` | `Destructive` | Build full multi-sheet workbooks with styles, uniform fonts, navigation, formulas, and charts in 1 call |
 | | `excel_get_workbook_outline` | `Read-Only` | Lightweight outline inspection without loading entire cell matrices |
 | | `excel_batch_write_data` | `Write` | Write 2D matrix of values or formulas into a sheet range atomically |
 | | `excel_append_rows` | `Write` | Append batch rows below existing data automatically detecting last row |
@@ -231,7 +231,7 @@ The server defaults to `compound` mode (8 tools) and exposes all 33 granular `ex
 | | `excel_copy_range` | `Write` | Copy cells, formats, and formulas across ranges |
 | | `excel_delete_range` | `Destructive` | Delete range of cells with optional cell shifting |
 | | `excel_validate_range` | `Read-Only` | Validate range coordinate syntax |
-| **Worksheet Management**| `excel_create_workbook` | `Write` | Create a new Excel workbook file |
+| **Worksheet Management**| `excel_create_workbook` | `Destructive` | Create a new Excel workbook file |
 | | `excel_create_worksheet` | `Write` | Add a new worksheet to a workbook |
 | | `excel_copy_worksheet` | `Write` | Duplicate a worksheet within a workbook |
 | | `excel_delete_worksheet` | `Destructive` | Permanently delete a worksheet |
@@ -257,7 +257,7 @@ The server defaults to `compound` mode (8 tools) and exposes all 33 granular `ex
 - **Restricted Directories**: Access is strictly limited to paths listed in `EXCEL_MCP_DIRS` (supporting multiple comma-separated roots, symlink traversal protection, and filtering of unexpanded `${...}` placeholders).
 - **Formula & DDE Sanitization**: All formula inputs, `data_validation` rules, and batch title/header values pass `validate_formula_secure`, blocking leading-whitespace formula smuggling, `_xlfn.`/`_xlws.`/`_xlpm.`/`_xleta.` prefixes, DDE command prefixes (`cmd|`, `powershell|`), and dangerous functions.
 - **Resource & Regex Bounds**: `workbook_session` validates ZIP entry counts, uncompressed size, and compression ratios against archive bombs, range operations enforce cell limits, and search queries apply depth-aware ReDoS protection.
-- **Crash-Safe Atomic Writes**: Mutating operations write to isolated temporary files and commit atomically via `os.replace`, with `destructive_hint=True` annotations on file-creating and mutating tools.
+- **Crash-Safe Atomic Writes**: Mutating operations write to isolated temporary files and commit atomically via `os.replace`, with `destructive_hint=True` annotations on file-creating and destructive tools.
 - **Trusted Publishing**: Tag-driven PyPI releases (`v*.*.*`) use GitHub Actions OIDC and PEP 740 artifact attestation.
 
 ---
