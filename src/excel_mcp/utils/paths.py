@@ -67,7 +67,12 @@ def validate_path_safety(path: str | Path) -> str | None:
         return "Path cannot be empty."
     if "\x00" in raw:
         return "Path contains null byte."
-    if raw.startswith("\\\\") or raw.startswith("//"):
+    normalized_prefix = raw.lstrip()
+    if (
+        len(normalized_prefix) >= 2
+        and normalized_prefix[0] in "\\/"
+        and normalized_prefix[1] in "\\/"
+    ):
         return f"UNC network paths are not permitted: '{path}'"
 
     remainder = _DRIVE_PREFIX_RE.sub("", raw, count=1)

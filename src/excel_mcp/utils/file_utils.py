@@ -147,11 +147,15 @@ def list_excel_files_in_directory() -> list[dict]:
             with os.scandir(directory) as entries:
                 for entry in entries:
                     try:
-                        if entry.is_file() and entry.name.lower().endswith(".xlsx"):
+                        if entry.is_symlink():
+                            continue
+                        if entry.is_file(
+                            follow_symlinks=False
+                        ) and entry.name.lower().endswith(".xlsx"):
                             if entry.path in seen:
                                 continue
                             seen.add(entry.path)
-                            stat = entry.stat()
+                            stat = entry.stat(follow_symlinks=False)
                             excel_files.append(
                                 {
                                     "filename": entry.name,

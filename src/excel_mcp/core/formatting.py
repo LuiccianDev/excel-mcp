@@ -1,3 +1,4 @@
+import re
 from typing import Any, Final, Literal, TypedDict
 
 from openpyxl.formatting.rule import (
@@ -24,6 +25,7 @@ from excel_mcp.utils.cell_utils import (
     parse_cell_range,
     validate_cell_reference,
 )
+from excel_mcp.utils.validation_utils import validate_formula_secure
 
 MAX_FORMAT_CELLS: Final[int] = 100_000
 
@@ -67,8 +69,59 @@ _CONDITIONAL_RULE_BUILDERS: Final[dict[str, Any]] = {
 }
 
 
+_HEX_COLOR_RE: Final[re.Pattern[str]] = re.compile(r"^[0-9A-F]{6}([0-9A-F]{2})?$")
+_CF_FORMULA_SCALAR_KEYS: Final[tuple[str, ...]] = (
+    "start_value",
+    "mid_value",
+    "end_value",
+    "min_value",
+    "max_value",
+)
+
+
 def _normalize_argb(color: str) -> str:
-    return color if color.startswith("FF") else f"FF{color}"
+    if not isinstance(color, str):
+        raise ValueError(f"Invalid hex color {color!r}: expected hex string.")
+    cleaned = color.strip().lstrip("#").upper()
+    if not _HEX_COLOR_RE.fullmatch(cleaned):
+        raise ValueError(
+            f"Invalid hex color '{color}': expected 6-digit RRGGBB or 8-digit AARRGGBB."
+        )
+    return f"FF{cleaned}" if len(cleaned) == 6 else cleaned
+
+
+def _validate_conditional_format_formulas(
+    rule_type: str, params: dict[str, Any]
+) -> str | None:
+    candidates: list[str] = []
+    formula_val = params.get("formula")
+    if isinstance(formula_val, str):
+        if formula_val:
+            candidates.append(formula_val)
+    elif isinstance(formula_val, list | tuple):
+        candidates.extend(item for item in formula_val if isinstance(item, str))
+
+    if rule_type == "formula" and not any(item.strip() for item in candidates):
+        return (
+            "Conditional format formula rule requires a non-empty 'formula' parameter."
+        )
+
+    for key in _CF_FORMULA_SCALAR_KEYS:
+        val = params.get(key)
+        if isinstance(val, str) and val != "":
+            candidates.append(val)
+
+    values_val = params.get("values")
+    if isinstance(values_val, list | tuple):
+        candidates.extend(
+            item for item in values_val if isinstance(item, str) and item != ""
+        )
+
+    for expr in candidates:
+        ok, msg = validate_formula_secure(expr)
+        if not ok:
+            return f"Conditional format formula security validation failed: {msg}"
+    return None
 
 
 def _build_font(
@@ -127,8 +180,12 @@ def _apply_conditional_formatting(
             "message": f"Invalid conditional format type: {rule_type}",
         }
     params = dict(conditional_format.get("params", {}))
-    if rule_type == "cell_is" and isinstance(params.get("fill"), dict):
-        fill_color = _normalize_argb(params["fill"].get("fgColor", "FFC7CE"))
+    formula_err = _validate_conditional_format_formulas(rule_type, params)
+    if formula_err is not None:
+        return {"status": "error", "message": formula_err}
+    if rule_type in ("cell_is", "formula") and isinstance(params.get("fill"), dict):
+        raw_fg = params["fill"].get("fgColor")
+        fill_color = _normalize_argb(raw_fg if raw_fg is not None else "FFC7CE")
         params["fill"] = PatternFill(
             start_color=fill_color,
             end_color=fill_color,

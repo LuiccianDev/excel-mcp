@@ -48,11 +48,17 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
 
       - name: Verify PR does not bump version directly
         if: github.event_name == 'pull_request' && !(startsWith(github.head_ref, 'release/v') && github.event.pull_request.head.repo.full_name == github.repository)
+        env:
+          BASE_REF: ${{ github.base_ref || 'master' }}
         run: |
-          if git diff origin/master...HEAD -- pyproject.toml | grep -E "^\+[[:space:]]*version[[:space:]]*="; then
+          set -euo pipefail
+          git rev-parse --verify "origin/${BASE_REF}" >/dev/null
+          diff_output="$(git diff "origin/${BASE_REF}...HEAD" -- pyproject.toml)"
+          if printf '%s\n' "${diff_output}" | grep -Eq '^\+[[:space:]]*version[[:space:]]*='; then
             echo "::error::Direct version bumps are forbidden in regular PRs. Use the automated release pipeline instead."
             exit 1
           fi

@@ -268,6 +268,122 @@ def _normalize_result(result: Any) -> dict[str, Any]:
     return {"status": "success", "data": result}
 
 
+def _normalize_and_validate_kwargs(
+    group: str,
+    action: str,
+    filename: str | None,
+    params: dict[str, Any] | None,
+    spec: CompoundActionSpec,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    (
+        accepted_params,
+        required_params,
+        accepts_kwargs,
+        accepts_filename,
+        requires_guard_file,
+    ) = spec.signature_meta
+
+    call_kwargs = dict(params or {})
+    if (
+        "range_string" in call_kwargs
+        and "cell_range" in call_kwargs
+        and (
+            "range_string" not in accepted_params or "cell_range" not in accepted_params
+        )
+    ):
+        return None, {
+            "status": "error",
+            "message": "Provide either 'range_string' or 'cell_range', not both.",
+        }
+    if (
+        "range_string" in call_kwargs
+        and "range_string" not in accepted_params
+        and "cell_range" in accepted_params
+    ):
+        call_kwargs["cell_range"] = call_kwargs.pop("range_string")
+    elif (
+        "cell_range" in call_kwargs
+        and "cell_range" not in accepted_params
+        and "range_string" in accepted_params
+    ):
+        call_kwargs["range_string"] = call_kwargs.pop("cell_range")
+
+    if not accepts_kwargs:
+        unknown = sorted(k for k in call_kwargs if k not in accepted_params)
+        if unknown:
+            return None, {
+                "status": "error",
+                "message": (
+                    f"Unknown parameter(s) for '{group}.{action}': {', '.join(unknown)}"
+                ),
+                "accepted_parameters": list(accepted_params),
+            }
+
+    param_filename = call_kwargs.get("filename")
+    param_file_path = call_kwargs.get("file_path")
+    if (
+        filename is not None
+        and param_filename is not None
+        and param_filename != filename
+    ):
+        return None, {
+            "status": "error",
+            "message": (
+                f"Conflicting 'filename' values between top-level argument and params "
+                f"for '{group}.{action}'."
+            ),
+        }
+    if (
+        filename is not None
+        and param_file_path is not None
+        and param_file_path != filename
+    ):
+        return None, {
+            "status": "error",
+            "message": (
+                f"Conflicting 'filename' and 'file_path' values for '{group}.{action}'."
+            ),
+        }
+    if (
+        param_filename is not None
+        and param_file_path is not None
+        and param_filename != param_file_path
+    ):
+        return None, {
+            "status": "error",
+            "message": (
+                f"Conflicting 'filename' and 'file_path' values in params for '{group}.{action}'."
+            ),
+        }
+
+    if filename is not None and accepts_filename and param_filename is None:
+        call_kwargs["filename"] = filename
+
+    if (
+        requires_guard_file
+        and call_kwargs.get("filename") is None
+        and call_kwargs.get("file_path") is None
+    ):
+        return None, {
+            "status": "error",
+            "message": f"Missing required parameter 'filename' for '{group}.{action}'.",
+            "accepted_parameters": list(accepted_params),
+        }
+
+    missing = [name for name in required_params if name not in call_kwargs]
+    if missing:
+        return None, {
+            "status": "error",
+            "message": (
+                f"Missing required parameter(s) for '{group}.{action}': "
+                f"{', '.join(missing)}"
+            ),
+            "accepted_parameters": list(accepted_params),
+        }
+
+    return call_kwargs, None
+
+
 async def dispatch_compound_action(
     group: str,
     action: str,
@@ -290,78 +406,11 @@ async def dispatch_compound_action(
             "available_actions": sorted(group_actions.keys()),
         }
 
-    (
-        accepted_params,
-        required_params,
-        accepts_kwargs,
-        accepts_filename,
-        requires_guard_file,
-    ) = spec.signature_meta
-
-    call_kwargs = dict(params or {})
-    if (
-        "range_string" in call_kwargs
-        and "cell_range" in call_kwargs
-        and (
-            "range_string" not in accepted_params or "cell_range" not in accepted_params
-        )
-    ):
-        return {
-            "status": "error",
-            "message": "Provide either 'range_string' or 'cell_range', not both.",
-        }
-    if (
-        "range_string" in call_kwargs
-        and "range_string" not in accepted_params
-        and "cell_range" in accepted_params
-    ):
-        call_kwargs["cell_range"] = call_kwargs.pop("range_string")
-    elif (
-        "cell_range" in call_kwargs
-        and "cell_range" not in accepted_params
-        and "range_string" in accepted_params
-    ):
-        call_kwargs["range_string"] = call_kwargs.pop("cell_range")
-
-    if not accepts_kwargs:
-        unknown = sorted(k for k in call_kwargs if k not in accepted_params)
-        if unknown:
-            return {
-                "status": "error",
-                "message": (
-                    f"Unknown parameter(s) for '{group}.{action}': {', '.join(unknown)}"
-                ),
-                "accepted_parameters": list(accepted_params),
-            }
-
-    if (
-        filename is not None
-        and accepts_filename
-        and call_kwargs.get("filename") is None
-    ):
-        call_kwargs["filename"] = filename
-
-    if (
-        requires_guard_file
-        and call_kwargs.get("filename") is None
-        and call_kwargs.get("file_path") is None
-    ):
-        return {
-            "status": "error",
-            "message": f"Missing required parameter 'filename' for '{group}.{action}'.",
-            "accepted_parameters": list(accepted_params),
-        }
-
-    missing = [name for name in required_params if name not in call_kwargs]
-    if missing:
-        return {
-            "status": "error",
-            "message": (
-                f"Missing required parameter(s) for '{group}.{action}': "
-                f"{', '.join(missing)}"
-            ),
-            "accepted_parameters": list(accepted_params),
-        }
+    call_kwargs, err = _normalize_and_validate_kwargs(
+        group, action, filename, params, spec
+    )
+    if err is not None or call_kwargs is None:
+        return err or {"status": "error", "message": "Invalid compound parameters."}
 
     try:
         result = spec.handler(**call_kwargs)
