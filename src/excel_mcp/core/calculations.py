@@ -1,7 +1,8 @@
 from pathlib import Path
+import re
 from typing import Any
 
-from excel_mcp.core._io import workbook_session
+from excel_mcp.core._io import resolve_sheet, workbook_session
 from excel_mcp.exceptions.exception_core import FormulaError, ValidationError
 from excel_mcp.utils.cell_utils import validate_cell_reference
 from excel_mcp.utils.validation_utils import (
@@ -10,6 +11,7 @@ from excel_mcp.utils.validation_utils import (
     INJECTION_PATTERNS,
     MAX_FORMULA_LENGTH,
     validate_cell_value_secure,
+    validate_formula,
     validate_formula_secure,
 )
 
@@ -23,6 +25,7 @@ __all__ = [
     "apply_formula_secure",
     "assert_safe_cell_value",
     "validate_cell_value_secure",
+    "validate_formula_in_cell_operation",
     "validate_formula_secure",
 ]
 
@@ -99,7 +102,8 @@ def apply_formula_secure(
             "cell": cell,
         }
 
-    normalized = formula if formula.startswith("=") else f"={formula}"
+    stripped = formula.strip()
+    normalized = stripped if stripped.startswith("=") else f"={stripped}"
     try:
         return _write_formula_cell(filename, sheet_name, cell, normalized)
     except (FormulaError, ValidationError) as e:
@@ -134,9 +138,61 @@ def apply_formula(
     if not validate_cell_reference(cell):
         raise ValidationError(f"Invalid cell reference: {cell}")
 
-    normalized = formula if formula.startswith("=") else f"={formula}"
+    stripped = formula.strip()
+    normalized = stripped if stripped.startswith("=") else f"={stripped}"
     is_valid, message = validate_formula_secure(normalized)
     if not is_valid:
         raise FormulaSecurityError(f"Invalid formula: {message}")
 
     return _write_formula_cell(filename, sheet_name, cell, normalized)
+
+
+def validate_formula_in_cell_operation(
+    filepath: str, sheet_name: str, cell: str, formula: str
+) -> dict[str, Any]:
+    """Validate formula syntax, security, and referenced cells against an existing sheet."""
+    if not validate_cell_reference(cell):
+        return {"status": "error", "message": f"Invalid cell reference: {cell}"}
+
+    try:
+        with workbook_session(filepath, mode="read") as wb:
+            if sheet_name not in wb.sheetnames:
+                return {"status": "error", "message": f"Sheet '{sheet_name}' not found"}
+            resolve_sheet(wb, sheet_name)
+            is_valid, message = validate_formula(formula)
+            if not is_valid:
+                return {
+                    "status": "error",
+                    "message": f"Invalid formula syntax: {message}",
+                }
+            sec_valid, sec_message = validate_formula_secure(formula)
+            if not sec_valid:
+                return {
+                    "status": "error",
+                    "message": f"Formula security validation failed: {sec_message}",
+                }
+            cell_refs = re.findall(r"[A-Za-z]+[0-9]+(?::[A-Za-z]+[0-9]+)?", formula)
+            for ref in cell_refs:
+                if ":" in ref:
+                    start, end = ref.split(":")
+                    if not (
+                        validate_cell_reference(start) and validate_cell_reference(end)
+                    ):
+                        return {
+                            "status": "error",
+                            "message": f"Invalid cell range reference in formula: {ref}",
+                        }
+                elif not validate_cell_reference(ref):
+                    return {
+                        "status": "error",
+                        "message": f"Invalid cell reference in formula: {ref}",
+                    }
+            return {
+                "status": "success",
+                "message": f"Formula '{formula}' is valid and ready to be applied to cell {cell}",
+                "valid": True,
+                "cell": cell,
+                "formula": formula,
+            }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

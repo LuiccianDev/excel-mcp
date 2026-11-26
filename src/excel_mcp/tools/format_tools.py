@@ -1,10 +1,10 @@
 from typing import Any
 
+from excel_mcp.core.data import (
+    validate_range_in_sheet_operation as validate_range_impl,
+)
 from excel_mcp.core.formatting import BorderStyle, format_range
-from excel_mcp.core.workbook import get_workbook_info
-from excel_mcp.utils.file_utils import validate_file_access
-from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.sheet_utils import (
+from excel_mcp.core.ranges import (
     copy_range_operation,
     copy_sheet,
     delete_range_operation,
@@ -13,6 +13,9 @@ from excel_mcp.utils.sheet_utils import (
     rename_sheet,
     unmerge_range,
 )
+from excel_mcp.core.workbook import get_workbook_info
+from excel_mcp.utils.file_utils import validate_file_access
+from excel_mcp.utils.guards import tool_guard
 
 
 @validate_file_access("filename")
@@ -308,10 +311,6 @@ async def validate_excel_range(
     Returns:
         dict[str, Any]: A dictionary with validation status ("success" or "error") and a descriptive message.
     """
-    from excel_mcp.utils.validation_utils import (
-        validate_range_in_sheet_operation as validate_range_impl,
-    )
-
     result: dict[str, Any] = validate_range_impl(
         filename, sheet_name, start_cell, end_cell
     )

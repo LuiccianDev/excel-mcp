@@ -42,15 +42,22 @@ _REF_ATTR_RE: Final[re.Pattern[bytes]] = re.compile(rb"\bref\s*=\s*[\"']([^\"']+
 
 
 def _range_area_from_ref(ref_str: str) -> int:
+    cleaned = ref_str.replace("$", "").strip()
+    if not cleaned:
+        return 0
+    if ":" in cleaned:
+        start_part, end_part = cleaned.split(":", 1)
+        try:
+            start_row, start_col, _, _ = parse_cell_range(start_part)
+            end_row, end_col, _, _ = parse_cell_range(end_part)
+        except ValueError:
+            return 0
+        return (abs(end_row - start_row) + 1) * (abs(end_col - start_col) + 1)
     try:
-        start_row, start_col, end_row, end_col = parse_cell_range(
-            ref_str.replace("$", "")
-        )
+        parse_cell_range(cleaned)
     except ValueError:
         return 0
-    eff_end_row = end_row if end_row is not None else start_row
-    eff_end_col = end_col if end_col is not None else start_col
-    return (eff_end_row - start_row + 1) * (eff_end_col - start_col + 1)
+    return 1
 
 
 def _check_xml_tag_bounds(
@@ -169,15 +176,21 @@ def _validate_xlsx_archive(path: Path) -> None:
         _validate_worksheet_xml_bounds(zf, infos, path.name)
 
 
-def _validate_new_sheet_name(name: str) -> None:
-    if not name or not name.strip():
-        raise ValidationError("Sheet name cannot be empty.")
+def validate_sheet_name(name: str) -> None:
+    """Validate an Excel worksheet name against length, empty, and character rules."""
+    if not isinstance(name, str) or not name.strip():
+        raise ValidationError("Sheet name must be a non-empty string.")
     if len(name) > 31:
         raise ValidationError(
             f"Sheet name '{name}' exceeds Excel's 31-character limit."
         )
     if any(ch in _INVALID_SHEET_CHARS for ch in name):
         raise ValidationError(f"Sheet name '{name}' contains invalid Excel characters.")
+    if name.startswith("'"):
+        raise ValidationError("Sheet name cannot start with a single quote.")
+
+
+_validate_new_sheet_name = validate_sheet_name
 
 
 @contextmanager

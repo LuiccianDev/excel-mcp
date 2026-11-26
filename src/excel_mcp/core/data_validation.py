@@ -8,7 +8,7 @@ checks.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Final
 
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.worksheet import Worksheet
@@ -21,11 +21,12 @@ from excel_mcp.core.calculations import (
 from excel_mcp.exceptions.exception_core import ValidationError
 from excel_mcp.utils.cell_utils import parse_cell_range
 
-VALID_VALIDATION_TYPES = frozenset(
+VALID_VALIDATION_TYPES: Final[frozenset[str]] = frozenset(
     {"list", "whole", "decimal", "date", "time", "textLength", "custom"}
 )
+_OPERATORLESS_VALIDATION_TYPES: Final[frozenset[str]] = frozenset({"list", "custom"})
 
-VALID_OPERATORS = frozenset(
+VALID_OPERATORS: Final[frozenset[str]] = frozenset(
     {
         "between",
         "notBetween",
@@ -42,7 +43,7 @@ VALID_OPERATORS = frozenset(
 def _validate_data_validation_params(
     cell_range: str,
     validation_type: str,
-    operator: str,
+    operator: str | None,
     formula1: Any,
     formula2: Any,
 ) -> tuple[str, str | None]:
@@ -52,21 +53,27 @@ def _validate_data_validation_params(
             f"Expected one of: {', '.join(sorted(VALID_VALIDATION_TYPES))}."
         )
 
-    if operator not in VALID_OPERATORS:
+    is_operatorless = validation_type in _OPERATORLESS_VALIDATION_TYPES
+    if operator is None:
+        if not is_operatorless:
+            raise ValidationError(
+                f"Validation type '{validation_type}' requires an operator."
+            )
+    elif operator not in VALID_OPERATORS:
         raise ValidationError(
             f"Unsupported operator '{operator}'. "
             f"Expected one of: {', '.join(sorted(VALID_OPERATORS))}."
         )
 
-    if formula1 is None or str(formula1) == "":
+    if formula1 is None or not str(formula1).strip():
         raise ValidationError(
             "Missing required parameter 'formula1' for the selected validation type."
         )
 
     if (
-        operator in ("between", "notBetween")
-        and validation_type != "list"
-        and (formula2 is None or str(formula2) == "")
+        not is_operatorless
+        and operator in ("between", "notBetween")
+        and (formula2 is None or not str(formula2).strip())
     ):
         raise ValidationError(
             f"Operator '{operator}' requires both 'formula1' and 'formula2'."
@@ -78,7 +85,7 @@ def _validate_data_validation_params(
         raise ValidationError(f"Invalid cell range '{cell_range}': {exc}") from exc
 
     norm_f1 = str(formula1)
-    norm_f2 = str(formula2) if formula2 is not None else None
+    norm_f2 = str(formula2) if formula2 is not None and str(formula2) != "" else None
 
     is_valid, msg = validate_formula_secure(norm_f1)
     if not is_valid:
@@ -96,7 +103,7 @@ def _attach_data_validation(
     ws: Worksheet,
     cell_range: str,
     validation_type: str,
-    operator: str,
+    operator: str | None,
     norm_f1: str,
     norm_f2: str | None,
     allow_blank: bool,
@@ -105,9 +112,12 @@ def _attach_data_validation(
     error_title: str | None,
     error_message: str | None,
 ) -> DataValidation:
+    effective_operator = (
+        None if validation_type in _OPERATORLESS_VALIDATION_TYPES else operator
+    )
     validation = DataValidation(
         type=validation_type,
-        operator=None if validation_type == "list" else operator,
+        operator=effective_operator,
         formula1=norm_f1,
         formula2=norm_f2,
         allow_blank=allow_blank,
@@ -131,7 +141,7 @@ def apply_data_validation_to_sheet(
     ws: Worksheet,
     cell_range: str,
     validation_type: str = "list",
-    operator: str = "between",
+    operator: str | None = "between",
     formula1: Any = None,
     formula2: Any = None,
     allow_blank: bool = True,
@@ -167,7 +177,7 @@ def add_data_validation(
     filename: str,
     cell_range: str,
     validation_type: str,
-    operator: str = "between",
+    operator: str | None = "between",
     formula1: str | None = None,
     formula2: str | None = None,
     allow_blank: bool = True,
@@ -177,31 +187,7 @@ def add_data_validation(
     error_message: str | None = None,
     sheet_name: str | None = None,
 ) -> dict[str, Any]:
-    """Attach a data validation rule to a worksheet range.
-
-    Args:
-        filename: Path to the target .xlsx file.
-        cell_range: Target range in A1 notation (e.g. ``"A2:A100"``).
-        validation_type: One of ``list``, ``whole``, ``decimal``, ``date``,
-            ``time``, ``textLength`` or ``custom``.
-        operator: Comparison operator for non-list validations.
-        formula1: First operand (list source, lower bound or custom formula).
-        formula2: Second operand for ``between``/``notBetween`` rules.
-        allow_blank: Whether empty cells bypass the validation.
-        prompt_title: Optional input-message title.
-        prompt: Optional input message shown when the cell is selected.
-        error_title: Optional error-dialog title.
-        error_message: Optional error-dialog message.
-        sheet_name: Target sheet name (defaults to the active sheet).
-
-    Returns:
-        Summary dictionary describing the applied rule.
-
-    Raises:
-        FileNotFoundError: If the workbook does not exist.
-        SheetNotFoundError: If ``sheet_name`` is not present.
-        ValidationError: If the type, operator, range or formulas are invalid.
-    """
+    """Attach a data validation rule to a worksheet range."""
     norm_f1, norm_f2 = _validate_data_validation_params(
         cell_range=cell_range,
         validation_type=validation_type,
@@ -231,5 +217,7 @@ def add_data_validation(
         "sheet": title,
         "range": cell_range,
         "validation_type": validation_type,
-        "operator": None if validation_type == "list" else operator,
+        "operator": (
+            None if validation_type in _OPERATORLESS_VALIDATION_TYPES else operator
+        ),
     }

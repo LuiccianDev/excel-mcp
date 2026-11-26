@@ -1,12 +1,12 @@
 # Import exceptions
 from typing import Any
 
-from excel_mcp.core.calculations import apply_formula
+from excel_mcp.core.calculations import (
+    apply_formula,
+    validate_formula_in_cell_operation,
+)
 from excel_mcp.utils.file_utils import validate_file_access
 from excel_mcp.utils.guards import tool_guard
-
-# Import core/tools/utils with new structure
-from excel_mcp.utils.validation_utils import validate_formula_in_cell_operation
 
 
 @validate_file_access("filename", read_only=True)

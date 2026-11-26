@@ -7,7 +7,6 @@ from openpyxl import Workbook
 
 from excel_mcp.core.data import (
     _get_used_range,
-    _get_worksheet,
     _parse_cell_reference,
     _write_data_to_worksheet,
     read_excel_range,
@@ -19,31 +18,6 @@ from excel_mcp.exceptions.exception_core import (
     RangeError,
     SheetNotFoundError,
 )
-
-
-class TestGetWorksheet:
-    """Tests for _get_worksheet function."""
-
-    def test_get_existing_worksheet(self, tmp_path: Path) -> None:
-        """Test getting an existing worksheet."""
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "TestSheet"
-
-        result = _get_worksheet(wb, "TestSheet")
-
-        assert result.title == "TestSheet"
-        wb.close()
-
-    def test_get_nonexistent_worksheet(self, tmp_path: Path) -> None:
-        """Test getting a non-existent worksheet raises error."""
-        wb = Workbook()
-
-        with pytest.raises(SheetNotFoundError) as exc_info:
-            _get_worksheet(wb, "NonExistent")
-
-        assert "NonExistent" in str(exc_info.value)
-        wb.close()
 
 
 class TestParseCellReference:

@@ -6,10 +6,8 @@ from excel_mcp.core.pivot import create_pivot_table
 from excel_mcp.core.workbook import (
     create_sheet,
     create_workbook,
-    get_or_create_workbook,
     get_workbook_info,
 )
-
 
 __all__ = [
     "apply_formula",
@@ -20,6 +18,5 @@ __all__ = [
     "create_pivot_table",
     "create_sheet",
     "create_workbook",
-    "get_or_create_workbook",
     "get_workbook_info",
 ]

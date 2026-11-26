@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import openpyxl
 
-from excel_mcp.utils.validation_utils import (
-    validate_formula,
-    validate_formula_in_cell_operation,
+from excel_mcp.core.calculations import validate_formula_in_cell_operation
+from excel_mcp.core.data import (
     validate_range_bounds,
     validate_range_in_sheet_operation,
 )
+from excel_mcp.utils.validation_utils import validate_formula
 
 
 def workbook_path(tmp_path):
