@@ -6,23 +6,12 @@ multiple tabular rows in a single pass, saving >90% tokens.
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from excel_mcp.core.builder import build_single_pass_workbook
 from excel_mcp.core.data import batch_write_matrix
 from excel_mcp.core.search import inspect_workbook_outline
 from excel_mcp.utils.guards import tool_guard
-
-
-def _dump(model: Any) -> dict[str, Any]:
-    """Dump Pydantic model supporting both v1 and v2."""
-    if hasattr(model, "model_dump"):
-        return cast(dict[str, Any], model.model_dump())
-    if hasattr(model, "dict"):
-        return cast(dict[str, Any], model.dict())
-    if isinstance(model, dict):
-        return cast(dict[str, Any], model)
-    return {"data": model}
 
 
 @tool_guard(path_param="filename")
@@ -74,7 +63,7 @@ def build_workbook(
         font_name=font_name,
         font_size=font_size,
     )
-    return {"status": "success", "data": _dump(result)}
+    return {"status": "success", "data": result.model_dump()}
 
 
 @tool_guard(path_param="filename", read_only=True)
@@ -94,7 +83,7 @@ def get_workbook_outline(
     """
     assert filename is not None
     outline = inspect_workbook_outline(filename)
-    return {"status": "success", "data": _dump(outline)}
+    return {"status": "success", "data": outline.model_dump()}
 
 
 @tool_guard(path_param="filename")
@@ -127,4 +116,4 @@ def batch_write_data(
         start_cell=start_cell,
         data_matrix=data_matrix,
     )
-    return {"status": "success", "data": _dump(result)}
+    return {"status": "success", "data": result.model_dump()}

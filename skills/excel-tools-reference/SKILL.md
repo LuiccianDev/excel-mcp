@@ -64,7 +64,7 @@ To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=f
 1. **`excel_build_workbook`**
    - **Access Mode:** Destructive
    - **Purpose:** Construct complete, publication-ready workbooks with multiple sheets in a single atomic pass.
-   - **Arguments:** `filename`, `sheets` (list of sheet dicts with `name`, `title`, `headers`, `rows`, `auto_totals` [bool, list, or `{col: "SUM"|"AVERAGE"|"COUNT"|"COUNTA"|"MIN"|"MAX"|"SUBTOTAL"}` dict], `currency_columns`, `chart`, `charts` [list of chart dicts], `data_validations` [list of validation rule dicts], `freeze_panes`, `auto_filter`), `preset` (`"corporate"`, `"financial"`, `"modern"`, `"compact"`), `auto_fit` (`bool`), `font_name` (*optional*, e.g. `"Calibri"`, `"Arial"`), `font_size` (*optional*, e.g. `11`).
+   - **Arguments:** `filename`, `sheets` (list of sheet dicts with `name`, `title`, `headers`, `rows`, `auto_totals` [bool, list, or `{col: "SUM"|"AVERAGE"|"COUNT"|"COUNTA"|"MIN"|"MAX"|"SUBTOTAL"}` dict], `currency_columns`, `numeric_columns`, `chart`, `charts` [list of chart dicts], `data_validations` [list of validation rule dicts], `freeze_panes`, `auto_filter`), `preset` (`"corporate"`, `"financial"`, `"modern"`, `"compact"`), `auto_fit` (`bool`), `font_name` (*optional*, e.g. `"Calibri"`, `"Arial"`), `font_size` (*optional*, e.g. `11`).
 
 2. **`excel_get_workbook_outline`**
    - **Access Mode:** Read-Only
@@ -117,7 +117,7 @@ To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=f
 10. **`excel_format_range`**
     - **Access Mode:** Write
     - **Purpose:** Apply fonts, colors, borders, alignments, and number formats to a cell range.
-    - **Arguments:** `filename`, `sheet_name`, `start_cell`, `end_cell`, `font_name`, `font_size`, `bold`, `italic`, `font_color`, `bg_color`, `number_format`, `alignment`, `border_style`.
+    - **Arguments:** `filename`, `sheet_name`, `start_cell`, `end_cell`, `font_size`, `bold`, `italic`, `underline`, `font_color`, `bg_color`, `number_format`, `alignment`, `border_style`, `border_color`, `wrap_text`, `merge_cells`, `protection`, `conditional_format`.
 
 11. **`excel_merge_cells`**: Merge cell range (`filename`, `sheet_name`, `start_cell`, `end_cell`).
 12. **`excel_unmerge_cells`**: Unmerge cell range (`filename`, `sheet_name`, `start_cell`, `end_cell`).
@@ -129,23 +129,23 @@ To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=f
 
 ### D. Structure & Worksheet Management
 
-16. **`excel_create_workbook`**: Initialize a new empty workbook (`filename`, `sheet_name`).
-17. **`excel_create_worksheet`**: Add a new worksheet tab (`filename`, `sheet_name`, `index`).
+16. **`excel_create_workbook`**: Initialize a new empty workbook (`filename`).
+17. **`excel_create_worksheet`**: Add a new worksheet tab (`filename`, `sheet_name`).
 18. **`excel_copy_worksheet`**: Duplicate a worksheet (`filename`, `source_sheet`, `target_sheet`).
 19. **`excel_delete_worksheet`**: Permanently remove a worksheet (`filename`, `sheet_name`).
 20. **`excel_rename_worksheet`**: Rename a worksheet tab (`filename`, `old_name`, `new_name`).
 21. **`excel_insert_rows_columns`**: Insert empty rows or columns (`filename`, `dimension`, `index`, `amount`, `sheet_name`).
 22. **`excel_delete_rows_columns`**: Delete rows or columns (`filename`, `dimension`, `index`, `amount`, `sheet_name`).
 23. **`excel_list_documents`**: List `.xlsx` files in allowed directories (no parameters).
-24. **`excel_get_workbook_metadata`**: Read sheet names, dimensions, and named ranges (`filename`).
+24. **`excel_get_workbook_metadata`**: Read sheet names and optional used ranges (`filename`, `include_ranges`).
 
 ---
 
 ### E. Formulas, Charts & Analytics
 
-25. **`excel_validate_formula_syntax`**: Validate formula syntax without applying (`formula`).
+25. **`excel_validate_formula_syntax`**: Validate formula syntax against a worksheet (`filename`, `sheet_name`, `cell`, `formula`).
 26. **`excel_apply_formula`**: Assign validated formula to cell (`filename`, `sheet_name`, `cell`, `formula`).
-27. **`excel_create_chart`**: Generate native bar, line, or pie chart (`filename`, `sheet_name`, `chart_type`, `data_range`, `title`, `target_cell`).
+27. **`excel_create_chart`**: Generate native bar, line, pie, or scatter chart (`filename`, `sheet_name`, `data_range`, `chart_type`, `target_cell`, `title`, `x_axis`, `y_axis`, `style`).
 28. **`excel_create_pivot_table`**: Generate analytical pivot summary (`filename`, `sheet_name`, `data_range`, `rows`, `values`, `columns`, `agg_func`).
 
 ---
@@ -159,7 +159,7 @@ To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=f
 
 ### G. Validation, Protection & Print Layout
 
-31. **`excel_add_data_validation`**: Add list, numeric, date, time, text length, or custom formula validation to a range (`filename`, `cell_range`, `validation_type`, `formula1`, `formula2`, `sheet_name`).
+31. **`excel_add_data_validation`**: Add list, numeric, date, time, text length, or custom formula validation to a range (`filename`, `cell_range`, `validation_type`, `operator`, `formula1`, `formula2`, `allow_blank`, `prompt_title`, `prompt`, `error_title`, `error_message`, `sheet_name`).
 32. **`excel_protect_sheet`**: Protect or unprotect a worksheet with optional password and action permissions (`filename`, `enabled`, `password`, `sheet_name`).
 33. **`excel_configure_page_setup`**: Configure orientation, paper size, scaling, print area, title rows, headers, footers, and centering (`filename`, `orientation`, `paper_size`, `fit_to_width`, `fit_to_height`, `print_area`, `print_title_rows`, `header`, `footer`, `center_horizontally`, `sheet_name`).
 

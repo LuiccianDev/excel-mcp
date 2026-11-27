@@ -94,6 +94,7 @@ def list_excel_files_in_directory() -> list[dict]:
                             excel_files.append(
                                 {
                                     "filename": entry.name,
+                                    "size_bytes": stat.st_size,
                                     "size_kb": round(stat.st_size / 1024, 2),
                                     "modified": stat.st_mtime,
                                     "path": entry.path,

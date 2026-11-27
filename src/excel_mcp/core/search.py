@@ -60,12 +60,17 @@ def _has_nested_quantifier(pattern: str) -> bool:
     in_char_class = False
     escaped = False
     last_closed_risky = False
+    prev_unbounded_quant = False
+    pending_atom = False
     idx = 0
     length = len(pattern)
 
     while idx < length:
         ch = pattern[idx]
         if escaped:
+            if pending_atom:
+                prev_unbounded_quant = False
+            pending_atom = True
             escaped = False
             last_closed_risky = False
             idx += 1
@@ -78,21 +83,29 @@ def _has_nested_quantifier(pattern: str) -> bool:
         if in_char_class:
             if ch == "]":
                 in_char_class = False
+                pending_atom = True
             idx += 1
             continue
         if ch == "[":
+            if pending_atom:
+                prev_unbounded_quant = False
             in_char_class = True
+            pending_atom = False
             last_closed_risky = False
             idx += 1
             continue
         if ch == "(":
+            if pending_atom:
+                prev_unbounded_quant = False
             stack.append(_GroupFrame())
+            pending_atom = False
             last_closed_risky = False
             idx += 1
             continue
         if ch == ")":
             frame = stack.pop() if stack else _GroupFrame()
             last_closed_risky = frame.has_quantifier or frame.has_alt
+            pending_atom = True
             if stack:
                 if frame.has_quantifier:
                     stack[-1].has_quantifier = True
@@ -103,26 +116,39 @@ def _has_nested_quantifier(pattern: str) -> bool:
         if ch == "|" and stack:
             stack[-1].has_alt = True
             last_closed_risky = False
+            prev_unbounded_quant = False
+            pending_atom = False
             idx += 1
             continue
 
         quant_end: int | None = None
+        is_unbounded = False
         if ch in "+*":
             quant_end = idx
+            is_unbounded = True
         elif ch == "{":
             quant_end = _read_brace_quantifier_end(pattern, idx)
+            if quant_end is not None:
+                is_unbounded = pattern[idx + 1 : quant_end].endswith(",")
 
         if quant_end is not None:
-            if last_closed_risky:
+            if last_closed_risky or (is_unbounded and prev_unbounded_quant):
                 return True
             for frame in stack:
                 frame.has_quantifier = True
             last_closed_risky = False
+            prev_unbounded_quant = is_unbounded
+            pending_atom = False
             idx = quant_end + 1
             continue
 
-        if ch != "?":
+        if ch == "?":
+            pending_atom = False
+        else:
             last_closed_risky = False
+            if pending_atom:
+                prev_unbounded_quant = False
+            pending_atom = True
         idx += 1
 
     return False

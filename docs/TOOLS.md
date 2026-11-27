@@ -146,10 +146,8 @@ Create an empty Excel workbook (.xlsx) in a secure, validated path.
 
 Note: For new reports or formatted tables, prefer `excel_build_workbook` to create sheets, data, styles, and charts in one call.
 
-Context for LLM/AI: Use this tool when you need to programmatically generate a new Excel workbook file as the starting point for a reporting, data collection, or automation workflow. This is typically used to initialize new datasets or reports, ensuring that the file is created only within authorized directories for security and compliance. The tool will automatically add the `.xlsx` extension if missing and will validate the path to prevent unauthorized file creation.
-
 Args:
-    filename (str): Name or path of the workbook to create. Example: "data/reporte_diario"
+    filename (str): Name or path of the workbook to create (e.g., "data/reporte_diario").
 
 Returns:
     dict[str, Any]: A dictionary with status ("success" or "error"), message, active_sheet, and filepath.
@@ -163,10 +161,8 @@ Returns:
 ```text
 Add a new worksheet to an existing Excel workbook.
 
-Context for LLM/AI: Use this tool to organize or extend data in an existing Excel file by adding a new worksheet. This is ideal when you want to segment data by category, time period, or any logical grouping.
-
 Args:
-    filename (str): Path to the existing Excel workbook. Example: "reports/monthly_report.xlsx"
+    filename (str): Path to the existing Excel workbook (e.g., "reports/monthly_report.xlsx").
     sheet_name (str): Name of the new worksheet to add. Must be unique and valid per Excel rules.
 
 Returns:
@@ -207,8 +203,6 @@ Change the name of an existing worksheet within a workbook.
 
 ```text
 List all .xlsx files in the allowed directories.
-
-Context for LLM/AI: Use this tool to discover and enumerate all Excel files in permitted directories, which is helpful for inventory, audit, batch processing, or automated data discovery scenarios.
 
 Returns:
     dict[str, Any]: A dictionary with status ("success" or "error"), count, and files metadata list.
@@ -563,27 +557,15 @@ Read a specific range of tabular data from an Excel worksheet and return it in a
 
 Note: Call `excel_get_workbook_outline` first on unfamiliar or large workbooks to inspect dimensions and headers without loading full cell matrices.
 
-Context for AI/LLM:
-    Use this tool to extract tabular data from a defined worksheet and cell range within an Excel workbook.
-    Ideal for automated data ingestion, previewing spreadsheet contents, or validating required data before processing.
-
-Typical use cases:
-    1. Loading a data range for analysis or transformation.
-    2. Previewing the first N rows of a sheet to confirm layout.
-    3. Validating that a required sheet exists and contains data.
-
 Args:
     filename (str): Absolute or relative path to the Excel workbook (.xlsx). The extension is enforced automatically.
     sheet_name (str): Name of the worksheet to read from.
     start_cell (str, optional): Top-left cell reference of the range to read. Defaults to "A1".
     end_cell (str | None, optional): Bottom-right cell reference. If None, reads until the first empty row/column. Defaults to None.
-    preview_only (bool, optional): If True, returns only a small subset (e.g., first 100 rows) for quick inspection. Defaults to False.
+    preview_only (bool, optional): If True, returns only a bounded preview subset for quick inspection. Defaults to False.
 
 Returns:
-    dict[str, Any]: A dictionary containing:
-        - status (str): "success" or "error".
-        - data (list[list[Any]] | None): 2-D list of cell values from the worksheet range when status is "success".
-        - message (str): Human-readable message or error description.
+    dict[str, Any]: A dictionary containing status ("success" or "error"), data (2-D list of cell values), and message.
 ```
 
 ### `excel_write_data`
@@ -595,14 +577,6 @@ Returns:
 Write data to an existing Excel worksheet beginning at the specified cell.
 
 Note: Prefer `excel_build_workbook` for new workbooks or `excel_batch_write_data` for multi-range updates in a single pass.
-
-Context for AI/LLM:
-    Employ this tool to programmatically populate or update a worksheet with tabular data produced by prior computations or external systems. Suitable for automated report generation, data export, or incremental updates to existing files.
-
-Typical use cases:
-    1. Dumping processed data frames into Excel for business users.
-    2. Appending new monthly records to a reporting sheet.
-    3. Overwriting a template region with fresh values for distribution.
 
 Args:
     filename (str): Path to the workbook. The .xlsx extension is enforced.

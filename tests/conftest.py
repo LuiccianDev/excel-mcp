@@ -6,6 +6,7 @@ the MCP Excel Office Server functionality.
 """
 
 from collections.abc import Generator
+import os
 import signal
 import socket
 import sys
@@ -13,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from excel_mcp.config import ConfigurationManager
+from excel_mcp.config import ConfigurationManager, config_manager
 
 
 def _install_windows_sandbox_asyncio_fallback() -> None:
@@ -80,35 +81,31 @@ _install_windows_sandbox_asyncio_fallback()
 @pytest.fixture
 def test_config(tmp_path) -> Generator[ConfigurationManager, None, None]:
     """Configure the system for testing with a temporary directory."""
-    manager = ConfigurationManager()
-
-    # Store original configuration
-    original_config = manager.config
+    original_config = config_manager._config
+    original_dirs = os.environ.get("EXCEL_MCP_DIRS")
 
     try:
-        # Set up test configuration using tmp_path
-        manager.reload_configuration(directory=str(tmp_path), log_level="INFO")
-        yield manager
+        config_manager.reload_configuration(directory=str(tmp_path), log_level="INFO")
+        os.environ["EXCEL_MCP_DIRS"] = str(tmp_path)
+        yield config_manager
     finally:
-        # Restore original configuration
-        manager._config = original_config
+        config_manager._config = original_config
+        if original_dirs is None:
+            os.environ.pop("EXCEL_MCP_DIRS", None)
+        else:
+            os.environ["EXCEL_MCP_DIRS"] = original_dirs
 
 
 @pytest.fixture
-def test_excel_file(tmp_path) -> str:
+def test_excel_file(test_config: ConfigurationManager, tmp_path) -> str:
     """Create a test Excel file in the temporary directory."""
     import openpyxl
 
-    # Configure test environment
-    manager = ConfigurationManager()
-    manager.reload_configuration(directory=str(tmp_path), log_level="INFO")
-
-    # Create a test workbook
     wb = openpyxl.Workbook()
     ws = wb.active
+    assert ws is not None
     ws.title = "Sheet1"
 
-    # Add some test data
     test_data = [
         ["Name", "Age", "City"],
         ["Alice", 30, "New York"],
@@ -120,27 +117,22 @@ def test_excel_file(tmp_path) -> str:
         for col_idx, value in enumerate(row_data, 1):
             ws.cell(row=row_idx, column=col_idx, value=value)
 
-    # Save to tmp_path directory
     test_file_path = tmp_path / "test_file.xlsx"
     wb.save(test_file_path)
+    wb.close()
 
     return str(test_file_path)
 
 
 @pytest.fixture
-def test_workbook_file(tmp_path) -> str:
+def test_workbook_file(test_config: ConfigurationManager, tmp_path) -> str:
     """Create a test workbook file in the temporary directory."""
     import openpyxl
 
-    # Configure test environment
-    manager = ConfigurationManager()
-    manager.reload_configuration(directory=str(tmp_path), log_level="INFO")
-
-    # Create a test workbook with multiple sheets
     wb = openpyxl.Workbook()
 
-    # First sheet with data
     ws1 = wb.active
+    assert ws1 is not None
     ws1.title = "Data"
     data = [
         ["Product", "Sales", "Region"],
@@ -153,13 +145,12 @@ def test_workbook_file(tmp_path) -> str:
         for col_idx, value in enumerate(row_data, 1):
             ws1.cell(row=row_idx, column=col_idx, value=value)
 
-    # Second sheet for formulas
     ws2 = wb.create_sheet("Formulas")
     ws2["A1"] = "Total Sales"
-    ws2["B1"] = "=SUM(Data.B2:B4)"
+    ws2["B1"] = "=SUM(Data!B2:B4)"
 
-    # Save to tmp_path directory
     test_file_path = tmp_path / "test_workbook.xlsx"
     wb.save(test_file_path)
+    wb.close()
 
     return str(test_file_path)

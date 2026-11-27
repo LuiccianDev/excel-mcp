@@ -19,17 +19,16 @@ from typing import Annotated
 
 import typer
 
-from excel_mcp.config import ConfigurationError, config_manager
-from excel_mcp.server import run_server, run_stdio
-from excel_mcp.tools.register_tools import normalize_tool_mode
-
-
-# Configure logging for CLI operations
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    stream=sys.stderr,
+from excel_mcp.config import (
+    ConfigurationError,
+    config_manager,
+    validate_directory_path,
 )
+from excel_mcp.server import configure_logging, run_server, run_stdio
+from excel_mcp.tools.register_tools import normalize_tool_mode
+from excel_mcp.utils.file_utils import list_excel_files_in_directory
+from excel_mcp.utils.paths import resolve_allowed_directories
+
 logger = logging.getLogger(__name__)
 
 
@@ -40,27 +39,20 @@ app = typer.Typer(
 
 
 def validate_and_apply_configuration(path: str | None = None) -> None:
-    """
-    Validate and apply configuration from command-line arguments and environment variables.
-
-    This function handles configuration validation and applies overrides from command-line
-    arguments. It uses the centralized configuration management system with proper
-    error handling and user feedback.
-
-    Args:
-        path: Directory path override
-
-    Raises:
-        typer.Exit: If configuration is invalid or inaccessible
-    """
+    """Validate and apply configuration from CLI flags and environment variables."""
     try:
-        # Prepare configuration overrides
-        overrides = {}
-
+        overrides: dict[str, str] = {}
         if path is not None:
-            overrides["directory"] = path
+            overrides["directory"] = validate_directory_path(
+                path, reject_placeholders=True
+            )
+        elif os.environ.get("EXCEL_MCP_DIRS", "").strip():
+            allowed = resolve_allowed_directories()
+            if allowed:
+                for candidate in allowed:
+                    validate_directory_path(candidate)
+                overrides["directory"] = allowed[0]
 
-        # Reload configuration with overrides
         config_manager.reload_configuration(**overrides)
         if path is not None:
             os.environ["EXCEL_MCP_DIRS"] = config_manager.config.file_config.directory
@@ -96,7 +88,6 @@ def _start_server(path: str | None = None, tool_mode: str | None = None) -> None
         logger.info("Server Name: MCP Excel Office Server")
         logger.info(f"File operations directory: {config.file_config.directory}")
         logger.info("Server ready. Listening on stdio transport...")
-        logger.info("MCP server starting on stdio transport")
 
         server = run_server(mode=normalized_mode)
         run_stdio(server)
@@ -172,15 +163,11 @@ def list_excel_files(
         str | None,
         typer.Option(
             "--path",
-            help="Directory to scan for Excel files (overrides DIRECTORY env var)",
+            help="Directory to scan for Excel files (overrides EXCEL_MCP_DIRS env var)",
         ),
     ] = None,
 ) -> None:
-    """
-    List all Excel files in the specified directory.
-
-    This command provides a standalone way to discover Excel files without starting the MCP server.
-    """
+    """List all .xlsx files in the allowed directories."""
     try:
         root_opts = ctx.obj if isinstance(ctx.obj, dict) else {}
         if root_opts.get("tool_mode") is not None:
@@ -191,37 +178,22 @@ def list_excel_files(
         effective_path = path if path is not None else root_opts.get("path")
         validate_and_apply_configuration(path=effective_path)
 
-        # Get validated configuration
-        config = config_manager.config
-        target_directory = config.file_config.directory
-
-        # List Excel files
-        excel_files = []
+        target_directories = resolve_allowed_directories()
         try:
-            for entry in os.scandir(target_directory):
-                if entry.is_file() and entry.name.lower().endswith((".xlsx", ".xls")):
-                    stat_info = entry.stat()
-                    excel_files.append(
-                        {
-                            "name": entry.name,
-                            "path": entry.path,
-                            "size": stat_info.st_size,
-                            "modified": stat_info.st_mtime,
-                        }
-                    )
-        except OSError as e:
+            excel_files = list_excel_files_in_directory()
+        except (FileNotFoundError, OSError) as e:
             typer.echo(f"Error scanning directory: {e}", err=True)
             raise typer.Exit(1) from e
 
-        # Display results
+        display_dirs = ", ".join(target_directories)
         if not excel_files:
-            typer.echo(f"No Excel files found in: {target_directory}")
+            typer.echo(f"No Excel files found in: {display_dirs}")
         else:
-            typer.echo(f"Found {len(excel_files)} Excel file(s) in: {target_directory}")
+            typer.echo(f"Found {len(excel_files)} Excel file(s) in: {display_dirs}")
             for file_info in excel_files:
-                raw_size = file_info.get("size", 0)
-                size_mb = float(str(raw_size)) / (1024 * 1024)
-                typer.echo(f"  - {file_info['name']} ({size_mb:.2f} MB)")
+                raw_size = file_info.get("size_bytes", 0)
+                size_mb = float(raw_size) / (1024 * 1024)
+                typer.echo(f"  - {file_info['filename']} ({size_mb:.2f} MB)")
 
     except typer.Exit:
         raise
@@ -246,6 +218,7 @@ def main() -> None:
     The function provides proper error handling and logging for all execution modes.
     """
     try:
+        configure_logging()
         logger.info("MCP Excel Office CLI starting...")
         logger.info(f"Processing command: {' '.join(sys.argv[1:])}")
         app()

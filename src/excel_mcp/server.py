@@ -16,13 +16,7 @@ from typing import Any
 os.environ.setdefault("FASTMCP_CHECK_FOR_UPDATES", "off")
 os.environ.setdefault("FASTMCP_SHOW_SERVER_BANNER", "false")
 
-try:
-    from fastmcp import FastMCP
-except ImportError:
-    try:
-        from mcp.server.fastmcp import FastMCP  # type: ignore
-    except ImportError:
-        FastMCP = Any  # type: ignore
+from fastmcp import FastMCP
 
 from excel_mcp import __version__
 from excel_mcp.tools.compound_tools import COMPOUND_REGISTRY
@@ -34,12 +28,20 @@ from excel_mcp.tools.register_tools import (
 from excel_mcp.utils.metrics import is_metrics_enabled, track_tool_metrics
 from excel_mcp.utils.paths import resolve_allowed_directories
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    stream=sys.stderr,
-)
 logger = logging.getLogger(__name__)
+
+
+def configure_logging(level: str | None = None) -> None:
+    """Configure stderr logging once for CLI and server entrypoints."""
+    resolved_level = (
+        level or os.environ.get("LOG_LEVEL", "INFO").strip().upper() or "INFO"
+    )
+    numeric_level = logging.getLevelNamesMapping().get(resolved_level, logging.INFO)
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        stream=sys.stderr,
+    )
 
 
 def build_server_instructions(mode: str, allowed_dirs: list[Any]) -> str:
@@ -106,14 +108,11 @@ Set `EXCEL_MCP_TOOLS=full` (or launch `server --tool-mode full`) for all 33 gran
 """
 
 
-def _attach_metrics_middleware(mcp: Any) -> None:
+def _attach_metrics_middleware(mcp: FastMCP) -> None:
     """Attach FastMCP tool-call metrics middleware when EXCEL_MCP_METRICS_LOG is set."""
-    if not is_metrics_enabled() or not hasattr(mcp, "add_middleware"):
+    if not is_metrics_enabled():
         return
-    try:
-        from fastmcp.server.middleware import Middleware
-    except ImportError:
-        return
+    from fastmcp.server.middleware import Middleware
 
     class _MetricsMiddleware(Middleware):
         async def on_call_tool(self, context: Any, call_next: Any) -> Any:
@@ -174,6 +173,7 @@ def run_stdio(server: Any) -> None:
 
 
 if __name__ == "__main__":
+    configure_logging()
     try:
         server = create_server()
         run_stdio(server)

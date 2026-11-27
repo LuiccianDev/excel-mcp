@@ -19,7 +19,7 @@ from excel_mcp.exceptions.exception_core import (
     SheetNotFoundError,
     ValidationError,
 )
-from excel_mcp.utils.cell_utils import parse_cell_range
+from excel_mcp.utils.cell_utils import assert_range_cell_limit, parse_cell_range
 
 MAX_PIVOT_ROW_COMBOS: Final[int] = 50_000
 MAX_PIVOT_COL_COMBOS: Final[int] = 1_000
@@ -88,10 +88,21 @@ def _read_range_from_sheet(
 ) -> SheetData:
     ws_max_row = ws.max_row or 0
     ws_max_col = ws.max_column or 0
-    eff_end_row = min(end_row, ws_max_row) if ws_max_row > 0 else end_row
-    eff_end_col = min(end_col, ws_max_col) if ws_max_col > 0 else end_col
+    if ws_max_row <= 0 or ws_max_col <= 0:
+        return []
+    eff_end_row = min(end_row, ws_max_row)
+    eff_end_col = min(end_col, ws_max_col)
     if eff_end_row < start_row or eff_end_col < start_col:
         return []
+    assert_range_cell_limit(
+        start_row,
+        start_col,
+        eff_end_row,
+        eff_end_col,
+        MAX_PIVOT_CELLS,
+        PivotError,
+        label="pivot source",
+    )
     rows: SheetData = []
     for row in ws.iter_rows(
         min_row=start_row,

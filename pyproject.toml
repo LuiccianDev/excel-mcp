@@ -23,6 +23,7 @@ dependencies = [
     "mcp[cli]>=1.12.2",
     "openpyxl>=3.1.5",
     "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
     "typer>=0.16.0",
 ]
 
@@ -77,10 +78,6 @@ exclude = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# -----------------------------------------------------------------------------
-# Tool Configurations (PEP 518 / PEP 621)
-# -----------------------------------------------------------------------------
-
 [tool.ruff]
 line-length = 88
 target-version = "py311"
@@ -94,17 +91,17 @@ exclude = [
 
 [tool.ruff.lint]
 select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "B",   # flake8-bugbear
-    "S",   # flake8-bandit (security)
-    "UP",  # pyupgrade
+    "E",
+    "W",
+    "F",
+    "B",
+    "S",
+    "UP",
 ]
 ignore = [
-    "W291",  # trailing whitespace
-    "E501",  # line too long, handled by black/formatter
-    "B008",  # do not perform function calls in argument defaults
+    "W291",
+    "E501",
+    "B008",
     "S101",  # allow assert for type narrowing and tests
     "S110",  # allow intentional try-except-pass cleanup blocks
     "S112",  # allow intentional try-except-continue cell iteration
@@ -138,7 +135,7 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["excel_mcp"]
-branch = false
+branch = true
 
 [tool.coverage.report]
 fail_under = 80

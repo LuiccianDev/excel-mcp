@@ -105,19 +105,27 @@ def _read_bounded_zip_member(
     return data
 
 
+_METADATA_XML_MEMBERS = frozenset(
+    {
+        "xl/sharedstrings.xml",
+        "xl/styles.xml",
+        "xl/calcchain.xml",
+        "xl/workbook.xml",
+    }
+)
+
+
 def _validate_worksheet_xml_bounds(
     zf: zipfile.ZipFile, infos: list[zipfile.ZipInfo], archive_name: str
 ) -> None:
     for info in infos:
-        lower_name = info.filename.lower()
-        if not (lower_name.startswith("xl/") and lower_name.endswith(".xml")):
+        lower_name = info.filename.lstrip("/").lower()
+        if not lower_name.endswith(".xml"):
             continue
-        if lower_name in (
-            "xl/sharedstrings.xml",
-            "xl/styles.xml",
-            "xl/calcchain.xml",
-            "xl/workbook.xml",
-        ):
+        if lower_name in _METADATA_XML_MEMBERS:
+            _read_bounded_zip_member(
+                zf, info, MAX_XLSX_UNCOMPRESSED_BYTES, archive_name
+            )
             continue
         data = _read_bounded_zip_member(zf, info, MAX_WORKSHEET_XML_BYTES, archive_name)
         _check_xml_tag_bounds(

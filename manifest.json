@@ -52,23 +52,23 @@
     },
     {
       "name": "excel_create_workbook",
-      "description": "Excel workbook operation."
+      "description": "Create an empty Excel workbook (.xlsx) in a secure, validated path."
     },
     {
       "name": "excel_create_worksheet",
-      "description": "Excel workbook operation."
+      "description": "Add a new worksheet to an existing Excel workbook."
     },
     {
       "name": "excel_list_documents",
-      "description": "Excel workbook operation."
+      "description": "List all .xlsx files in the allowed directories."
     },
     {
       "name": "excel_read_data",
-      "description": "Excel workbook operation."
+      "description": "Read a specific range of tabular data from an Excel worksheet and return it in a structured format."
     },
     {
       "name": "excel_write_data",
-      "description": "Excel workbook operation."
+      "description": "Write data to an existing Excel worksheet beginning at the specified cell."
     },
     {
       "name": "excel_format_range",
@@ -136,7 +136,7 @@
     },
     {
       "name": "excel_apply_formula",
-      "description": "Excel workbook operation."
+      "description": "Apply a validated Excel formula to a specific cell in a worksheet."
     },
     {
       "name": "excel_create_chart",

@@ -277,6 +277,16 @@ def test_archive_validation_rejects_aggregate_ratio_and_xml_amplification(
         with workbook_session(hyperlink_bomb, mode="read"):
             pass
 
+    root_xml_bomb = tmp_path / "root_merge.xlsx"
+    _inject_sheet_xml(
+        root_xml_bomb,
+        b'<mergeCells count="1"><mergeCell ref="A1:XFD1048576"/></mergeCells>',
+        target_member="customSheets/sheet1.xml",
+    )
+    with pytest.raises(ValidationError, match="mergeCell area limit"):
+        with workbook_session(root_xml_bomb, mode="read"):
+            pass
+
 
 def test_search_redos_nested_alternation_and_profile_limits(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -292,9 +302,19 @@ def test_search_redos_nested_alternation_and_profile_limits(
     wb.save(target)
     wb.close()
 
-    for bad_regex in ("((a|a))+$", "(((a|b)))+$", "((a|a)?)+$"):
+    for bad_regex in (
+        "((a|a))+$",
+        "(((a|b)))+$",
+        "((a|a)?)+$",
+        ".*.*.*b",
+        "a*a*b",
+        "a*b?a*",
+    ):
         with pytest.raises(ValidationError, match="nested quantifiers"):
             find_cells_in_workbook(str(target), query=bad_regex, use_regex=True)
+
+    safe_regex = find_cells_in_workbook(str(target), query=r"^\d+-\d+$", use_regex=True)
+    assert safe_regex["total_matches"] == 0
 
     with pytest.raises(ValidationError, match="max_results"):
         find_cells_in_workbook(str(target), query="alpha", max_results=0)
@@ -322,6 +342,27 @@ def test_search_redos_nested_alternation_and_profile_limits(
     assert capped["total_columns"] == 2
     assert capped["scan_truncated"] is True
     assert capped["columns_truncated"] is True
+
+    from excel_mcp.core.pivot import create_pivot_table
+
+    sparse_pivot = tmp_path / "sparse_pivot.xlsx"
+    p_wb = openpyxl.Workbook()
+    p_ws = p_wb.active
+    assert p_ws is not None
+    p_ws.title = "Data"
+    p_ws["A1"] = "Cat"
+    p_ws["B1"] = "Val"
+    p_ws["A2"] = "A"
+    p_ws["B2"] = 10
+    p_ws["XFD1048576"] = 1
+    p_wb.save(sparse_pivot)
+    p_wb.close()
+
+    pivot_err = create_pivot_table(
+        str(sparse_pivot), "Data", "A1:XFD1048576", rows=["Cat"], values=["Val"]
+    )
+    assert pivot_err["status"] == "error"
+    assert "too large" in pivot_err["error"]
 
 
 def test_structure_bounds_relative_key_column_and_sparse_append(
