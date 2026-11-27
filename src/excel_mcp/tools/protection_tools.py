@@ -10,11 +10,9 @@ from typing import Any
 
 from excel_mcp.core.protection import protect_sheet as _protect_sheet
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import require_valid_path
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename")
 def protect_sheet(
     filename: str | None = None,
     file_path: str | None = None,

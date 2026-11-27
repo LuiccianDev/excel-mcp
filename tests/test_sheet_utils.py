@@ -1,22 +1,28 @@
-"""Persistence tests for excel_mcp.utils.sheet_utils operations."""
+"""Persistence tests for excel_mcp.core.ranges operations."""
 
 from __future__ import annotations
 
 import openpyxl
 import pytest
 
-from excel_mcp.utils.sheet_utils import (
+from excel_mcp.core.ranges import (
     copy_range,
     copy_range_operation,
     copy_sheet,
+    delete_range,
     delete_range_operation,
     delete_sheet,
-    format_range_string,
     merge_range,
     rename_sheet,
     unmerge_range,
-    delete_range,
 )
+from excel_mcp.exceptions.exception_core import (
+    RangeError,
+    SheetExistsError,
+    SheetNotFoundError,
+    ValidationError,
+)
+from excel_mcp.utils.cell_utils import format_range_string
 
 
 @pytest.fixture
@@ -66,48 +72,48 @@ def test_delete_range_clears_values_and_styles(workbook_path):
 
 def test_copy_sheet_persists(workbook_path):
     result = copy_sheet(str(workbook_path), "Data", "DataCopy")
-    assert "message" in result
+    assert result["status"] == "success"
     assert "DataCopy" in openpyxl.load_workbook(workbook_path).sheetnames
 
 
 def test_copy_sheet_rejects_existing_target(workbook_path):
-    result = copy_sheet(str(workbook_path), "Data", "Other")
-    assert "error" in result
+    with pytest.raises(SheetExistsError):
+        copy_sheet(str(workbook_path), "Data", "Other")
 
 
 def test_rename_sheet_persists(workbook_path):
     result = rename_sheet(str(workbook_path), "Other", "Renamed")
-    assert "message" in result
+    assert result["status"] == "success"
     assert "Renamed" in openpyxl.load_workbook(workbook_path).sheetnames
 
 
 def test_delete_sheet_persists(workbook_path):
     result = delete_sheet(str(workbook_path), "Other")
-    assert "message" in result
+    assert result["status"] == "success"
     assert openpyxl.load_workbook(workbook_path).sheetnames == ["Data"]
 
 
 def test_delete_last_sheet_is_rejected(workbook_path):
     delete_sheet(str(workbook_path), "Other")
-    result = delete_sheet(str(workbook_path), "Data")
-    assert "error" in result
+    with pytest.raises(ValidationError):
+        delete_sheet(str(workbook_path), "Data")
 
 
 def test_merge_and_unmerge_persist(workbook_path):
     merged = merge_range(str(workbook_path), "Data", "A1", "B1")
-    assert "message" in merged
+    assert merged["status"] == "success"
     ws = openpyxl.load_workbook(workbook_path)["Data"]
     assert "A1:B1" in [str(rng) for rng in ws.merged_cells.ranges]
 
     unmerged = unmerge_range(str(workbook_path), "Data", "A1", "B1")
-    assert "message" in unmerged
+    assert unmerged["status"] == "success"
     ws = openpyxl.load_workbook(workbook_path)["Data"]
     assert [str(rng) for rng in ws.merged_cells.ranges] == []
 
 
 def test_unmerge_unmerged_range_is_rejected(workbook_path):
-    result = unmerge_range(str(workbook_path), "Data", "A1", "B1")
-    assert "error" in result
+    with pytest.raises(RangeError):
+        unmerge_range(str(workbook_path), "Data", "A1", "B1")
 
 
 def test_copy_range_operation_persists(workbook_path):
@@ -118,7 +124,7 @@ def test_copy_range_operation_persists(workbook_path):
         source_end="B2",
         target_start="D1",
     )
-    assert "error" not in result
+    assert result["status"] == "success"
     ws = openpyxl.load_workbook(workbook_path)["Data"]
     assert ws["D1"].value == "Header"
     assert ws["D2"].value == 10
@@ -133,21 +139,21 @@ def test_delete_range_operation_shifts_up(workbook_path):
         end_cell="A1",
         shift_direction="up",
     )
-    assert "error" not in result
+    assert result["status"] == "success"
     ws = openpyxl.load_workbook(workbook_path)["Data"]
     assert ws["A1"].value == 10
 
 
 def test_delete_range_operation_rejects_bad_direction(workbook_path):
-    result = delete_range_operation(
-        filename=str(workbook_path),
-        sheet_name="Data",
-        start_cell="A1",
-        shift_direction="diagonal",
-    )
-    assert "error" in result
+    with pytest.raises(ValidationError):
+        delete_range_operation(
+            filename=str(workbook_path),
+            sheet_name="Data",
+            start_cell="A1",
+            shift_direction="diagonal",
+        )
 
 
 def test_missing_sheet_is_reported(workbook_path):
-    result = merge_range(str(workbook_path), "Missing", "A1", "B1")
-    assert "error" in result
+    with pytest.raises(SheetNotFoundError):
+        merge_range(str(workbook_path), "Missing", "A1", "B1")

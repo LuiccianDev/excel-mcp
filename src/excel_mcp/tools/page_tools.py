@@ -10,11 +10,9 @@ from typing import Any, Literal
 
 from excel_mcp.core.page_setup import configure_page_setup as _configure_page_setup
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import require_valid_path
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename")
 def configure_page_setup(
     filename: str | None = None,
     file_path: str | None = None,

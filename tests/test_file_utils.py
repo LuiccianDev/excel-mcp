@@ -12,8 +12,8 @@ from excel_mcp.utils.file_utils import (
     ensure_xlsx_extension,
     list_excel_files_in_directory,
     resolve_safe_path,
-    validate_file_access,
 )
+from excel_mcp.utils.guards import tool_guard
 from excel_mcp.utils.paths import (
     is_path_allowed as _is_path_in_allowed_directories,
     resolve_allowed_directories as _get_allowed_directories,
@@ -299,13 +299,13 @@ class TestListExcelFilesInDirectory:
 
 
 class TestValidateFileAccess:
-    """Tests for validate_file_access decorator."""
+    """Tests for tool_guard path validation decorator."""
 
     def test_validate_sync_function_success(self, tmp_path: Path) -> None:
         """Test decorator on sync function with valid access."""
         test_file = tmp_path / "test.xlsx"
 
-        @validate_file_access("filename")
+        @tool_guard(path_param="filename")
         def test_func(filename: str) -> dict:
             return {"status": "success", "filename": filename}
 
@@ -321,7 +321,7 @@ class TestValidateFileAccess:
         """Test decorator on async function with valid access."""
         test_file = tmp_path / "test.xlsx"
 
-        @validate_file_access("filename")
+        @tool_guard(path_param="filename")
         async def test_async_func(filename: str) -> dict:
             return {"status": "success", "filename": filename}
 
@@ -340,7 +340,7 @@ class TestValidateFileAccess:
         allowed_dir = tmp_path / "allowed"
         test_file = tmp_path / "outside" / "test.xlsx"
 
-        @validate_file_access("filename")
+        @tool_guard(path_param="filename")
         def test_func(filename: str) -> dict:
             return {"status": "success"}
 
@@ -356,7 +356,7 @@ class TestValidateFileAccess:
     def test_validate_missing_param(self) -> None:
         """Test decorator when parameter is missing."""
 
-        @validate_file_access("filename")
+        @tool_guard(path_param="filename")
         def test_func(other_param: str) -> dict:
             return {"status": "success"}
 

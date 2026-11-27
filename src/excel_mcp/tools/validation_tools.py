@@ -10,11 +10,9 @@ from typing import Any, Literal
 
 from excel_mcp.core.data_validation import add_data_validation as _add_data_validation
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import require_valid_path
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename")
 def add_data_validation(
     filename: str | None = None,
     file_path: str | None = None,

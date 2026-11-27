@@ -1,54 +1,34 @@
+"""Content reading and writing tools for Excel MCP Server."""
+
+from __future__ import annotations
+
 from typing import Any
 
-from excel_mcp.core.data import read_excel_range
-from excel_mcp.exceptions.exception_tools import DataError, ValidationError
-from excel_mcp.utils.file_utils import validate_file_access
+from excel_mcp.core.data import read_excel_range, write_data
 from excel_mcp.utils.guards import tool_guard
 
 
-@validate_file_access("filename", read_only=True)
-@tool_guard()
-async def read_data_from_excel(
+@tool_guard(path_param="filename", read_only=True)
+def read_data_from_excel(
     filename: str,
     sheet_name: str,
     start_cell: str = "A1",
     end_cell: str | None = None,
     preview_only: bool = False,
 ) -> dict[str, Any]:
-    """
-    Read a specific range of tabular data from an Excel worksheet and return it in a structured format.
+    """Read a specific range of tabular data from an Excel worksheet and return it in a structured format.
 
     Note: Call `excel_get_workbook_outline` first on unfamiliar or large workbooks to inspect dimensions and headers without loading full cell matrices.
-
-    Context for AI/LLM:
-        Use this tool to extract tabular data from a defined worksheet and cell range within an Excel workbook.
-        Ideal for automated data ingestion, previewing spreadsheet contents, or validating required data before processing.
-
-    Typical use cases:
-        1. Loading a data range for analysis or transformation.
-        2. Previewing the first N rows of a sheet to confirm layout.
-        3. Validating that a required sheet exists and contains data.
 
     Args:
         filename (str): Absolute or relative path to the Excel workbook (.xlsx). The extension is enforced automatically.
         sheet_name (str): Name of the worksheet to read from.
         start_cell (str, optional): Top-left cell reference of the range to read. Defaults to "A1".
         end_cell (str | None, optional): Bottom-right cell reference. If None, reads until the first empty row/column. Defaults to None.
-        preview_only (bool, optional): If True, returns only a small subset (e.g., first 100 rows) for quick inspection. Defaults to False.
+        preview_only (bool, optional): If True, returns only a bounded preview subset for quick inspection. Defaults to False.
 
     Returns:
-        dict[str, Any]: A dictionary containing:
-            - status (str): "success" or "error".
-            - data (list[list[Any]] | None): 2-D list of cell values from the worksheet range when status is "success".
-            - message (str): Human-readable message or error description.
-
-    Raises:
-        FileNotFoundError: If the workbook cannot be located.
-        ValidationError | DataError: If the sheet name or range is invalid or missing.
-
-    Notes:
-        • The specified worksheet must already exist; the function does not create new sheets.
-        • If the target range is empty, status will be "error" with a descriptive message.
+        dict[str, Any]: A dictionary containing status ("success" or "error"), data (2-D list of cell values), and message.
     """
     data = read_excel_range(
         filename=filename,
@@ -72,25 +52,16 @@ async def read_data_from_excel(
     }
 
 
-@validate_file_access("filename")
-async def write_data_to_excel(
+@tool_guard(path_param="filename")
+def write_data_to_excel(
     filename: str,
     sheet_name: str,
     data: list[list[Any]],
     start_cell: str = "A1",
-) -> str:
-    """
-    Write data to an existing Excel worksheet beginning at the specified cell.
+) -> dict[str, Any]:
+    """Write data to an existing Excel worksheet beginning at the specified cell.
 
     Note: Prefer `excel_build_workbook` for new workbooks or `excel_batch_write_data` for multi-range updates in a single pass.
-
-    Context for AI/LLM:
-        Employ this tool to programmatically populate or update a worksheet with tabular data produced by prior computations or external systems. Suitable for automated report generation, data export, or incremental updates to existing files.
-
-    Typical use cases:
-        1. Dumping processed data frames into Excel for business users.
-        2. Appending new monthly records to a reporting sheet.
-        3. Overwriting a template region with fresh values for distribution.
 
     Args:
         filename (str): Path to the workbook. The .xlsx extension is enforced.
@@ -99,23 +70,6 @@ async def write_data_to_excel(
         start_cell (str, optional): Top-left cell where writing begins (e.g., "A1"). Defaults to "A1".
 
     Returns:
-        str: Success confirmation message, or an error description prefixed with "Error:".
-
-    Raises:
-        ValidationError | DataError: When validation of input parameters or write operation fails.
-        Exception: For unexpected I/O or library errors.
-
-    Notes:
-        • Data will overwrite any existing content in the target range.
-        • The function does not create new worksheets; the target sheet must already exist.
-        • Input data is written as-is, without formula injection or type conversion.
+        dict[str, Any]: A status dictionary with status ("success" or "error"), message, active_sheet, and filepath.
     """
-    try:
-        from excel_mcp.core.data import write_data
-
-        result = write_data(filename, sheet_name, data, start_cell)
-        return str(result.get("message", "Data written successfully"))
-    except (ValidationError, DataError) as e:
-        return f"Error: {str(e)}"
-    except Exception as e:
-        return f"Error: Failed to write data: {str(e)}"
+    return write_data(filename, sheet_name, data, start_cell)

@@ -4,19 +4,18 @@ from __future__ import annotations
 
 import os
 import tempfile
+from typing import Any, cast
 import unittest
 from unittest.mock import patch
 
 import openpyxl
 
-from excel_mcp.core.batch import (
-    batch_write_matrix,
-    build_single_pass_workbook,
-    inspect_workbook_outline,
-)
+from excel_mcp.core.builder import SheetSpec, build_single_pass_workbook
 from excel_mcp.core.calculations import FormulaSecurityError
+from excel_mcp.core.data import batch_write_matrix
 from excel_mcp.core.presets import PRESETS, get_preset
-from excel_mcp.exceptions.exception_core import SheetNotFoundError
+from excel_mcp.core.search import inspect_workbook_outline
+from excel_mcp.exceptions.exception_core import SheetNotFoundError, ValidationError
 from excel_mcp.tools.batch_tools import (
     build_workbook,
 )
@@ -244,7 +243,8 @@ class TestBatchTools(unittest.TestCase):
             sheets=[{"name": "S", "rows": [[1]]}],
         )
         self.assertEqual(res["status"], "error")
-        self.assertIn("Security restriction", res["message"])
+        self.assertIn("Access denied", res["message"])
+        self.assertEqual(res["error_type"], "PermissionError")
 
     def test_build_workbook_uniform_font_override_and_navigation(self) -> None:
         """Verify uniform font overrides, <=12pt banners, and freeze/filter settings."""
@@ -381,6 +381,33 @@ class TestBatchTools(unittest.TestCase):
         self.assertEqual(len(ws.data_validations.dataValidation), 1)
         self.assertEqual(ws.data_validations.dataValidation[0].formula1, "0")
         wb.close()
+
+    def test_build_workbook_validates_sheet_specs_and_names(self) -> None:
+        """Verify SheetSpec validation, sheet name rules, and duplicate sheet rejection."""
+        with self.assertRaises(Exception):
+            SheetSpec.model_validate({"name": "Bad", "rows": "not-a-list"})
+
+        target = os.path.join(self.temp_dir.name, "invalid_spec.xlsx")
+        with self.assertRaises(ValidationError):
+            build_single_pass_workbook(
+                filename=target,
+                sheets=cast(Any, [{"name": "Bad", "rows": "not-a-list"}]),
+            )
+
+        with self.assertRaises(ValidationError):
+            build_single_pass_workbook(
+                filename=target,
+                sheets=[{"name": "Invalid/Name", "rows": [[1]]}],
+            )
+
+        with self.assertRaises(ValidationError):
+            build_single_pass_workbook(
+                filename=target,
+                sheets=[
+                    {"name": "Summary", "rows": [[1]]},
+                    {"name": "summary", "rows": [[2]]},
+                ],
+            )
 
 
 if __name__ == "__main__":

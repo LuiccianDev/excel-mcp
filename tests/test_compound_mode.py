@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -106,84 +105,74 @@ def test_compound_tools_end_to_end(
     docs_dir.mkdir(parents=True)
     monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
-    res_create = asyncio.run(excel_workbook("create", "sales.xlsx"))
+    res_create = excel_workbook("create", "sales.xlsx")
     assert res_create.get("status") == "success"
 
-    res_sheet = asyncio.run(
-        excel_workbook("create_sheet", "sales.xlsx", {"sheet_name": "Q1"})
-    )
+    res_sheet = excel_workbook("create_sheet", "sales.xlsx", {"sheet_name": "Q1"})
     assert res_sheet.get("status") == "success"
 
-    res_list = asyncio.run(excel_workbook("list"))
+    res_list = excel_workbook("list")
     assert res_list.get("status") == "success"
 
-    res_meta = asyncio.run(excel_workbook("metadata", "sales.xlsx"))
+    res_meta = excel_workbook("metadata", "sales.xlsx")
     assert "Q1" in res_meta.get("sheets", [])
 
-    res_write = asyncio.run(
-        excel_data(
-            "write",
-            "sales.xlsx",
-            {
-                "sheet_name": "Q1",
-                "data": [["Item", "Amount"], ["Ore", 100], ["Gold", 250]],
-                "start_cell": "A1",
-            },
-        )
+    res_write = excel_data(
+        "write",
+        "sales.xlsx",
+        {
+            "sheet_name": "Q1",
+            "data": [["Item", "Amount"], ["Ore", 100], ["Gold", 250]],
+            "start_cell": "A1",
+        },
     )
     assert res_write.get("status") == "success"
 
-    res_read = asyncio.run(
-        excel_data("read", "sales.xlsx", {"sheet_name": "Q1", "start_cell": "A1"})
+    res_read = excel_data(
+        "read", "sales.xlsx", {"sheet_name": "Q1", "start_cell": "A1"}
     )
     assert res_read.get("status") == "success"
 
-    res_val = asyncio.run(
-        excel_formula(
-            "validate",
-            "sales.xlsx",
-            {"sheet_name": "Q1", "cell": "B4", "formula": "=SUM(B2:B3)"},
-        )
+    res_val = excel_formula(
+        "validate",
+        "sales.xlsx",
+        {"sheet_name": "Q1", "cell": "B4", "formula": "=SUM(B2:B3)"},
     )
     assert res_val.get("status") == "success"
 
-    res_apply = asyncio.run(
-        excel_formula(
-            "apply",
-            "sales.xlsx",
-            {"sheet_name": "Q1", "cell": "B4", "formula": "=SUM(B2:B3)"},
-        )
+    res_apply = excel_formula(
+        "apply",
+        "sales.xlsx",
+        {"sheet_name": "Q1", "cell": "B4", "formula": "=SUM(B2:B3)"},
     )
     assert res_apply.get("status") == "success"
 
-    res_table = asyncio.run(
-        excel_format(
-            "create_table",
-            "sales.xlsx",
-            {"sheet_name": "Q1", "range_string": "A1:B3", "table_name": "SalesTbl"},
-        )
+    res_table = excel_format(
+        "create_table",
+        "sales.xlsx",
+        {"sheet_name": "Q1", "range_string": "A1:B3", "table_name": "SalesTbl"},
     )
     assert res_table.get("status") == "success"
 
 
 def test_compound_tools_reject_invalid_actions_and_params() -> None:
     """Invalid actions, unknown params, and missing required params must return errors."""
-    bad_action = asyncio.run(excel_workbook("nonexistent"))  # type: ignore[arg-type]
+    bad_action = excel_workbook(cast(Any, "nonexistent"))
     assert bad_action["status"] == "error"
     assert "available_actions" in bad_action
 
-    bad_param = asyncio.run(excel_formula("validate", "a.xlsx", {"not_a_param": 1}))
+    bad_param = excel_formula("validate", "a.xlsx", {"not_a_param": 1})
     assert bad_param["status"] == "error"
     assert "Unknown parameter" in bad_param["message"]
 
-    missing_param = asyncio.run(excel_formula("validate", "a.xlsx", {}))
+    missing_param = excel_formula("validate", "a.xlsx", {})
     assert missing_param["status"] == "error"
     assert "Missing required parameter" in missing_param["message"]
 
-    bad_chart = asyncio.run(excel_analytics("create_chart", None, {}))
+    bad_chart = excel_analytics("create_chart", None, {})
     assert bad_chart["status"] == "error"
 
-    bad_create = asyncio.run(excel_workbook("create", "payload.exe"))
+    bad_create = excel_workbook("create", "payload.exe")
     assert bad_create["status"] == "error"
     assert "message" in bad_create
 
@@ -191,14 +180,14 @@ def test_compound_tools_reject_invalid_actions_and_params() -> None:
 def test_compound_metadata_and_exception_normalization(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Dict results without status are normalized and handler exceptions use ExceptionTool."""
+    """Compound actions return handler dict payloads and translate exceptions via ExceptionTool."""
     from excel_mcp.tools.compound_tools import CompoundActionSpec
 
     monkeypatch.setenv("EXCEL_MCP_DIRS", str(tmp_path))
-    created = asyncio.run(excel_workbook("create", "meta.xlsx"))
+    created = excel_workbook("create", "meta.xlsx")
     assert created["status"] == "success"
 
-    meta = asyncio.run(excel_workbook("metadata", "meta.xlsx"))
+    meta = excel_workbook("metadata", "meta.xlsx")
     assert meta["status"] == "success"
     assert "sheets" in meta
 
@@ -216,12 +205,10 @@ def test_compound_metadata_and_exception_normalization(
             full_name=orig.full_name,
         ),
     )
-    err = asyncio.run(
-        excel_formula(
-            "validate",
-            "meta.xlsx",
-            {"sheet_name": "Sheet1", "cell": "A1", "formula": "=1+1"},
-        )
+    err = excel_formula(
+        "validate",
+        "meta.xlsx",
+        {"sheet_name": "Sheet1", "cell": "A1", "formula": "=1+1"},
     )
     assert err["status"] == "error"
     assert err["error_type"] == "RuntimeError"
@@ -263,41 +250,35 @@ def test_compound_range_alias_normalization(
     )
     assert built["status"] == "success"
 
-    table_res = asyncio.run(
-        excel_format(
-            "create_table",
-            str(target),
-            {"range_string": "A1:B3", "table_name": "OrdersTbl", "sheet_name": "Data"},
-        )
+    table_res = excel_format(
+        "create_table",
+        str(target),
+        {"range_string": "A1:B3", "table_name": "OrdersTbl", "sheet_name": "Data"},
     )
     assert table_res["status"] == "success"
 
-    dv_res = asyncio.run(
-        excel_format(
-            "add_data_validation",
-            str(target),
-            {
-                "range_string": "B2:B3",
-                "validation_type": "list",
-                "formula1": '"Open,Closed"',
-                "sheet_name": "Data",
-            },
-        )
+    dv_res = excel_format(
+        "add_data_validation",
+        str(target),
+        {
+            "range_string": "B2:B3",
+            "validation_type": "list",
+            "formula1": '"Open,Closed"',
+            "sheet_name": "Data",
+        },
     )
     assert dv_res["status"] == "success"
 
-    dual_err = asyncio.run(
-        excel_format(
-            "add_data_validation",
-            str(target),
-            {
-                "range_string": "B2:B3",
-                "cell_range": "A2:A3",
-                "validation_type": "list",
-                "formula1": '"Open,Closed"',
-                "sheet_name": "Data",
-            },
-        )
+    dual_err = excel_format(
+        "add_data_validation",
+        str(target),
+        {
+            "range_string": "B2:B3",
+            "cell_range": "A2:A3",
+            "validation_type": "list",
+            "formula1": '"Open,Closed"',
+            "sheet_name": "Data",
+        },
     )
     assert dual_err["status"] == "error"
     assert "not both" in dual_err["message"]
@@ -323,27 +304,23 @@ def test_compound_chart_style_and_optional_delete_end_cell(
     )
     assert built["status"] == "success"
 
-    chart_res = asyncio.run(
-        excel_analytics(
-            "create_chart",
-            str(target),
-            {
-                "sheet_name": "Metrics",
-                "data_range": "A1:B3",
-                "chart_type": "bar",
-                "target_cell": "D2",
-                "title": "Sales",
-                "style": {"show_legend": False},
-            },
-        )
+    chart_res = excel_analytics(
+        "create_chart",
+        str(target),
+        {
+            "sheet_name": "Metrics",
+            "data_range": "A1:B3",
+            "chart_type": "bar",
+            "target_cell": "D2",
+            "title": "Sales",
+            "style": {"show_legend": False},
+        },
     )
     assert chart_res["status"] == "success"
 
-    del_res = asyncio.run(
-        excel_data(
-            "delete_range",
-            str(target),
-            {"sheet_name": "Metrics", "start_cell": "A4", "shift_direction": "up"},
-        )
+    del_res = excel_data(
+        "delete_range",
+        str(target),
+        {"sheet_name": "Metrics", "start_cell": "A4", "shift_direction": "up"},
     )
     assert del_res["status"] == "success"

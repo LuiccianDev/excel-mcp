@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 
 import openpyxl
@@ -51,7 +50,7 @@ def test_list_documents_finds_files_under_mcp_allowed_directories(
 
     from excel_mcp.tools.excel_tools import list_excel_documents
 
-    result = asyncio.run(list_excel_documents())
+    result = list_excel_documents()
     assert result["status"] == "success"
     assert result["count"] == 1
     assert result["files"][0]["filename"] == "book.xlsx"
@@ -67,7 +66,5 @@ def test_read_tool_accepts_path_under_mcp_allowed_directories(monkeypatch, tmp_p
 
     from excel_mcp.tools.content_tools import read_data_from_excel
 
-    result = asyncio.run(
-        read_data_from_excel(filename=str(workbook), sheet_name="Sheet")
-    )
+    result = read_data_from_excel(filename=str(workbook), sheet_name="Sheet")
     assert result["status"] == "success"

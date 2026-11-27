@@ -1,14 +1,16 @@
+"""Chart and pivot table tools for Excel MCP Server."""
+
+from __future__ import annotations
+
 from typing import Any
 
 from excel_mcp.core.chart import create_chart_in_sheet as create_chart_impl
 from excel_mcp.core.pivot import create_pivot_table as create_pivot_table_impl
-from excel_mcp.utils.file_utils import validate_file_access
 from excel_mcp.utils.guards import tool_guard
 
 
-@validate_file_access("filename")
-@tool_guard()
-async def create_chart(
+@tool_guard(path_param="filename")
+def create_chart(
     filename: str,
     sheet_name: str,
     data_range: str,
@@ -20,9 +22,6 @@ async def create_chart(
     style: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Create a chart in a worksheet based on a specified data range.
-
-    Context for AI/LLM:
-        Use this tool to visually represent data within an Excel sheet. It is perfect for automating the creation of dashboards and reports, allowing an agent to generate charts like bar, line, or pie charts from existing data tables.
 
     Args:
         filename (str): The path to the Excel workbook.
@@ -39,7 +38,7 @@ async def create_chart(
         dict[str, Any]: A status dictionary indicating success or failure, with a descriptive message.
     """
     extra_kwargs: dict[str, Any] = {"style": style} if style is not None else {}
-    result: dict[str, Any] = create_chart_impl(
+    return create_chart_impl(
         filename=filename,
         sheet_name=sheet_name,
         data_range=data_range,
@@ -50,12 +49,10 @@ async def create_chart(
         y_axis=y_axis,
         **extra_kwargs,
     )
-    return result
 
 
-@validate_file_access("filename")
-@tool_guard()
-async def create_pivot_table(
+@tool_guard(path_param="filename")
+def create_pivot_table(
     filename: str,
     sheet_name: str,
     data_range: str,
@@ -65,9 +62,6 @@ async def create_pivot_table(
     agg_func: str = "sum",
 ) -> dict[str, Any]:
     """Create a pivot table in a worksheet to summarize and analyze data from a given range.
-
-    Context for AI/LLM:
-        Use this powerful tool to perform data aggregation and summarization automatically. It's ideal for creating summary reports that group data by different categories and calculate metrics like sums, averages, or counts.
 
     Args:
         filename (str): The path to the Excel workbook.
@@ -81,7 +75,7 @@ async def create_pivot_table(
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure, with a descriptive message.
     """
-    result: dict[str, Any] = create_pivot_table_impl(
+    return create_pivot_table_impl(
         filename=filename,
         sheet_name=sheet_name,
         data_range=data_range,
@@ -90,4 +84,3 @@ async def create_pivot_table(
         columns=columns or [],
         agg_func=agg_func,
     )
-    return result

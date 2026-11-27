@@ -5,17 +5,14 @@ from pathlib import Path
 import pytest
 from openpyxl import Workbook, load_workbook
 
+from excel_mcp.core._io import validate_sheet_name
 from excel_mcp.core.workbook import (
     create_workbook,
     create_sheet,
-    get_or_create_workbook,
     get_workbook_info,
     managed_workbook,
     managed_worksheet,
     _create_new_sheet,
-    _create_initial_worksheet,
-    _load_existing_workbook,
-    _validate_sheet_name,
     _get_worksheet_range,
 )
 from excel_mcp.exceptions.exception_core import (
@@ -61,53 +58,6 @@ class TestCreateWorkbook:
             or "cannot contain" in error_msg
             or "Failed to create" in error_msg
         )
-
-
-class TestGetOrCreateWorkbook:
-    """Tests for get_or_create_workbook function."""
-
-    def test_get_existing_workbook(self, tmp_path: Path) -> None:
-        """Test getting an existing workbook."""
-        test_file = tmp_path / "existing.xlsx"
-        wb = Workbook()
-        wb.active.title = "Data"
-        wb.save(test_file)
-        wb.close()
-
-        result = get_or_create_workbook(test_file)
-
-        assert result is not None
-        assert "Data" in result.sheetnames
-        result.close()
-
-    def test_create_new_workbook_if_not_exists(self, tmp_path: Path) -> None:
-        """Test creating new workbook when file doesn't exist."""
-        test_file = tmp_path / "new.xlsx"
-
-        result = get_or_create_workbook(test_file)
-
-        assert result is not None
-        assert "Sheet1" in result.sheetnames
-        result.close()
-
-    def test_get_existing_read_only(self, tmp_path: Path) -> None:
-        """Test getting existing workbook in read-only mode."""
-        test_file = tmp_path / "readonly.xlsx"
-        wb = Workbook()
-        wb.save(test_file)
-        wb.close()
-
-        result = get_or_create_workbook(test_file, read_only=True)
-
-        assert result is not None
-        result.close()
-
-    def test_read_only_nonexistent_raises_error(self, tmp_path: Path) -> None:
-        """Test that read-only mode with non-existent file raises error."""
-        test_file = tmp_path / "nonexistent.xlsx"
-
-        with pytest.raises(FileNotFoundError):
-            get_or_create_workbook(test_file, read_only=True)
 
 
 class TestCreateSheet:
@@ -208,31 +158,30 @@ class TestGetWorkbookInfo:
 
 
 class TestValidateSheetName:
-    """Tests for _validate_sheet_name function."""
+    """Tests for validate_sheet_name function."""
 
     def test_valid_sheet_name(self) -> None:
         """Test validating valid sheet names."""
-        # Should not raise
-        _validate_sheet_name("ValidName")
-        _validate_sheet_name("Sheet1")
-        _validate_sheet_name("A_B_C")
+        validate_sheet_name("ValidName")
+        validate_sheet_name("Sheet1")
+        validate_sheet_name("A_B_C")
 
     def test_empty_sheet_name(self) -> None:
         """Test empty sheet name raises error."""
         with pytest.raises(ValidationError) as exc_info:
-            _validate_sheet_name("")
+            validate_sheet_name("")
 
         assert "non-empty" in str(exc_info.value)
 
     def test_none_sheet_name(self) -> None:
         """Test None sheet name raises error."""
         with pytest.raises(ValidationError):
-            _validate_sheet_name(None)
+            validate_sheet_name(None)  # type: ignore[arg-type]
 
     def test_long_sheet_name(self) -> None:
         """Test sheet name exceeding 31 characters raises error."""
         with pytest.raises(ValidationError) as exc_info:
-            _validate_sheet_name("A" * 32)
+            validate_sheet_name("A" * 32)
 
         assert "31" in str(exc_info.value)
 
@@ -248,50 +197,12 @@ class TestValidateSheetName:
 
         for name in invalid_names:
             with pytest.raises(ValidationError):
-                _validate_sheet_name(name)
+                validate_sheet_name(name)
 
     def test_starting_with_quote(self) -> None:
         """Test sheet name starting with quote raises error."""
         with pytest.raises(ValidationError):
-            _validate_sheet_name("'Sheet")
-
-
-class TestCreateInitialWorksheet:
-    """Tests for _create_initial_worksheet function."""
-
-    def test_create_initial_worksheet(self) -> None:
-        """Test creating initial worksheet."""
-        wb = Workbook()
-
-        _create_initial_worksheet(wb, "MySheet")
-
-        assert "MySheet" in wb.sheetnames
-        wb.close()
-
-
-class TestLoadExistingWorkbook:
-    """Tests for _load_existing_workbook function."""
-
-    def test_load_existing_file(self, tmp_path: Path) -> None:
-        """Test loading existing workbook."""
-        test_file = tmp_path / "test.xlsx"
-        wb = Workbook()
-        wb.active.title = "Data"
-        wb.save(test_file)
-        wb.close()
-
-        result = _load_existing_workbook(test_file)
-
-        assert result is not None
-        assert "Data" in result.sheetnames
-        result.close()
-
-    def test_load_nonexistent_file(self, tmp_path: Path) -> None:
-        """Test loading non-existent file raises error."""
-        test_file = tmp_path / "nonexistent.xlsx"
-
-        with pytest.raises(WorkbookError):
-            _load_existing_workbook(test_file)
+            validate_sheet_name("'Sheet")
 
 
 class TestCreateNewSheet:
@@ -346,8 +257,16 @@ class TestGetWorksheetRange:
 
         _get_worksheet_range(ws)
 
-        # Empty sheet might still return a range depending on openpyxl version
         wb.close()
+
+    def test_get_range_handles_none_dimensions(self) -> None:
+        """Test getting range when worksheet dimensions are None."""
+
+        class _NullDimSheet:
+            max_row = None
+            max_column = None
+
+        assert _get_worksheet_range(_NullDimSheet()) is None
 
 
 class TestManagedWorkbook:

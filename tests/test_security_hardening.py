@@ -6,9 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from excel_mcp.utils.file_utils import resolve_safe_path, validate_file_access
-from excel_mcp.utils.paths import is_path_allowed, validate_file_constraints
-from excel_mcp.utils.security import resolve_and_check_path
+from excel_mcp.utils.file_utils import resolve_safe_path
+from excel_mcp.utils.guards import tool_guard
+from excel_mcp.utils.paths import (
+    is_path_allowed,
+    resolve_and_check_path,
+    validate_file_constraints,
+)
 
 
 def test_validate_file_access_anchors_relative_path_to_allowed_dir(
@@ -23,7 +27,7 @@ def test_validate_file_access_anchors_relative_path_to_allowed_dir(
     monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
     monkeypatch.chdir(other_cwd)
 
-    @validate_file_access("filename")
+    @tool_guard(path_param="filename")
     def dummy_tool(filename: str) -> dict[str, str]:
         return {"status": "ok", "filename": filename}
 
@@ -40,7 +44,7 @@ def test_validate_file_access_blocks_relative_traversal(
     docs_dir.mkdir(parents=True)
     monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
-    @validate_file_access("filename")
+    @tool_guard(path_param="filename")
     def dummy_tool(filename: str) -> dict[str, str]:
         return {"status": "ok", "filename": filename}
 
@@ -120,7 +124,7 @@ def test_disallowed_extensions_are_blocked(
         assert resolved is None
         assert err is not None and err["status"] == "error"
 
-    @validate_file_access("filename")
+    @tool_guard(path_param="filename")
     def dummy_tool(filename: str) -> dict[str, str]:
         return {"status": "ok", "filename": filename}
 

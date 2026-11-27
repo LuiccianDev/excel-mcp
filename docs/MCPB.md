@@ -12,7 +12,7 @@ The primary delivery mechanism for `excel-mcp` is direct execution via `uvx`:
 uvx luiccian-excel-mcp
 ```
 
-This dynamically fetches the latest tested wheel from PyPI, creates an ephemeral virtual environment, and launches the FastMCP server over `stdio`.
+This dynamically fetches the latest tested wheel from PyPI, creates an ephemeral virtual environment, and launches the FastMCP server over `stdio` in `compound` mode (8 tools by default; pass `server --tool-mode full` or set `EXCEL_MCP_TOOLS=full` for all 33 granular tools, or run `uvx luiccian-excel-mcp list` to inspect `.xlsx` files in `EXCEL_MCP_DIRS`).
 
 ---
 

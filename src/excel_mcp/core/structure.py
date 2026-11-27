@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 import re
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from openpyxl.utils.cell import (
     column_index_from_string,
@@ -21,10 +21,106 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 from excel_mcp.core._io import atomic_save, resolve_sheet, workbook_session
 from excel_mcp.core.calculations import assert_safe_cell_value
 from excel_mcp.exceptions.exception_core import ValidationError
+from excel_mcp.utils.cell_utils import assert_range_cell_limit
 
 logger = logging.getLogger(__name__)
 
 VALID_TABLE_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
+MAX_SORT_CELLS: Final[int] = 100_000
+MAX_TABLE_CELLS: Final[int] = 1_000_000
+MAX_APPEND_CELLS: Final[int] = 100_000
+MAX_DIMENSION_AMOUNT: Final[int] = 10_000
+MAX_EXCEL_ROWS: Final[int] = 1_048_576
+MAX_EXCEL_COLS: Final[int] = 16_384
+
+
+def _last_non_empty_row(ws: Any) -> int:
+    return max(
+        (
+            row_idx
+            for (row_idx, _col_idx), cell in ws._cells.items()
+            if cell.value is not None
+        ),
+        default=0,
+    )
+
+
+def _validate_dimension_args(dimension: str, idx: int, amount: int) -> str:
+    if isinstance(idx, bool) or idx < 1:
+        raise ValidationError(f"Index must be >= 1, got {idx}.")
+    if isinstance(amount, bool) or amount < 1:
+        raise ValidationError(f"Amount must be >= 1, got {amount}.")
+
+    dim_lower = dimension.strip().lower()
+    if dim_lower not in ("row", "column"):
+        raise ValidationError(
+            f"Dimension must be 'row' or 'column', got '{dimension}'."
+        )
+    if amount > MAX_DIMENSION_AMOUNT:
+        raise ValidationError(
+            f"Amount {amount} exceeds maximum allowed ({MAX_DIMENSION_AMOUNT})."
+        )
+    max_idx = MAX_EXCEL_ROWS if dim_lower == "row" else MAX_EXCEL_COLS
+    if idx > max_idx:
+        raise ValidationError(
+            f"Index {idx} exceeds Excel {dim_lower} limit ({max_idx})."
+        )
+    return dim_lower
+
+
+def _mutate_worksheet_dimension(
+    filename: str,
+    dimension: Literal["row", "column"],
+    idx: int,
+    amount: int,
+    sheet_name: str | None,
+    action: Literal["insert", "delete"],
+) -> dict[str, Any]:
+    dim_lower = _validate_dimension_args(dimension, idx, amount)
+    with workbook_session(filename, mode="edit") as wb:
+        ws = resolve_sheet(wb, sheet_name)
+        if action == "insert":
+            ws.insert_rows(idx, amount) if dim_lower == "row" else ws.insert_cols(
+                idx, amount
+            )
+        else:
+            ws.delete_rows(idx, amount) if dim_lower == "row" else ws.delete_cols(
+                idx, amount
+            )
+        title = ws.title
+
+    return {
+        "sheet_name": title,
+        "dimension": dim_lower,
+        "index": idx,
+        "amount": amount,
+        "action": action,
+    }
+
+
+def _parse_bounded_range(
+    range_string: str, max_cells: int, label: str
+) -> tuple[int, int, int, int]:
+    try:
+        min_col, min_row, max_col, max_row = range_boundaries(range_string)
+    except Exception as e:
+        raise ValidationError(
+            f"Invalid range specification '{range_string}': {e}"
+        ) from e
+
+    if min_col is None or min_row is None or max_col is None or max_row is None:
+        raise ValidationError(f"Range '{range_string}' must specify concrete bounds.")
+
+    assert_range_cell_limit(
+        min_row,
+        min_col,
+        max_row,
+        max_col,
+        max_cells,
+        ValidationError,
+        label=label,
+    )
+    return min_col, min_row, max_col, max_row
 
 
 def append_rows_to_sheet(
@@ -44,6 +140,13 @@ def append_rows_to_sheet(
     Returns:
         Summary dictionary with rows appended and cell range bounds.
     """
+    if isinstance(start_column, bool) or start_column < 1:
+        raise ValidationError(f"start_column must be >= 1, got {start_column}.")
+    if start_column > MAX_EXCEL_COLS:
+        raise ValidationError(
+            f"start_column {start_column} exceeds Excel column limit ({MAX_EXCEL_COLS})."
+        )
+
     if not rows:
         path = Path(filename).resolve()
         if not path.exists():
@@ -54,21 +157,34 @@ def append_rows_to_sheet(
             "message": "No rows to append.",
         }
 
+    if len(rows) > MAX_EXCEL_ROWS:
+        raise ValidationError(
+            f"Append row count ({len(rows)}) exceeds Excel row limit ({MAX_EXCEL_ROWS})."
+        )
+
+    total_cells = sum(len(row) for row in rows)
+    if total_cells > MAX_APPEND_CELLS:
+        raise ValidationError(
+            f"Append payload ({total_cells} cells) exceeds maximum allowed ({MAX_APPEND_CELLS})."
+        )
+
+    max_end_col = max(
+        (start_column + len(row) - 1 for row in rows if row),
+        default=start_column,
+    )
+    if max_end_col > MAX_EXCEL_COLS:
+        raise ValidationError(
+            f"Target end column ({max_end_col}) exceeds Excel column limit ({MAX_EXCEL_COLS})."
+        )
+
     with workbook_session(filename, mode="edit") as wb:
         ws = resolve_sheet(wb, sheet_name)
-
-        # Detect the actual last row containing non-empty data
-        max_r = ws.max_row or 0
-        actual_last_row = 0
-        for r in range(max_r, 0, -1):
-            if any(
-                ws.cell(row=r, column=c).value is not None
-                for c in range(1, (ws.max_column or 1) + 1)
-            ):
-                actual_last_row = r
-                break
-
-        start_row = actual_last_row + 1
+        start_row = _last_non_empty_row(ws) + 1
+        end_row = start_row + len(rows) - 1
+        if end_row > MAX_EXCEL_ROWS:
+            raise ValidationError(
+                f"Target end row ({end_row}) exceeds Excel row limit ({MAX_EXCEL_ROWS})."
+            )
 
         for r_offset, row in enumerate(rows):
             curr_row = start_row + r_offset
@@ -77,7 +193,6 @@ def append_rows_to_sheet(
                 assert_safe_cell_value(val, f"at row {curr_row}, col {curr_col}")
                 ws.cell(row=curr_row, column=curr_col, value=val)
 
-        end_row = start_row + len(rows) - 1
         title = ws.title
 
     return {
@@ -96,32 +211,9 @@ def insert_worksheet_dimension(
     sheet_name: str | None = None,
 ) -> dict[str, Any]:
     """Insert empty rows or columns at the specified index."""
-    if idx < 1:
-        raise ValidationError(f"Index must be >= 1, got {idx}.")
-    if amount < 1:
-        raise ValidationError(f"Amount must be >= 1, got {amount}.")
-
-    dim_lower = dimension.strip().lower()
-    if dim_lower not in ("row", "column"):
-        raise ValidationError(
-            f"Dimension must be 'row' or 'column', got '{dimension}'."
-        )
-
-    with workbook_session(filename, mode="edit") as wb:
-        ws = resolve_sheet(wb, sheet_name)
-        if dim_lower == "row":
-            ws.insert_rows(idx, amount)
-        else:
-            ws.insert_cols(idx, amount)
-        title = ws.title
-
-    return {
-        "sheet_name": title,
-        "dimension": dim_lower,
-        "index": idx,
-        "amount": amount,
-        "action": "insert",
-    }
+    return _mutate_worksheet_dimension(
+        filename, dimension, idx, amount, sheet_name, action="insert"
+    )
 
 
 def delete_worksheet_dimension(
@@ -132,32 +224,9 @@ def delete_worksheet_dimension(
     sheet_name: str | None = None,
 ) -> dict[str, Any]:
     """Delete rows or columns starting at the specified index."""
-    if idx < 1:
-        raise ValidationError(f"Index must be >= 1, got {idx}.")
-    if amount < 1:
-        raise ValidationError(f"Amount must be >= 1, got {amount}.")
-
-    dim_lower = dimension.strip().lower()
-    if dim_lower not in ("row", "column"):
-        raise ValidationError(
-            f"Dimension must be 'row' or 'column', got '{dimension}'."
-        )
-
-    with workbook_session(filename, mode="edit") as wb:
-        ws = resolve_sheet(wb, sheet_name)
-        if dim_lower == "row":
-            ws.delete_rows(idx, amount)
-        else:
-            ws.delete_cols(idx, amount)
-        title = ws.title
-
-    return {
-        "sheet_name": title,
-        "dimension": dim_lower,
-        "index": idx,
-        "amount": amount,
-        "action": "delete",
-    }
+    return _mutate_worksheet_dimension(
+        filename, dimension, idx, amount, sheet_name, action="delete"
+    )
 
 
 def format_worksheet_properties(
@@ -222,12 +291,9 @@ def create_excel_table(
     sheet_name: str | None = None,
 ) -> dict[str, Any]:
     """Create a native formatted Excel Table over a given range."""
-    try:
-        min_col, min_row, max_col, max_row = range_boundaries(range_string)
-    except Exception as e:
-        raise ValidationError(
-            f"Invalid range specification '{range_string}': {e}"
-        ) from e
+    min_col, min_row, max_col, max_row = _parse_bounded_range(
+        range_string, MAX_TABLE_CELLS, "table creation"
+    )
 
     if min_row >= max_row:
         raise ValidationError(
@@ -286,12 +352,9 @@ def sort_worksheet_range(
     sheet_name: str | None = None,
 ) -> dict[str, Any]:
     """Sort a 2D range of cells in-place by a specific key column."""
-    try:
-        min_col, min_row, max_col, max_row = range_boundaries(range_string)
-    except Exception as e:
-        raise ValidationError(
-            f"Invalid range specification '{range_string}': {e}"
-        ) from e
+    min_col, min_row, max_col, max_row = _parse_bounded_range(
+        range_string, MAX_SORT_CELLS, "sorting"
+    )
 
     with workbook_session(filename, mode="edit", save=False) as wb:
         ws = resolve_sheet(wb, sheet_name)
@@ -305,15 +368,15 @@ def sort_worksheet_range(
                 "message": "Range contains no data rows to sort.",
             }
 
-        # Resolve relative column index (0-based)
+        if isinstance(key_column, bool):
+            raise ValidationError("Key column cannot be a boolean value.")
         if isinstance(key_column, int):
-            if min_col <= key_column <= max_col:
-                rel_idx = key_column - min_col
-            elif 1 <= key_column <= (max_col - min_col + 1):
+            width = max_col - min_col + 1
+            if 1 <= key_column <= width:
                 rel_idx = key_column - 1
             else:
                 raise ValidationError(
-                    f"Key column index {key_column} is outside range bounds (columns {min_col} to {max_col})."
+                    f"Key column index {key_column} is outside range bounds (1 to {width})."
                 )
         else:
             col_str = str(key_column).strip()

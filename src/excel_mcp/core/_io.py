@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import os
 from pathlib import Path
+import re
 import uuid
 import zipfile
 from collections.abc import Iterator
@@ -13,6 +14,7 @@ from typing import TYPE_CHECKING, Final, Literal
 import openpyxl
 
 from excel_mcp.exceptions import SheetNotFoundError, ValidationError
+from excel_mcp.utils.cell_utils import parse_cell_range
 from excel_mcp.utils.metrics import measure_phase
 from excel_mcp.utils.paths import DEFAULT_MAX_FILE_SIZE
 
@@ -25,6 +27,126 @@ MAX_XLSX_ENTRIES: Final[int] = 10_000
 MAX_XLSX_UNCOMPRESSED_BYTES: Final[int] = 250 * 1024 * 1024
 MAX_XLSX_COMPRESSION_RATIO: Final[float] = 100.0
 _RATIO_CHECK_MIN_BYTES: Final[int] = 1024 * 1024
+MAX_XLSX_MERGE_CELLS: Final[int] = 10_000
+MAX_XLSX_MERGE_AREA: Final[int] = 100_000
+MAX_XLSX_HYPERLINKS: Final[int] = 10_000
+MAX_XLSX_HYPERLINK_AREA: Final[int] = 100_000
+MAX_WORKSHEET_XML_BYTES: Final[int] = 50 * 1024 * 1024
+_MERGE_CELL_REF_RE: Final[re.Pattern[bytes]] = re.compile(
+    rb"<(?:\w+:)?mergeCell\b[^<>]*\bref\s*=\s*[\"']([^\"']+)[\"']"
+)
+_HYPERLINK_TAG_RE: Final[re.Pattern[bytes]] = re.compile(
+    rb"<(?:\w+:)?hyperlink\b([^<>]*)/?>"
+)
+_REF_ATTR_RE: Final[re.Pattern[bytes]] = re.compile(rb"\bref\s*=\s*[\"']([^\"']+)[\"']")
+
+
+def _range_area_from_ref(ref_str: str) -> int:
+    cleaned = ref_str.replace("$", "").strip()
+    if not cleaned:
+        return 0
+    if ":" in cleaned:
+        start_part, end_part = cleaned.split(":", 1)
+        try:
+            start_row, start_col, _, _ = parse_cell_range(start_part)
+            end_row, end_col, _, _ = parse_cell_range(end_part)
+        except ValueError:
+            return 0
+        return (abs(end_row - start_row) + 1) * (abs(end_col - start_col) + 1)
+    try:
+        parse_cell_range(cleaned)
+    except ValueError:
+        return 0
+    return 1
+
+
+def _check_xml_tag_bounds(
+    data: bytes,
+    tag_pattern: re.Pattern[bytes],
+    max_count: int,
+    max_area: int,
+    label: str,
+    member_name: str,
+    archive_name: str,
+    *,
+    extract_attr_ref: bool = False,
+) -> None:
+    count = 0
+    total_area = 0
+    for match in tag_pattern.finditer(data):
+        count += 1
+        if count > max_count:
+            raise ValidationError(
+                f"Worksheet '{member_name}' in '{archive_name}' exceeds {label} limit ({max_count})."
+            )
+        if extract_attr_ref:
+            ref_match = _REF_ATTR_RE.search(match.group(1))
+            raw_ref = ref_match.group(1) if ref_match is not None else b""
+        else:
+            raw_ref = match.group(1)
+        if raw_ref:
+            ref_str = raw_ref.decode("ascii", errors="ignore")
+            total_area += _range_area_from_ref(ref_str)
+            if total_area > max_area:
+                raise ValidationError(
+                    f"Worksheet '{member_name}' in '{archive_name}' exceeds {label} area limit ({max_area} cells)."
+                )
+
+
+def _read_bounded_zip_member(
+    zf: zipfile.ZipFile, info: zipfile.ZipInfo, max_bytes: int, archive_name: str
+) -> bytes:
+    with zf.open(info, "r") as member:
+        data = member.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise ValidationError(
+            f"Archive member '{info.filename}' in '{archive_name}' exceeds decompressed byte limit ({max_bytes} bytes)."
+        )
+    return data
+
+
+_METADATA_XML_MEMBERS = frozenset(
+    {
+        "xl/sharedstrings.xml",
+        "xl/styles.xml",
+        "xl/calcchain.xml",
+        "xl/workbook.xml",
+    }
+)
+
+
+def _validate_worksheet_xml_bounds(
+    zf: zipfile.ZipFile, infos: list[zipfile.ZipInfo], archive_name: str
+) -> None:
+    for info in infos:
+        lower_name = info.filename.lstrip("/").lower()
+        if not lower_name.endswith(".xml"):
+            continue
+        if lower_name in _METADATA_XML_MEMBERS:
+            _read_bounded_zip_member(
+                zf, info, MAX_XLSX_UNCOMPRESSED_BYTES, archive_name
+            )
+            continue
+        data = _read_bounded_zip_member(zf, info, MAX_WORKSHEET_XML_BYTES, archive_name)
+        _check_xml_tag_bounds(
+            data,
+            _MERGE_CELL_REF_RE,
+            MAX_XLSX_MERGE_CELLS,
+            MAX_XLSX_MERGE_AREA,
+            "mergeCell",
+            info.filename,
+            archive_name,
+        )
+        _check_xml_tag_bounds(
+            data,
+            _HYPERLINK_TAG_RE,
+            MAX_XLSX_HYPERLINKS,
+            MAX_XLSX_HYPERLINK_AREA,
+            "hyperlink",
+            info.filename,
+            archive_name,
+            extract_attr_ref=True,
+        )
 
 
 def _validate_xlsx_archive(path: Path) -> None:
@@ -37,8 +159,10 @@ def _validate_xlsx_archive(path: Path) -> None:
                 f"Archive '{path.name}' has {len(infos)} entries, exceeding limit of {MAX_XLSX_ENTRIES}."
             )
         total_uncompressed = 0
+        total_compressed = 0
         for info in infos:
             total_uncompressed += info.file_size
+            total_compressed += info.compress_size
             if total_uncompressed > MAX_XLSX_UNCOMPRESSED_BYTES:
                 raise ValidationError(
                     f"Archive '{path.name}' decompressed size exceeds {MAX_XLSX_UNCOMPRESSED_BYTES} bytes."
@@ -50,17 +174,31 @@ def _validate_xlsx_archive(path: Path) -> None:
                 raise ValidationError(
                     f"Archive member '{info.filename}' in '{path.name}' exceeds compression ratio limit."
                 )
+        if total_uncompressed > _RATIO_CHECK_MIN_BYTES and (
+            total_compressed == 0
+            or total_uncompressed / total_compressed > MAX_XLSX_COMPRESSION_RATIO
+        ):
+            raise ValidationError(
+                f"Archive '{path.name}' exceeds aggregate compression ratio limit."
+            )
+        _validate_worksheet_xml_bounds(zf, infos, path.name)
 
 
-def _validate_new_sheet_name(name: str) -> None:
-    if not name or not name.strip():
-        raise ValidationError("Sheet name cannot be empty.")
+def validate_sheet_name(name: str) -> None:
+    """Validate an Excel worksheet name against length, empty, and character rules."""
+    if not isinstance(name, str) or not name.strip():
+        raise ValidationError("Sheet name must be a non-empty string.")
     if len(name) > 31:
         raise ValidationError(
             f"Sheet name '{name}' exceeds Excel's 31-character limit."
         )
     if any(ch in _INVALID_SHEET_CHARS for ch in name):
         raise ValidationError(f"Sheet name '{name}' contains invalid Excel characters.")
+    if name.startswith("'"):
+        raise ValidationError("Sheet name cannot start with a single quote.")
+
+
+_validate_new_sheet_name = validate_sheet_name
 
 
 @contextmanager

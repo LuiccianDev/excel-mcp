@@ -1,31 +1,53 @@
+"""Single-pass Excel workbook builder with presets, totals, validations, and charts."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 import openpyxl
 from openpyxl.chart import BarChart, LineChart, PieChart, Reference
-from openpyxl.utils import get_column_letter
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError as PydanticValidationError,
+)
 
-from excel_mcp.core._io import resolve_sheet, workbook_session
+from excel_mcp.core._io import validate_sheet_name, workbook_session
 from excel_mcp.core.calculations import assert_safe_cell_value
 from excel_mcp.core.data_validation import apply_data_validation_to_sheet
-from excel_mcp.exceptions.exception_core import ValidationError
 from excel_mcp.core.presets import (
     apply_data_cell_style,
     apply_header_style,
     auto_fit_column_widths,
     get_preset,
 )
-from excel_mcp.models.response_models import (
-    BatchWriteResult,
-    BuildWorkbookResult,
-    SheetOutline,
-    WorkbookOutline,
-)
+from excel_mcp.exceptions.exception_core import ValidationError
+from excel_mcp.models.response_models import BuildWorkbookResult
+from excel_mcp.utils.cell_utils import get_column_letter
 
 SUPPORTED_TOTAL_FUNCTIONS = frozenset(
     {"SUM", "AVERAGE", "COUNT", "COUNTA", "MIN", "MAX", "SUBTOTAL"}
 )
+
+
+class SheetSpec(BaseModel):
+    """Typed specification for a single worksheet in a single-pass build."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    title: Any = None
+    headers: list[Any] = Field(default_factory=list)
+    rows: list[list[Any]] = Field(default_factory=list)
+    auto_totals: bool | list[Any] | dict[Any, Any] = False
+    currency_columns: list[Any] = Field(default_factory=list)
+    numeric_columns: list[Any] = Field(default_factory=list)
+    chart: dict[str, Any] | None = None
+    charts: list[dict[str, Any]] | dict[str, Any] | None = None
+    data_validations: list[dict[str, Any]] | dict[str, Any] | None = None
+    freeze_panes: str | None = None
+    auto_filter: bool = False
 
 
 def _render_chart(
@@ -68,7 +90,7 @@ def _render_chart(
     ws.add_chart(chart, chart_cell)
 
 
-def _resolve_col_index(key: Any, headers: list[str]) -> int | None:
+def _resolve_col_index(key: Any, headers: list[Any]) -> int | None:
     if isinstance(key, bool):
         return None
     if isinstance(key, int):
@@ -80,7 +102,7 @@ def _resolve_col_index(key: Any, headers: list[str]) -> int | None:
     return None
 
 
-def _resolve_col_indices(keys: Any, headers: list[str]) -> set[int]:
+def _resolve_col_indices(keys: Any, headers: list[Any]) -> set[int]:
     resolved: set[int] = set()
     for key in keys or ():
         idx = _resolve_col_index(key, headers)
@@ -91,12 +113,11 @@ def _resolve_col_indices(keys: Any, headers: list[str]) -> set[int]:
 
 def _build_total_map(
     auto_totals: Any,
-    headers: list[str],
+    headers: list[Any],
     num_cols: int,
     sheet_title: str,
     warnings: list[str] | None,
 ) -> dict[int, str]:
-    total_map: dict[int, str] = {}
     if isinstance(auto_totals, dict):
         items = list(auto_totals.items())
     elif isinstance(auto_totals, list):
@@ -104,6 +125,7 @@ def _build_total_map(
     else:
         return dict.fromkeys(range(1, num_cols), "SUM")
 
+    total_map: dict[int, str] = {}
     for key, raw_func in items:
         func_upper = str(raw_func).strip().upper()
         if func_upper not in SUPPORTED_TOTAL_FUNCTIONS:
@@ -146,13 +168,21 @@ def _apply_sheet_data_validations(
                     f"Sheet '{ws.title}' skipped data validation missing range."
                 )
             continue
-        dv_type = dv_spec.get("type") or dv_spec.get("validation_type", "list")
+        dv_type = str(dv_spec.get("type") or dv_spec.get("validation_type", "list"))
+        raw_op = dv_spec.get("operator")
+        if raw_op is not None:
+            effective_op: str | None = str(raw_op)
+        elif dv_type in {"list", "custom"} or "operator" in dv_spec:
+            effective_op = None
+        else:
+            effective_op = "between"
+
         try:
             apply_data_validation_to_sheet(
                 ws=ws,
                 cell_range=str(target_range),
-                validation_type=str(dv_type),
-                operator=str(dv_spec.get("operator", "between")),
+                validation_type=dv_type,
+                operator=effective_op,
                 allow_blank=bool(dv_spec.get("allow_blank", True)),
                 **{
                     k: dv_spec.get(k)
@@ -335,28 +365,20 @@ def _render_sheet_charts(
 
 def _build_sheet_with_stats(
     ws: openpyxl.worksheet.worksheet.Worksheet,
-    sheet_data: dict[str, Any],
+    spec: SheetSpec,
     preset_name: str = "corporate",
     auto_fit: bool = True,
     warnings: list[str] | None = None,
     font_name: str | None = None,
     font_size: float | None = None,
 ) -> tuple[int, int]:
-    headers = sheet_data.get("headers", [])
-    rows = sheet_data.get("rows", [])
-    currency_indices = _resolve_col_indices(
-        sheet_data.get("currency_columns", []), headers
+    headers = spec.headers
+    rows = spec.rows
+    currency_indices = _resolve_col_indices(spec.currency_columns, headers)
+    numeric_indices = _resolve_col_indices(spec.numeric_columns, headers)
+    charts_config = (
+        [spec.charts] if isinstance(spec.charts, dict) else (spec.charts or [])
     )
-    numeric_indices = _resolve_col_indices(
-        sheet_data.get("numeric_columns", []), headers
-    )
-    chart_config = sheet_data.get("chart")
-    charts_config = sheet_data.get("charts") or []
-    if isinstance(charts_config, dict):
-        charts_config = [charts_config]
-    data_validations = sheet_data.get("data_validations") or []
-    freeze_panes = sheet_data.get("freeze_panes")
-    auto_filter = sheet_data.get("auto_filter", False)
 
     style = _SheetStyle(
         preset_name=preset_name,
@@ -366,7 +388,7 @@ def _build_sheet_with_stats(
     )
     num_cols = len(headers) if headers else (len(rows[0]) if rows else 1)
 
-    header_start_row = _write_title_banner(ws, sheet_data.get("title"), num_cols, style)
+    header_start_row = _write_title_banner(ws, spec.title, num_cols, style)
     data_start_row = _write_headers(ws, headers, header_start_row, style)
     current_row = _write_data_rows(
         ws, rows, data_start_row, currency_indices, numeric_indices, style
@@ -376,7 +398,7 @@ def _build_sheet_with_stats(
     if rows:
         _write_auto_totals(
             ws,
-            sheet_data.get("auto_totals", False),
+            spec.auto_totals,
             headers,
             num_cols,
             current_row,
@@ -387,21 +409,21 @@ def _build_sheet_with_stats(
             warnings,
         )
 
-    if freeze_panes:
-        ws.freeze_panes = freeze_panes
-    if auto_filter and headers:
+    if spec.freeze_panes:
+        ws.freeze_panes = spec.freeze_panes
+    if spec.auto_filter and headers:
         filter_end_row = max(data_end_row, header_start_row)
         ws.auto_filter.ref = (
             f"A{header_start_row}:{get_column_letter(num_cols)}{filter_end_row}"
         )
 
-    if data_validations:
-        _apply_sheet_data_validations(ws, data_validations, warnings)
+    if spec.data_validations:
+        _apply_sheet_data_validations(ws, spec.data_validations, warnings)
 
     charts_rendered = (
         _render_sheet_charts(
             ws,
-            chart_config,
+            spec.chart,
             charts_config,
             header_start_row,
             data_end_row,
@@ -418,22 +440,6 @@ def _build_sheet_with_stats(
     return len(rows), charts_rendered
 
 
-def build_single_pass_sheet(
-    ws: openpyxl.worksheet.worksheet.Worksheet,
-    sheet_data: dict[str, Any],
-    preset_name: str = "corporate",
-    auto_fit: bool = True,
-    warnings: list[str] | None = None,
-    font_name: str | None = None,
-    font_size: float | None = None,
-) -> int:
-    """Build a complete formatted sheet from structured data."""
-    rows_inserted, _ = _build_sheet_with_stats(
-        ws, sheet_data, preset_name, auto_fit, warnings, font_name, font_size
-    )
-    return rows_inserted
-
-
 def build_single_pass_workbook(
     filename: str,
     sheets: list[dict[str, Any]],
@@ -443,6 +449,23 @@ def build_single_pass_workbook(
     font_size: float | None = None,
 ) -> BuildWorkbookResult:
     """Construct an entire Excel workbook in one atomic pass."""
+    validated_specs: list[tuple[str, SheetSpec]] = []
+    seen_names: set[str] = set()
+    for i, s_data in enumerate(sheets):
+        try:
+            spec = SheetSpec.model_validate(s_data)
+        except PydanticValidationError as exc:
+            raise ValidationError(f"Invalid sheet specification: {exc}") from exc
+        sheet_name = spec.name if spec.name is not None else f"Sheet{i + 1}"
+        validate_sheet_name(sheet_name)
+        lowered = sheet_name.lower()
+        if lowered in seen_names:
+            raise ValidationError(
+                f"Duplicate sheet name '{sheet_name}' in workbook specification"
+            )
+        seen_names.add(lowered)
+        validated_specs.append((sheet_name, spec))
+
     sheets_created: list[str] = []
     total_rows = 0
     charts_count = 0
@@ -451,8 +474,7 @@ def build_single_pass_workbook(
     with workbook_session(filename, mode="create", initial_sheet=None) as wb:
         default_sheet = wb.active
 
-        for i, s_data in enumerate(sheets):
-            sheet_name = s_data.get("name", f"Sheet{i + 1}")
+        for i, (sheet_name, spec) in enumerate(validated_specs):
             if i == 0 and default_sheet is not None:
                 ws = default_sheet
                 ws.title = sheet_name
@@ -462,7 +484,7 @@ def build_single_pass_workbook(
             sheets_created.append(sheet_name)
             rows_inserted, charts_rendered = _build_sheet_with_stats(
                 ws=ws,
-                sheet_data=s_data,
+                spec=spec,
                 preset_name=preset,
                 auto_fit=auto_fit,
                 warnings=warnings,
@@ -480,134 +502,4 @@ def build_single_pass_workbook(
         charts_created=charts_count,
         warnings=warnings,
         message=f"Successfully built workbook with {len(sheets_created)} sheets and {total_rows} rows.",
-    )
-
-
-def inspect_workbook_outline(filename: str) -> WorkbookOutline:
-    """Inspect structural outline of workbook without loading full cell grids into context."""
-    sheet_outlines: list[SheetOutline] = []
-    total_cells = 0
-
-    with workbook_session(filename, mode="read", data_only=False) as wb:
-        for name in wb.sheetnames:
-            ws = wb[name]
-            max_r = ws.max_row or 0
-            max_c = ws.max_column or 0
-            dim = (
-                getattr(ws, "dimensions", None)
-                or f"A1:{get_column_letter(max(max_c, 1))}{max(max_r, 1)}"
-            )
-
-            headers: list[str] = []
-            header_row_idx = 1
-            formula_count = 0
-            has_formulas = False
-            sheet_populated = 0
-            sheet_warnings: list[str] = []
-
-            if max_r > 0 and max_c > 0:
-                best_headers: list[str] = []
-                best_row = 1
-                for r_idx, row in enumerate(
-                    ws.iter_rows(
-                        min_row=1,
-                        max_row=min(max_r, 5),
-                        max_col=min(max_c, 50),
-                        values_only=True,
-                    ),
-                    start=1,
-                ):
-                    row_vals = [
-                        str(v).strip() for v in row if v is not None and str(v).strip()
-                    ]
-                    if len(row_vals) > len(best_headers):
-                        best_headers = row_vals
-                        best_row = r_idx
-                    if len(best_headers) >= 2:
-                        break
-
-                headers = best_headers
-                header_row_idx = best_row
-
-                for row_cells in ws.iter_rows(
-                    min_row=1,
-                    max_row=min(max_r, 500),
-                    max_col=min(max_c, 50),
-                    values_only=False,
-                ):
-                    for cell in row_cells:
-                        val = cell.value
-                        if val is not None:
-                            sheet_populated += 1
-                            if isinstance(val, str) and val.startswith("="):
-                                has_formulas = True
-                                formula_count += 1
-
-                if max_r > 500 or max_c > 50:
-                    sheet_warnings.append(
-                        f"Inspection capped at 500 rows and 50 cols (sheet dimensions: {max_r}x{max_c})"
-                    )
-
-            total_cells += sheet_populated
-
-            sheet_outlines.append(
-                SheetOutline(
-                    name=name,
-                    max_row=max_r,
-                    max_column=max_c,
-                    dimension=dim,
-                    headers=headers,
-                    header_row=header_row_idx,
-                    has_formulas=has_formulas,
-                    formula_count=formula_count,
-                    warnings=sheet_warnings,
-                )
-            )
-    return WorkbookOutline(
-        filename=filename,
-        sheet_count=len(sheet_outlines),
-        sheets=sheet_outlines,
-        total_cells_populated=total_cells,
-    )
-
-
-def batch_write_matrix(
-    filename: str,
-    sheet_name: str | None,
-    start_cell: str,
-    data_matrix: list[list[Any]],
-) -> BatchWriteResult:
-    """Write a 2D matrix of values into a sheet starting from a given cell in one atomic pass."""
-    from openpyxl.utils.cell import coordinate_to_tuple
-
-    with workbook_session(filename, mode="edit") as wb:
-        ws = resolve_sheet(wb, sheet_name)
-
-        start_row, start_col = coordinate_to_tuple(start_cell)
-
-        rows_affected = len(data_matrix)
-        cols_affected = max(len(r) for r in data_matrix) if data_matrix else 0
-        total_cells = 0
-
-        for r_offset, row in enumerate(data_matrix):
-            for c_offset, val in enumerate(row):
-                assert_safe_cell_value(
-                    val, f"at row offset {r_offset}, col offset {c_offset}"
-                )
-                ws.cell(
-                    row=start_row + r_offset, column=start_col + c_offset, value=val
-                )
-                total_cells += 1
-
-        end_cell = f"{get_column_letter(start_col + max(cols_affected - 1, 0))}{start_row + max(rows_affected - 1, 0)}"
-        range_written = f"{start_cell}:{end_cell}"
-        title = ws.title
-
-    return BatchWriteResult(
-        filename=filename,
-        sheet_name=title,
-        range_written=range_written,
-        rows_affected=rows_affected,
-        columns_affected=cols_affected,
-        cells_updated=total_cells,
     )

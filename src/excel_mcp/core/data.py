@@ -1,14 +1,10 @@
-"""Core functionality for reading and writing Excel data.
+"""Core functionality for reading, writing, and validating Excel data ranges."""
 
-This module provides functions to interact with Excel files, including reading ranges,
-writing data, and detecting headers, following the Model Context Protocol (MCP) standards.
-"""
+from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Final, TypedDict
+from typing import Any, Final
 
-from openpyxl.utils import get_column_letter
-from openpyxl.workbook.workbook import Workbook as OpenpyxlWorkbook
 from openpyxl.worksheet.worksheet import Worksheet
 
 from excel_mcp.core._io import resolve_sheet, workbook_session
@@ -20,12 +16,18 @@ from excel_mcp.exceptions.exception_core import (
     RangeError,
     SheetError,
     SheetNotFoundError,
+    ValidationError,
     WorkbookError,
 )
-from excel_mcp.utils.cell_utils import assert_range_cell_limit, parse_cell_range
+from excel_mcp.models.response_models import BatchWriteResult
+from excel_mcp.utils.cell_utils import (
+    MAX_EXCEL_COLS,
+    assert_range_cell_limit,
+    get_column_letter,
+    parse_cell_range,
+    validate_cell_reference,
+)
 
-
-# Type aliases for better code readability
 CellValue = Any
 RowData = list[CellValue]
 SheetData = list[RowData]
@@ -37,52 +39,17 @@ MAX_USED_RANGE_SCAN_COLS: Final[int] = 200
 PREVIEW_MAX_ROWS: Final[int] = 100
 
 
-class RangeCoordinates(TypedDict):
-    """Type definition for cell range coordinates."""
-
-    start_row: int
-    start_col: int
-    end_row: int
-    end_col: int
-
-
-def _get_worksheet(workbook: OpenpyxlWorkbook, sheet_name: str) -> Worksheet:
-    """Get a worksheet by name, raising appropriate exceptions.
-
-    Args:
-        workbook: Openpyxl workbook object.
-        sheet_name: Name of the worksheet to retrieve.
-
-    Returns:
-        The requested worksheet.
-
-    Raises:
-        SheetNotFoundError: If the specified sheet doesn't exist.
-    """
-    if sheet_name not in workbook.sheetnames:
-        raise SheetNotFoundError(f"Sheet '{sheet_name}' not found")
-    return workbook[sheet_name]
-
-
 def _parse_cell_reference(cell_ref: str) -> tuple[int, int]:
-    """Parse cell reference into (row, column) coordinates.
-
-    Args:
-        cell_ref: Cell reference (e.g., 'A1', 'B2').
-
-    Returns:
-        Tuple of (row, column) coordinates (1-based).
-
-    Raises:
-        InvalidCellReferenceError: If the cell reference is invalid.
-    """
+    """Parse cell reference into (row, column) coordinates (1-based)."""
     try:
-        coords = parse_cell_range(f"{cell_ref}:{cell_ref}")
-        if not coords or None in coords[:2]:
-            raise InvalidCellReferenceError(f"Invalid cell reference: {cell_ref}")
-        return coords[0], coords[1]  # row, column
+        start_row, start_col, end_row, end_col = parse_cell_range(cell_ref)
+        if end_row is not None or end_col is not None:
+            raise InvalidCellReferenceError(
+                f"Expected single cell reference: {cell_ref}"
+            )
+        return start_row, start_col
     except ValueError as e:
-        raise InvalidCellReferenceError(f"Invalid cell format: {str(e)}") from e
+        raise InvalidCellReferenceError(f"Invalid cell format: {e}") from e
 
 
 def _get_used_range(
@@ -92,32 +59,33 @@ def _get_used_range(
     *,
     max_rows: int | None = None,
 ) -> tuple[int, int]:
-    """Find the used range in a worksheet starting from given coordinates.
+    """Find the populated end coordinates starting from (start_row, start_col)."""
+    ws_max_row = worksheet.max_row
+    ws_max_col = worksheet.max_column
+    if ws_max_row is not None and ws_max_col is not None:
+        if ws_max_row < start_row or ws_max_col < start_col:
+            return start_row - 1, start_col - 1
 
-    Args:
-        worksheet: The worksheet to search.
-        start_row: Starting row (1-based).
-        start_col: Starting column (1-based).
-        max_rows: Optional explicit row window (e.g. preview mode).
-
-    Returns:
-        Tuple of (end_row, end_col) coordinates.
-    """
-    if worksheet.max_row < start_row or worksheet.max_column < start_col:
-        return start_row - 1, start_col - 1
-
-    if max_rows is None and (
-        worksheet.max_row - start_row + 1 > MAX_USED_RANGE_SCAN_ROWS
-        or worksheet.max_column - start_col + 1 > MAX_USED_RANGE_SCAN_COLS
-    ):
-        raise RangeError(
-            f"Worksheet dimensions ({worksheet.max_row}x{worksheet.max_column}) exceed "
-            f"auto-scan limit ({MAX_USED_RANGE_SCAN_ROWS}x{MAX_USED_RANGE_SCAN_COLS}); specify an explicit range."
-        )
+        if max_rows is None and (
+            ws_max_row - start_row + 1 > MAX_USED_RANGE_SCAN_ROWS
+            or ws_max_col - start_col + 1 > MAX_USED_RANGE_SCAN_COLS
+        ):
+            raise RangeError(
+                f"Worksheet dimensions ({ws_max_row}x{ws_max_col}) exceed "
+                f"auto-scan limit ({MAX_USED_RANGE_SCAN_ROWS}x{MAX_USED_RANGE_SCAN_COLS}); specify an explicit range."
+            )
 
     row_limit = max_rows if max_rows is not None else MAX_USED_RANGE_SCAN_ROWS
-    max_scan_row = min(worksheet.max_row, start_row + row_limit - 1)
-    max_scan_col = min(worksheet.max_column, start_col + MAX_USED_RANGE_SCAN_COLS - 1)
+    max_scan_row = (
+        min(ws_max_row, start_row + row_limit - 1)
+        if ws_max_row is not None
+        else start_row + row_limit - 1
+    )
+    max_scan_col = (
+        min(ws_max_col, start_col + MAX_USED_RANGE_SCAN_COLS - 1)
+        if ws_max_col is not None
+        else start_col + MAX_USED_RANGE_SCAN_COLS - 1
+    )
 
     last_row = start_row - 1
     last_col = start_col - 1
@@ -141,7 +109,6 @@ def _get_used_range(
     return last_row, last_col
 
 
-# * Read a range of data from an Excel worksheet
 def read_excel_range(
     filename: Path | str,
     sheet_name: str,
@@ -149,24 +116,7 @@ def read_excel_range(
     end_cell: str | None = None,
     preview_only: bool = False,
 ) -> SheetData:
-    """Read a range of data from an Excel worksheet.
-
-    Args:
-        filename: Path to the Excel file.
-        sheet_name: Name of the worksheet to read from.
-        start_cell: Starting cell reference (e.g., 'A1').
-        end_cell: Optional ending cell reference. If not provided, will detect used range.
-        preview_only: If True, only returns a preview of the data.
-
-    Returns:
-        A 2D list containing the cell values in the specified range.
-
-    Raises:
-        FileNotFoundError: If the specified file doesn't exist.
-        SheetNotFoundError: If the specified sheet doesn't exist.
-        InvalidCellReferenceError: If cell references are invalid.
-        DataError: For errors related to data processing.
-    """
+    """Read a range of data from an Excel worksheet."""
     if not sheet_name:
         raise SheetNotFoundError(f"Sheet '{sheet_name}' not found")
 
@@ -176,16 +126,15 @@ def read_excel_range(
         with workbook_session(path, mode="read", data_only=True) as wb:
             ws = resolve_sheet(wb, sheet_name)
 
-            # Handle range string (e.g., "A1:B2")
-            if ":" in start_cell:
+            if ":" in start_cell and end_cell is None:
                 start_cell, end_cell = start_cell.split(":", 1)
 
-            # Parse start cell coordinates
             start_row, start_col = _parse_cell_reference(start_cell)
 
-            # Parse or detect end cell coordinates
             if end_cell:
                 end_row, end_col = _parse_cell_reference(end_cell)
+                if end_row < start_row or end_col < start_col:
+                    raise RangeError("Range end must not precede its start")
             else:
                 end_row, end_col = _get_used_range(
                     ws,
@@ -194,9 +143,12 @@ def read_excel_range(
                     max_rows=PREVIEW_MAX_ROWS if preview_only else None,
                 )
 
-            # Validate range is within worksheet bounds
-            if start_row > ws.max_row or start_col > ws.max_column:
-                max_cell = f"{get_column_letter(ws.max_column)}{ws.max_row}"
+            ws_max_row = ws.max_row
+            ws_max_col = ws.max_column
+            if (ws_max_row is not None and start_row > ws_max_row) or (
+                ws_max_col is not None and start_col > ws_max_col
+            ):
+                max_cell = f"{get_column_letter(ws_max_col or 1)}{ws_max_row or 1}"
                 raise RangeError(
                     f"Start cell out of bounds. Sheet dimensions are A1:{max_cell}"
                 )
@@ -204,8 +156,12 @@ def read_excel_range(
             if preview_only:
                 end_row = min(end_row, start_row + PREVIEW_MAX_ROWS - 1)
 
-            effective_end_row = min(end_row, ws.max_row)
-            effective_end_col = min(end_col, ws.max_column)
+            effective_end_row = (
+                min(end_row, ws_max_row) if ws_max_row is not None else end_row
+            )
+            effective_end_col = (
+                min(end_col, ws_max_col) if ws_max_col is not None else end_col
+            )
 
             data: SheetData = []
             if effective_end_row >= start_row and effective_end_col >= start_col:
@@ -237,73 +193,83 @@ def read_excel_range(
             FileNotFoundError
             | SheetNotFoundError
             | InvalidCellReferenceError
-            | DataError,
+            | DataError
+            | RangeError
+            | ValidationError,
         ):
-            raise DataError(f"Failed to read Excel range: {str(e)}") from e
+            raise DataError(f"Failed to read Excel range: {e}") from e
         raise
 
 
 def _write_data_to_worksheet(
-    worksheet: Worksheet, data: SheetData, start_row: int, start_col: int
-) -> None:
-    """Write data to a worksheet starting at the specified coordinates.
-
-    Args:
-        worksheet: The worksheet to write to.
-        data: 2D list of data to write.
-        start_row: Starting row (1-based).
-        start_col: Starting column (1-based).
-
-    Note:
-        None values are skipped to preserve existing cell formatting.
-    """
+    worksheet: Worksheet,
+    data: SheetData,
+    start_row: int,
+    start_col: int,
+    *,
+    skip_none: bool = True,
+) -> int:
+    """Write a 2D data matrix into a worksheet starting at (start_row, start_col)."""
+    cells_written = 0
     for row_idx, row_data in enumerate(data):
         for col_idx, value in enumerate(row_data):
-            if value is not None:
-                assert_safe_cell_value(
-                    value, f"at row offset {row_idx}, col offset {col_idx}"
-                )
-                worksheet.cell(
-                    row=start_row + row_idx, column=start_col + col_idx, value=value
-                )
+            if skip_none and value is None:
+                continue
+            assert_safe_cell_value(
+                value, f"at row offset {row_idx}, col offset {col_idx}"
+            )
+            worksheet.cell(
+                row=start_row + row_idx, column=start_col + col_idx, value=value
+            )
+            cells_written += 1
+    return cells_written
 
 
-# * Write data to an Excel worksheet
+def batch_write_matrix(
+    filename: str,
+    sheet_name: str | None,
+    start_cell: str,
+    data_matrix: list[list[Any]],
+) -> BatchWriteResult:
+    """Write a 2D matrix of values into a sheet starting from a given cell in one atomic pass."""
+    start_row, start_col = _parse_cell_reference(start_cell)
+    rows_affected = len(data_matrix)
+    cols_affected = max((len(r) for r in data_matrix), default=0)
+
+    with workbook_session(filename, mode="edit") as wb:
+        ws = resolve_sheet(wb, sheet_name)
+        total_cells = _write_data_to_worksheet(
+            ws, data_matrix, start_row, start_col, skip_none=False
+        )
+        title = ws.title
+
+    end_cell = (
+        f"{get_column_letter(start_col + max(cols_affected - 1, 0))}"
+        f"{start_row + max(rows_affected - 1, 0)}"
+    )
+    return BatchWriteResult(
+        filename=filename,
+        sheet_name=title,
+        range_written=f"{start_cell}:{end_cell}",
+        rows_affected=rows_affected,
+        columns_affected=cols_affected,
+        cells_updated=total_cells,
+    )
+
+
 def write_data(
     filename: str | Path,
     sheet_name: str | None,
     data: SheetData | None,
     start_cell: str = "A1",
 ) -> dict[str, str]:
-    """Write data to an Excel worksheet.
-
-    Args:
-        filename: Path to the Excel file.
-        sheet_name: Name of the worksheet to write to. If None, uses active sheet.
-        data: 2D list of data to write.
-        start_cell: Starting cell reference (e.g., 'A1').
-
-    Returns:
-        Dictionary with operation status and details.
-
-    Raises:
-        InvalidDataError: If input data is invalid.
-        InvalidCellReferenceError: If cell reference is invalid.
-        SheetError: For sheet-related errors.
-        WorkbookError: For other workbook-related errors.
-    """
+    """Write a 2D data matrix to an Excel worksheet."""
     if not data:
         raise InvalidDataError("No data provided to write")
 
     path = Path(filename).resolve()
     try:
-        # Parse start cell before mutating or creating files
-        try:
-            start_row, start_col = _parse_cell_reference(start_cell)
-        except InvalidCellReferenceError as e:
-            raise InvalidCellReferenceError(
-                f"Invalid start cell format: {str(e)}"
-            ) from e
+        start_row, start_col = _parse_cell_reference(start_cell)
 
         with workbook_session(
             path,
@@ -313,7 +279,7 @@ def write_data(
             try:
                 ws = resolve_sheet(wb, sheet_name or None, create_if_missing=True)
             except Exception as e:
-                raise SheetError(f"Failed to access worksheet: {str(e)}") from e
+                raise SheetError(f"Failed to access worksheet: {e}") from e
 
             _write_data_to_worksheet(ws, data, start_row, start_col)
             title = ws.title
@@ -334,5 +300,110 @@ def write_data(
             | WorkbookError
             | FormulaSecurityError,
         ):
-            raise WorkbookError(f"Failed to write data: {str(e)}") from e
+            raise WorkbookError(f"Failed to write data: {e}") from e
         raise
+
+
+def validate_range_bounds(
+    worksheet: Worksheet,
+    start_row: int,
+    start_col: int,
+    end_row: int | None = None,
+    end_col: int | None = None,
+) -> tuple[bool, str]:
+    """Check whether cell coordinates fall inside populated worksheet bounds."""
+    max_row = worksheet.max_row or 0
+    max_col = worksheet.max_column or 0
+    if start_row < 1 or start_row > max_row:
+        return False, f"Start row {start_row} out of bounds (1-{max_row})"
+    if start_col < 1 or start_col > max_col:
+        start_col_label = (
+            get_column_letter(start_col)
+            if 1 <= start_col <= MAX_EXCEL_COLS
+            else str(start_col)
+        )
+        max_col_letter = get_column_letter(max(max_col, 1))
+        return False, (
+            f"Start column {start_col_label} out of bounds (A-{max_col_letter})"
+        )
+    if end_row is not None and end_col is not None:
+        if end_row < start_row:
+            return False, "End row cannot be before start row"
+        if end_col < start_col:
+            return False, "End column cannot be before start column"
+        if end_row > max_row:
+            return False, f"End row {end_row} out of bounds (1-{max_row})"
+        if end_col > max_col:
+            end_col_label = (
+                get_column_letter(end_col)
+                if 1 <= end_col <= MAX_EXCEL_COLS
+                else str(end_col)
+            )
+            max_col_letter = get_column_letter(max(max_col, 1))
+            return False, (
+                f"End column {end_col_label} out of bounds (A-{max_col_letter})"
+            )
+    return True, "Range is valid"
+
+
+def validate_range_in_sheet_operation(
+    filepath: str,
+    sheet_name: str,
+    start_cell: str,
+    end_cell: str | None = None,
+) -> dict[str, Any]:
+    """Validate that a cell range falls within a worksheet's populated dimensions."""
+    if not validate_cell_reference(start_cell):
+        return {
+            "status": "error",
+            "message": f"Invalid start cell reference: {start_cell}",
+        }
+    if end_cell and not validate_cell_reference(end_cell):
+        return {"status": "error", "message": f"Invalid end cell reference: {end_cell}"}
+
+    try:
+        with workbook_session(filepath, mode="read") as wb:
+            worksheet = resolve_sheet(wb, sheet_name)
+            data_max_row = worksheet.max_row or 0
+            data_max_col = worksheet.max_column or 0
+            try:
+                start_row, start_col, end_row, end_col = parse_cell_range(
+                    start_cell, end_cell
+                )
+            except ValueError as e:
+                return {"status": "error", "message": f"Invalid range: {e}"}
+            if end_row is None:
+                end_row = start_row
+            if end_col is None:
+                end_col = start_col
+            is_valid, message = validate_range_bounds(
+                worksheet, start_row, start_col, end_row, end_col
+            )
+            if not is_valid:
+                return {"status": "error", "message": message}
+            range_str = (
+                f"{start_cell}" if end_cell is None else f"{start_cell}:{end_cell}"
+            )
+            max_col_letter = get_column_letter(max(data_max_col, 1))
+            data_range_str = f"A1:{max_col_letter}{data_max_row}"
+            extends_beyond_data = end_row > data_max_row or end_col > data_max_col
+            return {
+                "status": "success",
+                "message": (
+                    f"Range '{range_str}' is valid. "
+                    f"Sheet contains data in range '{data_range_str}'"
+                ),
+                "valid": True,
+                "range": range_str,
+                "data_range": data_range_str,
+                "extends_beyond_data": extends_beyond_data,
+                "data_dimensions": {
+                    "max_row": data_max_row,
+                    "max_col": data_max_col,
+                    "max_col_letter": max_col_letter,
+                },
+            }
+    except SheetNotFoundError:
+        return {"status": "error", "message": f"Sheet '{sheet_name}' not found"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

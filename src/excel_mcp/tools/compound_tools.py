@@ -52,8 +52,8 @@ class CompoundActionSpec:
     @cached_property
     def signature_meta(
         self,
-    ) -> tuple[tuple[str, ...], tuple[str, ...], bool, bool, bool]:
-        """Cache handler parameter names, required params, kwargs flag, and file flags."""
+    ) -> tuple[tuple[str, ...], tuple[str, ...], bool, bool]:
+        """Cache handler parameter names, required params, kwargs flag, and filename flag."""
         sig = inspect.signature(self.handler)
         params = sig.parameters
         accepted = tuple(params.keys())
@@ -68,13 +68,11 @@ class CompoundActionSpec:
             p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
         )
         accepts_filename = "filename" in params
-        requires_guard_file = "filename" in params and "file_path" in params
         return (
             accepted,
             required,
             accepts_kwargs,
             accepts_filename,
-            requires_guard_file,
         )
 
 
@@ -253,22 +251,110 @@ COMPOUND_REGISTRY: dict[str, dict[str, CompoundActionSpec]] = {
 }
 
 
-def _normalize_result(result: Any) -> dict[str, Any]:
-    """Normalize dict, string, or scalar tool returns into a structured dict."""
-    if isinstance(result, dict):
-        if "error" in result and "status" not in result:
-            return {"status": "error", "message": str(result["error"]), **result}
-        if "status" not in result:
-            return {"status": "success", **result}
-        return result
-    if isinstance(result, str):
-        if result.startswith("Error:"):
-            return {"status": "error", "message": result}
-        return {"status": "success", "message": result}
-    return {"status": "success", "data": result}
+def _normalize_and_validate_kwargs(
+    group: str,
+    action: str,
+    filename: str | None,
+    params: dict[str, Any] | None,
+    spec: CompoundActionSpec,
+) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    (
+        accepted_params,
+        required_params,
+        accepts_kwargs,
+        accepts_filename,
+    ) = spec.signature_meta
+
+    call_kwargs = dict(params or {})
+    if (
+        "range_string" in call_kwargs
+        and "cell_range" in call_kwargs
+        and (
+            "range_string" not in accepted_params or "cell_range" not in accepted_params
+        )
+    ):
+        return None, {
+            "status": "error",
+            "message": "Provide either 'range_string' or 'cell_range', not both.",
+        }
+    for source_key, target_key in (
+        ("range_string", "cell_range"),
+        ("cell_range", "range_string"),
+    ):
+        if (
+            source_key in call_kwargs
+            and source_key not in accepted_params
+            and target_key in accepted_params
+        ):
+            call_kwargs[target_key] = call_kwargs.pop(source_key)
+            break
+
+    if not accepts_kwargs:
+        unknown = sorted(k for k in call_kwargs if k not in accepted_params)
+        if unknown:
+            return None, {
+                "status": "error",
+                "message": (
+                    f"Unknown parameter(s) for '{group}.{action}': {', '.join(unknown)}"
+                ),
+                "accepted_parameters": list(accepted_params),
+            }
+
+    param_filename = call_kwargs.get("filename")
+    param_file_path = call_kwargs.get("file_path")
+    if (
+        filename is not None
+        and param_filename is not None
+        and param_filename != filename
+    ):
+        return None, {
+            "status": "error",
+            "message": (
+                f"Conflicting 'filename' values between top-level argument and params "
+                f"for '{group}.{action}'."
+            ),
+        }
+    if (
+        filename is not None
+        and param_file_path is not None
+        and param_file_path != filename
+    ):
+        return None, {
+            "status": "error",
+            "message": (
+                f"Conflicting 'filename' and 'file_path' values for '{group}.{action}'."
+            ),
+        }
+    if (
+        param_filename is not None
+        and param_file_path is not None
+        and param_filename != param_file_path
+    ):
+        return None, {
+            "status": "error",
+            "message": (
+                f"Conflicting 'filename' and 'file_path' values in params for '{group}.{action}'."
+            ),
+        }
+
+    if filename is not None and accepts_filename and param_filename is None:
+        call_kwargs["filename"] = filename
+
+    missing = [name for name in required_params if name not in call_kwargs]
+    if missing:
+        return None, {
+            "status": "error",
+            "message": (
+                f"Missing required parameter(s) for '{group}.{action}': "
+                f"{', '.join(missing)}"
+            ),
+            "accepted_parameters": list(accepted_params),
+        }
+
+    return call_kwargs, None
 
 
-async def dispatch_compound_action(
+def dispatch_compound_action(
     group: str,
     action: str,
     filename: str | None = None,
@@ -290,93 +376,24 @@ async def dispatch_compound_action(
             "available_actions": sorted(group_actions.keys()),
         }
 
-    (
-        accepted_params,
-        required_params,
-        accepts_kwargs,
-        accepts_filename,
-        requires_guard_file,
-    ) = spec.signature_meta
-
-    call_kwargs = dict(params or {})
-    if (
-        "range_string" in call_kwargs
-        and "cell_range" in call_kwargs
-        and (
-            "range_string" not in accepted_params or "cell_range" not in accepted_params
-        )
-    ):
-        return {
-            "status": "error",
-            "message": "Provide either 'range_string' or 'cell_range', not both.",
-        }
-    if (
-        "range_string" in call_kwargs
-        and "range_string" not in accepted_params
-        and "cell_range" in accepted_params
-    ):
-        call_kwargs["cell_range"] = call_kwargs.pop("range_string")
-    elif (
-        "cell_range" in call_kwargs
-        and "cell_range" not in accepted_params
-        and "range_string" in accepted_params
-    ):
-        call_kwargs["range_string"] = call_kwargs.pop("cell_range")
-
-    if not accepts_kwargs:
-        unknown = sorted(k for k in call_kwargs if k not in accepted_params)
-        if unknown:
-            return {
-                "status": "error",
-                "message": (
-                    f"Unknown parameter(s) for '{group}.{action}': {', '.join(unknown)}"
-                ),
-                "accepted_parameters": list(accepted_params),
-            }
-
-    if (
-        filename is not None
-        and accepts_filename
-        and call_kwargs.get("filename") is None
-    ):
-        call_kwargs["filename"] = filename
-
-    if (
-        requires_guard_file
-        and call_kwargs.get("filename") is None
-        and call_kwargs.get("file_path") is None
-    ):
-        return {
-            "status": "error",
-            "message": f"Missing required parameter 'filename' for '{group}.{action}'.",
-            "accepted_parameters": list(accepted_params),
-        }
-
-    missing = [name for name in required_params if name not in call_kwargs]
-    if missing:
-        return {
-            "status": "error",
-            "message": (
-                f"Missing required parameter(s) for '{group}.{action}': "
-                f"{', '.join(missing)}"
-            ),
-            "accepted_parameters": list(accepted_params),
-        }
+    call_kwargs, err = _normalize_and_validate_kwargs(
+        group, action, filename, params, spec
+    )
+    if err is not None or call_kwargs is None:
+        return err or {"status": "error", "message": "Invalid compound parameters."}
 
     try:
-        result = spec.handler(**call_kwargs)
-        if inspect.isawaitable(result):
-            result = await result
+        result: dict[str, Any] = spec.handler(**call_kwargs)
     except Exception as exc:
         return ExceptionTool.handle_error(
             exc,
             filename=call_kwargs.get("filename") or filename,
             operation=f"excel_{group}.{action}",
         )
-    return _normalize_result(result)
+    return result
 
 
-async def excel_workbook(
+def excel_workbook(
     action: Literal[
         "create",
         "list",
@@ -400,10 +417,10 @@ async def excel_workbook(
         - `delete_sheet`: Delete a worksheet (`filename`, `sheet_name`).
         - `rename_sheet`: Rename a worksheet (`filename`, `old_name`, `new_name`).
     """
-    return await dispatch_compound_action("workbook", action, filename, params)
+    return dispatch_compound_action("workbook", action, filename, params)
 
 
-async def excel_data(
+def excel_data(
     action: Literal[
         "read",
         "write",
@@ -439,10 +456,10 @@ async def excel_data(
         - `find_cells`: (`query`, optional `sheet_name`, `match_case`, `exact_match`, `use_regex`, `max_results`)
         - `profile_sheet`: (optional `sheet_name`, `sample_rows`)
     """
-    return await dispatch_compound_action("data", action, filename, params)
+    return dispatch_compound_action("data", action, filename, params)
 
 
-async def excel_format(
+def excel_format(
     action: Literal[
         "format_range",
         "format_sheet",
@@ -460,14 +477,14 @@ async def excel_format(
         - `format_range`: (`sheet_name`, `start_cell`, optional `end_cell`, `bold`, `italic`, `font_size`, `bg_color`, `border_style`, `number_format`, `alignment`, `wrap_text`, `conditional_format`)
         - `format_sheet`: (optional `sheet_name`, `freeze_panes`, `auto_filter`, `show_grid_lines`, `column_widths`)
         - `create_table`: (`range_string`, optional `table_name`, `style_name`, `sheet_name`)
-        - `add_data_validation`: (`cell_range`, `validation_type`, `formula1`, optional `operator`, `formula2`, `allow_blank`, `sheet_name`)
+        - `add_data_validation`: (`cell_range`, `validation_type`, `formula1`, optional `operator`, `formula2`, `allow_blank`, `prompt_title`, `prompt`, `error_title`, `error_message`, `sheet_name`)
         - `protect_sheet`: (optional `enabled`, `password`, `sheet_name`, `allow_*` flags)
         - `configure_page_setup`: (optional `orientation`, `paper_size`, `fit_to_width`, `fit_to_height`, `print_area`, `print_title_rows`, `header`, `footer`, `center_horizontally`, `sheet_name`)
     """
-    return await dispatch_compound_action("format", action, filename, params)
+    return dispatch_compound_action("format", action, filename, params)
 
 
-async def excel_formula(
+def excel_formula(
     action: Literal["validate", "apply"],
     filename: str | None = None,
     params: dict[str, Any] | None = None,
@@ -478,10 +495,10 @@ async def excel_formula(
         - `validate`: Check formula syntax without writing (`filename`, `sheet_name`, `cell`, `formula`).
         - `apply`: Validate and write formula (`filename`, `sheet_name`, `cell`, `formula`).
     """
-    return await dispatch_compound_action("formula", action, filename, params)
+    return dispatch_compound_action("formula", action, filename, params)
 
 
-async def excel_analytics(
+def excel_analytics(
     action: Literal["create_chart", "create_pivot_table"],
     filename: str | None = None,
     params: dict[str, Any] | None = None,
@@ -492,4 +509,4 @@ async def excel_analytics(
         - `create_chart`: (`sheet_name`, `data_range`, `chart_type`, `target_cell`, optional `title`, `x_axis`, `y_axis`, `style`)
         - `create_pivot_table`: (`sheet_name`, `data_range`, `rows`, `values`, optional `columns`, `agg_func`)
     """
-    return await dispatch_compound_action("analytics", action, filename, params)
+    return dispatch_compound_action("analytics", action, filename, params)

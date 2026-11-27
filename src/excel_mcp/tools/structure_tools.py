@@ -17,11 +17,9 @@ from excel_mcp.core.structure import (
     sort_worksheet_range,
 )
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import require_valid_path
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename")
 def append_rows(
     filename: str | None = None,
     file_path: str | None = None,
@@ -58,8 +56,7 @@ def append_rows(
     return {"status": "success", "data": res}
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename")
 def insert_rows_columns(
     filename: str | None = None,
     file_path: str | None = None,
@@ -93,8 +90,7 @@ def insert_rows_columns(
     return {"status": "success", "data": res}
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename")
 def delete_rows_columns(
     filename: str | None = None,
     file_path: str | None = None,
@@ -128,8 +124,7 @@ def delete_rows_columns(
     return {"status": "success", "data": res}
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename")
 def format_sheet(
     filename: str | None = None,
     file_path: str | None = None,
@@ -169,8 +164,7 @@ def format_sheet(
     return {"status": "success", "data": res}
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename")
 def create_table(
     filename: str | None = None,
     file_path: str | None = None,
@@ -213,8 +207,7 @@ def create_table(
     return {"status": "success", "data": res}
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename")
 def sort_range(
     filename: str | None = None,
     file_path: str | None = None,

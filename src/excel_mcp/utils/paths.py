@@ -11,6 +11,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 from excel_mcp.config import get_directory
 
@@ -67,7 +68,12 @@ def validate_path_safety(path: str | Path) -> str | None:
         return "Path cannot be empty."
     if "\x00" in raw:
         return "Path contains null byte."
-    if raw.startswith("\\\\") or raw.startswith("//"):
+    normalized_prefix = raw.lstrip()
+    if (
+        len(normalized_prefix) >= 2
+        and normalized_prefix[0] in "\\/"
+        and normalized_prefix[1] in "\\/"
+    ):
         return f"UNC network paths are not permitted: '{path}'"
 
     remainder = _DRIVE_PREFIX_RE.sub("", raw, count=1)
@@ -155,3 +161,51 @@ def validate_and_resolve_path(
     if constraint_error:
         return None, constraint_error
     return resolved, None
+
+
+def resolve_and_check_path(
+    filename: str | Path | None,
+    file_path: str | Path | None = None,
+    *,
+    auto_extension: bool = False,
+    create_dirs: bool = False,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Resolve target path and enforce allowed directory and file-type security."""
+    if (
+        filename is not None
+        and file_path is not None
+        and str(filename) != str(file_path)
+    ):
+        return None, {
+            "status": "error",
+            "message": "Conflicting 'filename' and 'file_path' values provided.",
+        }
+    target = filename if filename is not None else file_path
+    if not isinstance(target, str | Path) or not str(target).strip():
+        return None, {
+            "status": "error",
+            "message": "Missing required parameter 'filename' (or 'file_path').",
+        }
+
+    resolved_path, error_msg = validate_and_resolve_path(
+        target, auto_extension=auto_extension
+    )
+    if error_msg or resolved_path is None:
+        return None, {
+            "status": "error",
+            "message": f"Access denied: {error_msg}",
+        }
+
+    resolved_target = str(resolved_path)
+    if create_dirs:
+        directory = os.path.dirname(resolved_target)
+        if directory and not os.path.exists(directory):
+            try:
+                os.makedirs(directory, exist_ok=True)
+            except OSError as exc:
+                return None, {
+                    "status": "error",
+                    "message": f"Cannot create directory '{directory}': {exc}",
+                }
+
+    return resolved_target, None
