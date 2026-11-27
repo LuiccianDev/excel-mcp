@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 
 import openpyxl
@@ -12,7 +11,7 @@ from excel_mcp.exceptions import exception_core, exception_tools
 from excel_mcp.tools.excel_tools import create_excel_workbook
 from excel_mcp.tools.format_tools import validate_excel_range
 from excel_mcp.tools.formulas_excel_tools import validate_formula_syntax
-from excel_mcp.utils.file_utils import validate_file_access
+from excel_mcp.utils.guards import tool_guard
 from excel_mcp.utils.paths import validate_file_constraints
 from excel_mcp.utils.validation_utils import validate_formula
 
@@ -37,11 +36,11 @@ def test_validate_file_access_does_not_create_ghost_file(
     docs_dir.mkdir(parents=True)
     monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
-    @validate_file_access("filename")
+    @tool_guard(path_param="filename")
     def write_tool(filename: str) -> dict[str, str]:
         return {"status": "ok", "filename": filename}
 
-    @validate_file_access("filename", read_only=True)
+    @tool_guard(path_param="filename", read_only=True)
     def read_tool(filename: str) -> dict[str, str]:
         return {"status": "ok", "filename": filename}
 
@@ -62,8 +61,8 @@ def test_validate_formula_syntax_blocks_traversal(
     docs_dir.mkdir(parents=True)
     monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
-    result = asyncio.run(
-        validate_formula_syntax("../../outside.xlsx", "Sheet1", "A1", "=SUM(B1:B5)")
+    result = validate_formula_syntax(
+        "../../outside.xlsx", "Sheet1", "A1", "=SUM(B1:B5)"
     )
     assert result["status"] == "error"
     assert "Access denied" in result["message"]
@@ -87,11 +86,11 @@ def test_create_excel_workbook_enforces_xlsx_extension(
     monkeypatch.setenv("EXCEL_MCP_DIRS", str(docs_dir))
 
     for bad_name in ("payload.exe", "macro.xlsm", ".env"):
-        res = asyncio.run(create_excel_workbook(bad_name))
+        res = create_excel_workbook(bad_name)
         assert res["status"] == "error"
         assert not (docs_dir / bad_name).exists()
 
-    ok_res = asyncio.run(create_excel_workbook("daily_report"))
+    ok_res = create_excel_workbook("daily_report")
     assert ok_res.get("status") == "success"
     assert (docs_dir / "daily_report.xlsx").exists()
 
@@ -126,7 +125,7 @@ def test_validate_excel_range_accepts_end_cell(
     wb.save(wb_path)
     wb.close()
 
-    res = asyncio.run(validate_excel_range("range_test.xlsx", "Data", "A1", "B2"))
+    res = validate_excel_range("range_test.xlsx", "Data", "A1", "B2")
     assert res["status"] == "success"
     assert res["valid"] is True
     assert res["range"] == "A1:B2"

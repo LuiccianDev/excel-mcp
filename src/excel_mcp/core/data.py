@@ -19,6 +19,7 @@ from excel_mcp.exceptions.exception_core import (
     ValidationError,
     WorkbookError,
 )
+from excel_mcp.models.response_models import BatchWriteResult
 from excel_mcp.utils.cell_utils import (
     MAX_EXCEL_COLS,
     assert_range_cell_limit,
@@ -201,18 +202,59 @@ def read_excel_range(
 
 
 def _write_data_to_worksheet(
-    worksheet: Worksheet, data: SheetData, start_row: int, start_col: int
-) -> None:
-    """Write data to a worksheet starting at the specified coordinates."""
+    worksheet: Worksheet,
+    data: SheetData,
+    start_row: int,
+    start_col: int,
+    *,
+    skip_none: bool = True,
+) -> int:
+    """Write a 2D data matrix into a worksheet starting at (start_row, start_col)."""
+    cells_written = 0
     for row_idx, row_data in enumerate(data):
         for col_idx, value in enumerate(row_data):
-            if value is not None:
-                assert_safe_cell_value(
-                    value, f"at row offset {row_idx}, col offset {col_idx}"
-                )
-                worksheet.cell(
-                    row=start_row + row_idx, column=start_col + col_idx, value=value
-                )
+            if skip_none and value is None:
+                continue
+            assert_safe_cell_value(
+                value, f"at row offset {row_idx}, col offset {col_idx}"
+            )
+            worksheet.cell(
+                row=start_row + row_idx, column=start_col + col_idx, value=value
+            )
+            cells_written += 1
+    return cells_written
+
+
+def batch_write_matrix(
+    filename: str,
+    sheet_name: str | None,
+    start_cell: str,
+    data_matrix: list[list[Any]],
+) -> BatchWriteResult:
+    """Write a 2D matrix of values into a sheet starting from a given cell in one atomic pass."""
+    start_row, start_col = _parse_cell_reference(start_cell)
+    rows_affected = len(data_matrix)
+    cols_affected = max((len(r) for r in data_matrix), default=0)
+
+    with workbook_session(filename, mode="edit") as wb:
+        ws = resolve_sheet(wb, sheet_name)
+        total_cells = _write_data_to_worksheet(
+            ws, data_matrix, start_row, start_col, skip_none=False
+        )
+        title = ws.title
+
+    end_cell = (
+        f"{get_column_letter(start_col + max(cols_affected - 1, 0))}"
+        f"{start_row + max(rows_affected - 1, 0)}"
+    )
+    return BatchWriteResult(
+        filename=filename,
+        sheet_name=title,
+        range_written=f"{start_cell}:{end_cell}",
+        rows_affected=rows_affected,
+        columns_affected=cols_affected,
+        cells_updated=total_cells,
+    )
 
 
 def write_data(

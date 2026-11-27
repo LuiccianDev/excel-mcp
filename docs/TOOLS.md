@@ -14,23 +14,23 @@
 | [`excel_batch_write_data`](#excel-batch-write-data) | `Write` | Write a 2D matrix of values or formulas into a worksheet starting from a specific cell in one atomic operation. |
 | [`excel_build_workbook`](#excel-build-workbook) | `Destructive` | Build a complete Excel workbook with typography, zebra striping, currency/date formats, formulas, and charts in a single pass. |
 | [`excel_configure_page_setup`](#excel-configure-page-setup) | `Write` | Configure the print layout of a worksheet. |
-| [`excel_copy_range`](#excel-copy-range) | `Write` | Copy a range of cells, including their values and formatting, to a new location, potentially in a different worksheet. |
+| [`excel_copy_range`](#excel-copy-range) | `Write` | Copy a range of cells, including their values and formatting, to a new location. |
 | [`excel_copy_worksheet`](#excel-copy-worksheet) | `Write` | Create a duplicate of an existing worksheet within the same Excel workbook. |
 | [`excel_create_chart`](#excel-create-chart) | `Write` | Create a chart in a worksheet based on a specified data range. |
 | [`excel_create_pivot_table`](#excel-create-pivot-table) | `Write` | Create a pivot table in a worksheet to summarize and analyze data from a given range. |
 | [`excel_create_table`](#excel-create-table) | `Write` | Convert a range of cells into a native, styled Excel Table. |
 | [`excel_create_workbook`](#excel-create-workbook) | `Destructive` | Create an empty Excel workbook (.xlsx) in a secure, validated path. |
 | [`excel_create_worksheet`](#excel-create-worksheet) | `Write` | Add a new worksheet to an existing Excel workbook. |
-| [`excel_delete_range`](#excel-delete-range) | `Destructive` | Delete a range of cells and optionally shift the surrounding cells to fill the gap. |
+| [`excel_delete_range`](#excel-delete-range) | `Destructive` | Delete a range of cells and optionally shift surrounding cells to fill the gap. |
 | [`excel_delete_rows_columns`](#excel-delete-rows-columns) | `Destructive` | Delete rows or columns starting at the specified 1-based index in a worksheet. |
 | [`excel_delete_worksheet`](#excel-delete-worksheet) | `Destructive` | Permanently delete a worksheet from a workbook. |
 | [`excel_find_cells`](#excel-find-cells) | `Read-Only` | Search for cells containing text or regular expression patterns across sheets. |
 | [`excel_format_range`](#excel-format-range) | `Write` | Apply visual and data formatting styles to a specified cell range in an existing Excel worksheet. |
 | [`excel_format_sheet`](#excel-format-sheet) | `Write` | Configure worksheet-level display settings and layout properties. |
-| [`excel_get_workbook_metadata`](#excel-get-workbook-metadata) | `Read-Only` | Retrieve metadata about an Excel workbook, including a list of all worksheets and optional details about named ranges. |
+| [`excel_get_workbook_metadata`](#excel-get-workbook-metadata) | `Read-Only` | Retrieve metadata about an Excel workbook, including sheets and optional used ranges. |
 | [`excel_get_workbook_outline`](#excel-get-workbook-outline) | `Read-Only` | Inspect structural outline of an Excel workbook without dumping massive cell grids into LLM context. |
 | [`excel_insert_rows_columns`](#excel-insert-rows-columns) | `Write` | Insert empty rows or columns at the specified 1-based index in a worksheet. |
-| [`excel_list_documents`](#excel-list-documents) | `Read-Only` | List all .xlsx files in the specified directory. |
+| [`excel_list_documents`](#excel-list-documents) | `Read-Only` | List all .xlsx files in the allowed directories. |
 | [`excel_merge_cells`](#excel-merge-cells) | `Write` | Merge a rectangular range of cells into a single, larger cell. |
 | [`excel_profile_sheet`](#excel-profile-sheet) | `Read-Only` | Generate lightweight column-level profiling and statistical summaries for a worksheet. |
 | [`excel_protect_sheet`](#excel-protect-sheet) | `Write` | Protect or unprotect a worksheet, with optional per-action exceptions. |
@@ -139,7 +139,7 @@ Returns:
 ### `excel_create_workbook`
 
 - **Access Mode:** `Destructive`
-- **Signature:** `excel_create_workbook(filename: str) -> dict[str, typing.Any]`
+- **Signature:** `excel_create_workbook(filename: 'str') -> 'dict[str, Any]'`
 
 ```text
 Create an empty Excel workbook (.xlsx) in a secure, validated path.
@@ -148,34 +148,22 @@ Note: For new reports or formatted tables, prefer `excel_build_workbook` to crea
 
 Context for LLM/AI: Use this tool when you need to programmatically generate a new Excel workbook file as the starting point for a reporting, data collection, or automation workflow. This is typically used to initialize new datasets or reports, ensuring that the file is created only within authorized directories for security and compliance. The tool will automatically add the `.xlsx` extension if missing and will validate the path to prevent unauthorized file creation.
 
-When to use:
-    - When starting a new workflow that requires a fresh Excel file.
-    - When an automated agent needs to ensure the file is created securely.
-    - When the filename or path may be user-supplied and must be validated for safety.
-
 Args:
     filename (str): Name or path of the workbook to create. Example: "data/reporte_diario"
 
 Returns:
-    dict[str, Any]: A dictionary with status or error details.
-        Example: {"status": "success", "filename": "/secure/path/reporte_diario.xlsx"}
-    On failure, returns an error dictionary with a descriptive message.
+    dict[str, Any]: A dictionary with status ("success" or "error"), message, active_sheet, and filepath.
 ```
 
 ### `excel_create_worksheet`
 
 - **Access Mode:** `Write`
-- **Signature:** `excel_create_worksheet(filename: str, sheet_name: str) -> dict[str, typing.Any]`
+- **Signature:** `excel_create_worksheet(filename: 'str', sheet_name: 'str') -> 'dict[str, Any]'`
 
 ```text
 Add a new worksheet to an existing Excel workbook.
 
-Context for LLM/AI: Use this tool to organize or extend data in an existing Excel file by adding a new worksheet. This is ideal when you want to segment data by category, time period, or any logical grouping (e.g., adding a new month to a financial report or a new department to a tracking file). The tool ensures the file exists, is accessible, and that the new sheet name does not conflict with existing sheets. It enforces Excel naming conventions and security constraints.
-
-When to use:
-    - When augmenting an existing Excel file with additional data sections.
-    - When automating workflows that require dynamic worksheet creation.
-    - When you need to ensure that sheet names remain unique and valid.
+Context for LLM/AI: Use this tool to organize or extend data in an existing Excel file by adding a new worksheet. This is ideal when you want to segment data by category, time period, or any logical grouping.
 
 Args:
     filename (str): Path to the existing Excel workbook. Example: "reports/monthly_report.xlsx"
@@ -183,8 +171,6 @@ Args:
 
 Returns:
     dict[str, Any]: Dictionary indicating success or describing the error.
-        Example: {"status": "success", "sheet": "NewData"}
-    On error, returns a dictionary with status "error" and a descriptive message.
 ```
 
 ### `excel_copy_worksheet`
@@ -194,17 +180,6 @@ Returns:
 
 ```text
 Create a duplicate of an existing worksheet within the same Excel workbook.
-
-Context for AI/LLM:
-    Use this tool when you need to create a new worksheet based on an existing template or data sheet. It preserves all content, formatting, and formulas from the original.
-
-Args:
-    filename (str): Path to the Excel workbook.
-    source_sheet (str): The name of the worksheet to be copied.
-    target_sheet (str): The name for the newly created worksheet. Must not already exist.
-
-Returns:
-    dict[str, Any]: A status dictionary with a confirmation message or error details.
 ```
 
 ### `excel_delete_worksheet`
@@ -214,16 +189,6 @@ Returns:
 
 ```text
 Permanently delete a worksheet from a workbook.
-
-Context for AI/LLM:
-    This is a destructive operation. Use it to remove temporary, outdated, or unnecessary worksheets from an Excel file as part of a cleanup or automation workflow. Ensure the agent confirms this action if the sheet contains data.
-
-Args:
-    filename (str): Path to the Excel workbook.
-    sheet_name (str): The name of the worksheet to be deleted.
-
-Returns:
-    dict[str, Any]: A status dictionary indicating success or failure with a message.
 ```
 
 ### `excel_rename_worksheet`
@@ -233,45 +198,20 @@ Returns:
 
 ```text
 Change the name of an existing worksheet within a workbook.
-
-Context for AI/LLM:
-    Use this tool to update worksheet names to be more descriptive or to follow a required naming convention as part of an automated process.
-
-Args:
-    filename (str): Path to the Excel workbook.
-    old_name (str): The current name of the worksheet to be renamed.
-    new_name (str): The new name for the worksheet. Must be unique and follow Excel's naming rules.
-
-Returns:
-    dict[str, Any]: A status dictionary with a confirmation or error message.
 ```
 
 ### `excel_list_documents`
 
 - **Access Mode:** `Read-Only`
-- **Signature:** `excel_list_documents() -> dict[str, typing.Any]`
+- **Signature:** `excel_list_documents() -> 'dict[str, Any]'`
 
 ```text
-List all .xlsx files in the specified directory.
+List all .xlsx files in the allowed directories.
 
-Context for LLM/AI: Use this tool to discover and enumerate all Excel files in a specific directory, which is helpful for inventory, audit, batch processing, or automated data discovery scenarios. The tool validates the directory for security, ensuring only authorized locations are scanned. It returns detailed metadata for each file, enabling downstream processing, selection, or reporting by an automated agent.
-
-When to use:
-    - When an AI needs to present the user with available Excel files for further action.
-    - When preparing to process, analyze, or summarize multiple Excel documents in a folder.
-    - When auditing or verifying the presence and properties of .xlsx files in a given path.
-
-Args:
-    directory (str): Path to the folder to scan. Defaults to the current directory (".")
+Context for LLM/AI: Use this tool to discover and enumerate all Excel files in permitted directories, which is helpful for inventory, audit, batch processing, or automated data discovery scenarios.
 
 Returns:
-    dict[str, Any]: A dictionary with:
-        - status (str): "success" or "error"
-        - count (int): Number of .xlsx files found
-        - directory (str): Absolute path to the searched directory
-        - files (list[dict]): List of file metadata, e.g.:
-            [{"name": "report.xlsx", "size": 2048, "modified": "2025-07-30T10:45:00"}]
-    On error, returns a dictionary with status "error" and a descriptive message.
+    dict[str, Any]: A dictionary with status ("success" or "error"), count, and files metadata list.
 ```
 
 ### `excel_get_workbook_metadata`
@@ -280,17 +220,7 @@ Returns:
 - **Signature:** `excel_get_workbook_metadata(filename: str, include_ranges: bool = False) -> dict[str, typing.Any]`
 
 ```text
-Retrieve metadata about an Excel workbook, including a list of all worksheets and optional details about named ranges.
-
-Context for AI/LLM:
-    Use this tool for discovery and inspection. It allows an agent to understand the structure of a workbook before performing read, write, or format operations. It's a crucial first step in many interactive or complex workflows.
-
-Args:
-    filename (str): Path to the Excel workbook to inspect.
-    include_ranges (bool, optional): If True, the metadata will include details about named ranges. Defaults to False.
-
-Returns:
-    dict[str, Any]: A dictionary containing workbook metadata, such as a list of sheet names and properties.
+Retrieve metadata about an Excel workbook, including sheets and optional used ranges.
 ```
 
 ### `excel_insert_rows_columns`
@@ -344,15 +274,6 @@ Returns:
 Apply visual and data formatting styles to a specified cell range in an existing Excel worksheet.
 
 Note: For new workbooks, prefer `excel_build_workbook` (supports presets, headers, zebra striping, number formats, and charts in one call).
-
-Context for AI/LLM:
-    Use this comprehensive tool to programmatically style reports, highlight data, or enforce a consistent visual layout in an Excel sheet. It is ideal for automating the final presentation layer of data generation workflows.
-
-Typical use cases:
-    1. Styling table headers with bold text, background colors, and borders.
-    2. Applying currency or date formats to numerical data columns.
-    3. Setting up conditional formatting to highlight values above a certain threshold.
-    4. Merging cells to create report titles or grouped headers.
 
 Args:
     filename (str): Path to the Excel workbook.
@@ -455,18 +376,6 @@ Returns:
 
 ```text
 Merge a rectangular range of cells into a single, larger cell.
-
-Context for AI/LLM:
-    Use this tool to create titles, headers, or grouped labels that span multiple columns or rows. This is a common formatting step in report generation.
-
-Args:
-    filename (str): Path to the Excel workbook.
-    sheet_name (str): The name of the worksheet where the merge will occur.
-    start_cell (str): The top-left cell of the range to merge.
-    end_cell (str): The bottom-right cell of the range to merge.
-
-Returns:
-    dict[str, Any]: A status dictionary indicating success or failure.
 ```
 
 ### `excel_unmerge_cells`
@@ -476,18 +385,6 @@ Returns:
 
 ```text
 Unmerge a previously merged cell range, reverting it to individual cells.
-
-Context for AI/LLM:
-    Use this tool to reverse a merge operation, typically as part of a re-formatting or data extraction workflow where individual cell access is required.
-
-Args:
-    filename (str): Path to the Excel workbook.
-    sheet_name (str): The name of the worksheet containing the merged cells.
-    start_cell (str): The top-left cell of the range to unmerge.
-    end_cell (str): The bottom-right cell of the range to unmerge.
-
-Returns:
-    dict[str, Any]: A status dictionary indicating success or failure.
 ```
 
 ### `excel_copy_range`
@@ -496,21 +393,7 @@ Returns:
 - **Signature:** `excel_copy_range(filename: str, sheet_name: str, source_start: str, source_end: str, target_start: str, target_sheet: str | None = None) -> dict[str, typing.Any]`
 
 ```text
-Copy a range of cells, including their values and formatting, to a new location, potentially in a different worksheet.
-
-Context for AI/LLM:
-    Use this tool to duplicate data or templates within a workbook. It's useful for creating summaries, staging data for charts, or replicating formatted tables.
-
-Args:
-    filename (str): Path to the Excel workbook.
-    sheet_name (str): The name of the source worksheet.
-    source_start (str): The top-left cell of the source range to copy.
-    source_end (str): The bottom-right cell of the source range.
-    target_start (str): The top-left cell of the destination.
-    target_sheet (str | None, optional): The name of the destination worksheet. If None, the same sheet is used. Defaults to None.
-
-Returns:
-    dict[str, Any]: A status dictionary indicating success or failure.
+Copy a range of cells, including their values and formatting, to a new location.
 ```
 
 ### `excel_delete_range`
@@ -519,20 +402,7 @@ Returns:
 - **Signature:** `excel_delete_range(filename: str, sheet_name: str, start_cell: str, end_cell: str | None = None, shift_direction: str = 'up') -> dict[str, typing.Any]`
 
 ```text
-Delete a range of cells and optionally shift the surrounding cells to fill the gap.
-
-Context for AI/LLM:
-    This is a destructive operation used to remove rows or columns of data programmatically. It's useful for cleaning up datasets by removing invalid or unnecessary records.
-
-Args:
-    filename (str): Path to the Excel workbook.
-    sheet_name (str): The name of the worksheet.
-    start_cell (str): The top-left cell of the range to delete.
-    end_cell (str | None, optional): The bottom-right cell of the range to delete. Defaults to None.
-    shift_direction (str, optional): Direction to shift cells after deletion ('up' or 'left'). Defaults to "up".
-
-Returns:
-    dict[str, Any]: A status dictionary indicating success or failure.
+Delete a range of cells and optionally shift surrounding cells to fill the gap.
 ```
 
 ### `excel_validate_range`
@@ -542,18 +412,6 @@ Returns:
 
 ```text
 Validate that a given cell range is valid within a specific worksheet.
-
-Context for AI/LLM:
-    Use this tool as a precondition check before attempting to read from or write to a range. This helps prevent errors by ensuring the target sheet and cell references are valid.
-
-Args:
-    filename (str): Path to the Excel workbook.
-    sheet_name (str): The name of the worksheet to check.
-    start_cell (str): The top-left cell of the range.
-    end_cell (str | None, optional): The bottom-right cell of the range. Defaults to None.
-
-Returns:
-    dict[str, Any]: A dictionary with validation status ("success" or "error") and a descriptive message.
 ```
 
 ## Search & Analytical Profiling
@@ -610,7 +468,7 @@ Returns:
 ### `excel_validate_formula_syntax`
 
 - **Access Mode:** `Read-Only`
-- **Signature:** `excel_validate_formula_syntax(filename: str, sheet_name: str, cell: str, formula: str) -> dict[str, typing.Any]`
+- **Signature:** `excel_validate_formula_syntax(filename: 'str', sheet_name: 'str', cell: 'str', formula: 'str') -> 'dict[str, Any]'`
 
 ```text
 Validate the syntax of an Excel formula without writing it to a cell.
@@ -631,18 +489,13 @@ Returns:
 ### `excel_apply_formula`
 
 - **Access Mode:** `Write`
-- **Signature:** `excel_apply_formula(filename: str, sheet_name: str, cell: str, formula: str) -> dict[str, typing.Any]`
+- **Signature:** `excel_apply_formula(filename: 'str', sheet_name: 'str', cell: 'str', formula: 'str') -> 'dict[str, Any]'`
 
 ```text
 Apply a validated Excel formula to a specific cell in a worksheet.
 
 Context for AI/LLM:
     Use this tool to perform calculations within Excel by programmatically inserting formulas. It's ideal for automating summaries, financial models, or any task requiring dynamic calculations based on other cell values.
-
-Typical use cases:
-    1. Adding a `=SUM(A1:A10)` formula to cell A11 to total a column.
-    2. Placing a `=VLOOKUP(...)` formula to link data between sheets.
-    3. Automating the creation of calculated columns in a data table.
 
 Args:
     filename (str): Path to the Excel workbook.
@@ -652,22 +505,15 @@ Args:
 
 Returns:
     dict[str, Any]: A status dictionary indicating success or failure, with a descriptive message.
-
-Notes:
-    • The tool automatically validates the formula's syntax before attempting to apply it.
-    • The cell's existing value or formula will be overwritten.
 ```
 
 ### `excel_create_chart`
 
 - **Access Mode:** `Write`
-- **Signature:** `excel_create_chart(filename: str, sheet_name: str, data_range: str, chart_type: str, target_cell: str, title: str = '', x_axis: str = '', y_axis: str = '', style: dict[str, typing.Any] | None = None) -> dict[str, typing.Any]`
+- **Signature:** `excel_create_chart(filename: 'str', sheet_name: 'str', data_range: 'str', chart_type: 'str', target_cell: 'str', title: 'str' = '', x_axis: 'str' = '', y_axis: 'str' = '', style: 'dict[str, Any] | None' = None) -> 'dict[str, Any]'`
 
 ```text
 Create a chart in a worksheet based on a specified data range.
-
-Context for AI/LLM:
-    Use this tool to visually represent data within an Excel sheet. It is perfect for automating the creation of dashboards and reports, allowing an agent to generate charts like bar, line, or pie charts from existing data tables.
 
 Args:
     filename (str): The path to the Excel workbook.
@@ -687,13 +533,10 @@ Returns:
 ### `excel_create_pivot_table`
 
 - **Access Mode:** `Write`
-- **Signature:** `excel_create_pivot_table(filename: str, sheet_name: str, data_range: str, rows: list[str], values: list[str], columns: list[str] | None = None, agg_func: str = 'sum') -> dict[str, typing.Any]`
+- **Signature:** `excel_create_pivot_table(filename: 'str', sheet_name: 'str', data_range: 'str', rows: 'list[str]', values: 'list[str]', columns: 'list[str] | None' = None, agg_func: 'str' = 'sum') -> 'dict[str, Any]'`
 
 ```text
 Create a pivot table in a worksheet to summarize and analyze data from a given range.
-
-Context for AI/LLM:
-    Use this powerful tool to perform data aggregation and summarization automatically. It's ideal for creating summary reports that group data by different categories and calculate metrics like sums, averages, or counts.
 
 Args:
     filename (str): The path to the Excel workbook.
@@ -713,7 +556,7 @@ Returns:
 ### `excel_read_data`
 
 - **Access Mode:** `Read-Only`
-- **Signature:** `excel_read_data(filename: str, sheet_name: str, start_cell: str = 'A1', end_cell: str | None = None, preview_only: bool = False) -> dict[str, typing.Any]`
+- **Signature:** `excel_read_data(filename: 'str', sheet_name: 'str', start_cell: 'str' = 'A1', end_cell: 'str | None' = None, preview_only: 'bool' = False) -> 'dict[str, Any]'`
 
 ```text
 Read a specific range of tabular data from an Excel worksheet and return it in a structured format.
@@ -741,20 +584,12 @@ Returns:
         - status (str): "success" or "error".
         - data (list[list[Any]] | None): 2-D list of cell values from the worksheet range when status is "success".
         - message (str): Human-readable message or error description.
-
-Raises:
-    FileNotFoundError: If the workbook cannot be located.
-    ValidationError | DataError: If the sheet name or range is invalid or missing.
-
-Notes:
-    • The specified worksheet must already exist; the function does not create new sheets.
-    • If the target range is empty, status will be "error" with a descriptive message.
 ```
 
 ### `excel_write_data`
 
 - **Access Mode:** `Write`
-- **Signature:** `excel_write_data(filename: str, sheet_name: str, data: list[list[typing.Any]], start_cell: str = 'A1') -> str`
+- **Signature:** `excel_write_data(filename: 'str', sheet_name: 'str', data: 'list[list[Any]]', start_cell: 'str' = 'A1') -> 'dict[str, Any]'`
 
 ```text
 Write data to an existing Excel worksheet beginning at the specified cell.
@@ -776,16 +611,7 @@ Args:
     start_cell (str, optional): Top-left cell where writing begins (e.g., "A1"). Defaults to "A1".
 
 Returns:
-    str: Success confirmation message, or an error description prefixed with "Error:".
-
-Raises:
-    ValidationError | DataError: When validation of input parameters or write operation fails.
-    Exception: For unexpected I/O or library errors.
-
-Notes:
-    • Data will overwrite any existing content in the target range.
-    • The function does not create new worksheets; the target sheet must already exist.
-    • Input data is written as-is, without formula injection or type conversion.
+    dict[str, Any]: A status dictionary with status ("success" or "error"), message, active_sheet, and filepath.
 ```
 
 ## Validation & Print Layout

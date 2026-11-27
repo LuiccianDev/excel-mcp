@@ -10,11 +10,9 @@ from typing import Any
 
 from excel_mcp.core.search import find_cells_in_workbook, profile_worksheet
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import require_valid_path
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename", read_only=True)
 def find_cells(
     filename: str | None = None,
     file_path: str | None = None,
@@ -59,8 +57,7 @@ def find_cells(
     return {"status": "success", "data": res}
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename", read_only=True)
 def profile_sheet(
     filename: str | None = None,
     file_path: str | None = None,

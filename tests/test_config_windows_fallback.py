@@ -7,8 +7,11 @@ from pathlib import Path
 import pytest
 
 from excel_mcp.config import MCPExcelConfig, _default_documents_directory
-from excel_mcp.utils.paths import is_path_allowed, resolve_target_path
-from excel_mcp.utils.security import resolve_and_check_path
+from excel_mcp.utils.paths import (
+    is_path_allowed,
+    resolve_and_check_path,
+    resolve_target_path,
+)
 
 
 def test_default_directory_uses_user_documents(

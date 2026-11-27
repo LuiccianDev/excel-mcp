@@ -8,13 +8,10 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from excel_mcp.core.batch import (
-    batch_write_matrix,
-    build_single_pass_workbook,
-    inspect_workbook_outline,
-)
+from excel_mcp.core.builder import build_single_pass_workbook
+from excel_mcp.core.data import batch_write_matrix
+from excel_mcp.core.search import inspect_workbook_outline
 from excel_mcp.utils.guards import tool_guard
-from excel_mcp.utils.security import require_valid_path
 
 
 def _dump(model: Any) -> dict[str, Any]:
@@ -28,8 +25,7 @@ def _dump(model: Any) -> dict[str, Any]:
     return {"data": model}
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename")
 def build_workbook(
     filename: str | None = None,
     file_path: str | None = None,
@@ -81,8 +77,7 @@ def build_workbook(
     return {"status": "success", "data": _dump(result)}
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename", read_only=True)
 def get_workbook_outline(
     filename: str | None = None,
     file_path: str | None = None,
@@ -102,8 +97,7 @@ def get_workbook_outline(
     return {"status": "success", "data": _dump(outline)}
 
 
-@require_valid_path()
-@tool_guard()
+@tool_guard(path_param="filename")
 def batch_write_data(
     filename: str | None = None,
     file_path: str | None = None,

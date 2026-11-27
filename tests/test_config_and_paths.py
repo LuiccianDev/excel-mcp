@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from excel_mcp.config import FileConfig
-from excel_mcp.utils.security import resolve_and_check_path
+from excel_mcp.utils.paths import resolve_and_check_path
 
 
 def test_file_config_validation_does_not_create_directory(tmp_path: Path) -> None:

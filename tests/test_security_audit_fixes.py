@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 import zipfile
 
@@ -13,7 +12,7 @@ from excel_mcp.core._io import (
     atomic_save,
     workbook_session,
 )
-from excel_mcp.core.batch import batch_write_matrix, build_single_pass_workbook
+from excel_mcp.core.builder import build_single_pass_workbook
 from excel_mcp.core.calculations import (
     FormulaSecurityError,
     apply_formula,
@@ -23,6 +22,7 @@ from excel_mcp.core.calculations import (
 from excel_mcp.core.data import (
     MAX_READ_CELLS,
     PREVIEW_MAX_ROWS,
+    batch_write_matrix,
     read_excel_range,
     write_data,
 )
@@ -68,14 +68,10 @@ def test_apply_formula_and_tools_enforce_secure_validation(
         with pytest.raises(FormulaSecurityError):
             apply_formula(str(target), "Sheet1", "B1", payload)
 
-        res_apply = asyncio.run(
-            apply_formula_excel(str(target), "Sheet1", "B1", payload)
-        )
+        res_apply = apply_formula_excel(str(target), "Sheet1", "B1", payload)
         assert res_apply["status"] == "error"
 
-        res_val = asyncio.run(
-            validate_formula_syntax(str(target), "Sheet1", "B1", payload)
-        )
+        res_val = validate_formula_syntax(str(target), "Sheet1", "B1", payload)
         assert res_val["status"] == "error"
 
 
@@ -305,7 +301,7 @@ def test_path_placeholders_reserved_space_dir_check_and_annotations(
     monkeypatch.setenv("EXCEL_MCP_DIRS", str(tmp_path))
     sub = tmp_path / "folder.xlsx"
     sub.mkdir()
-    res = asyncio.run(create_excel_workbook(str(sub)))
+    res = create_excel_workbook(str(sub))
     assert res["status"] == "error"
     assert "directory" in res["message"].lower()
 

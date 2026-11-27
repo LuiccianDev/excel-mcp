@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 from pathlib import Path
+from typing import Any, cast
 
 import openpyxl
 import pytest
 
 from excel_mcp.core.data_validation import add_data_validation
 from excel_mcp.tools.format_tools import format_range_excel
-from excel_mcp.utils.paths import is_path_allowed, resolve_allowed_directories
-from excel_mcp.utils.security import resolve_and_check_path
+from excel_mcp.utils.paths import (
+    is_path_allowed,
+    resolve_allowed_directories,
+    resolve_and_check_path,
+)
 
 
 def test_multiple_roots_and_trailing_separators_are_normalized(
@@ -67,13 +70,11 @@ def test_public_format_tool_rejects_external_path_without_mutation(
     external = tmp_path / "external.xlsx"
     monkeypatch.setenv("EXCEL_MCP_DIRS", str(allowed))
 
-    result = asyncio.run(
-        format_range_excel(
-            filename=str(external),
-            sheet_name="Sheet",
-            start_cell="A1",
-            bold=True,
-        )
+    result = format_range_excel(
+        filename=str(external),
+        sheet_name="Sheet",
+        start_cell="A1",
+        bold=True,
     )
 
     assert result["status"] == "error"
@@ -110,13 +111,11 @@ def test_invalid_color_returns_structured_error(tmp_path: Path) -> None:
     workbook = tmp_path / "book.xlsx"
     openpyxl.Workbook().save(workbook)
 
-    result = asyncio.run(
-        format_range_excel(
-            filename=str(workbook),
-            sheet_name="Sheet",
-            start_cell="A1",
-            bg_color="not-a-color",
-        )
+    result = format_range_excel(
+        filename=str(workbook),
+        sheet_name="Sheet",
+        start_cell="A1",
+        bg_color="not-a-color",
     )
 
     assert result["status"] == "error"
@@ -126,13 +125,11 @@ def test_invalid_border_enum_returns_structured_error(tmp_path: Path) -> None:
     workbook = tmp_path / "book.xlsx"
     openpyxl.Workbook().save(workbook)
 
-    result = asyncio.run(
-        format_range_excel(
-            filename=str(workbook),
-            sheet_name="Sheet",
-            start_cell="A1",
-            border_style="not-a-border",  # type: ignore[arg-type]
-        )
+    result = format_range_excel(
+        filename=str(workbook),
+        sheet_name="Sheet",
+        start_cell="A1",
+        border_style=cast(Any, "not-a-border"),
     )
 
     assert result["status"] == "error"

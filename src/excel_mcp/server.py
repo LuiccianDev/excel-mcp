@@ -32,7 +32,7 @@ from excel_mcp.tools.register_tools import (
     register_all_tools,
 )
 from excel_mcp.utils.metrics import is_metrics_enabled, track_tool_metrics
-from excel_mcp.utils.security import get_allowed_directories
+from excel_mcp.utils.paths import resolve_allowed_directories
 
 logging.basicConfig(
     level=logging.INFO,
@@ -137,7 +137,7 @@ def create_server(mode: str | None = None) -> FastMCP:
     """Create and configure the Excel MCP Server instance."""
     resolved_mode = normalize_tool_mode(mode)
 
-    allowed_dirs = get_allowed_directories()
+    allowed_dirs = resolve_allowed_directories()
     instructions = build_server_instructions(resolved_mode, allowed_dirs)
 
     mcp = FastMCP(

@@ -385,6 +385,7 @@ def create_pivot_table(
             atomic_save(wb, filename)
 
         return {
+            "status": "success",
             "message": "Summary table created successfully",
             "details": {
                 "source_range": data_range_str,
@@ -396,6 +397,10 @@ def create_pivot_table(
             },
         }
     except (ValidationError, PivotError) as exc:
-        return {"error": str(exc), "message": "Failed to create pivot table"}
+        return {
+            "status": "error",
+            "error": str(exc),
+            "message": "Failed to create pivot table",
+        }
     except Exception as exc:
         raise PivotError(str(exc)) from exc

@@ -1,17 +1,18 @@
-# Import exceptions
+"""Formula validation and application tools for Excel MCP Server."""
+
+from __future__ import annotations
+
 from typing import Any
 
 from excel_mcp.core.calculations import (
     apply_formula,
     validate_formula_in_cell_operation,
 )
-from excel_mcp.utils.file_utils import validate_file_access
 from excel_mcp.utils.guards import tool_guard
 
 
-@validate_file_access("filename", read_only=True)
-@tool_guard()
-async def validate_formula_syntax(
+@tool_guard(path_param="filename", read_only=True)
+def validate_formula_syntax(
     filename: str,
     sheet_name: str,
     cell: str,
@@ -31,30 +32,20 @@ async def validate_formula_syntax(
     Returns:
         dict[str, Any]: A dictionary with validation status ("success" or "error") and a message.
     """
-    result: dict[str, Any] = validate_formula_in_cell_operation(
-        filename, sheet_name, cell, formula
-    )
-    return result
+    return validate_formula_in_cell_operation(filename, sheet_name, cell, formula)
 
 
-@validate_file_access("filename")
-@tool_guard()
-async def apply_formula_excel(
+@tool_guard(path_param="filename")
+def apply_formula_excel(
     filename: str,
     sheet_name: str,
     cell: str,
     formula: str,
 ) -> dict[str, Any]:
-    """
-    Apply a validated Excel formula to a specific cell in a worksheet.
+    """Apply a validated Excel formula to a specific cell in a worksheet.
 
     Context for AI/LLM:
         Use this tool to perform calculations within Excel by programmatically inserting formulas. It's ideal for automating summaries, financial models, or any task requiring dynamic calculations based on other cell values.
-
-    Typical use cases:
-        1. Adding a `=SUM(A1:A10)` formula to cell A11 to total a column.
-        2. Placing a `=VLOOKUP(...)` formula to link data between sheets.
-        3. Automating the creation of calculated columns in a data table.
 
     Args:
         filename (str): Path to the Excel workbook.
@@ -64,17 +55,5 @@ async def apply_formula_excel(
 
     Returns:
         dict[str, Any]: A status dictionary indicating success or failure, with a descriptive message.
-
-    Notes:
-        • The tool automatically validates the formula's syntax before attempting to apply it.
-        • The cell's existing value or formula will be overwritten.
     """
-    # First validate the formula
-    validation: dict[str, Any] = validate_formula_in_cell_operation(
-        filename, sheet_name, cell, formula
-    )
-    if isinstance(validation, dict) and validation.get("status") == "error":
-        return validation
-
-    result: dict[str, Any] = apply_formula(filename, sheet_name, cell, formula)
-    return result
+    return apply_formula(filename, sheet_name, cell, formula)

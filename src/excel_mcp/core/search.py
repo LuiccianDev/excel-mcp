@@ -13,10 +13,10 @@ from pathlib import Path
 import re
 from typing import Any, Final
 
-from openpyxl.utils.cell import get_column_letter
-
 from excel_mcp.core._io import resolve_sheet, workbook_session
 from excel_mcp.exceptions.exception_core import ValidationError
+from excel_mcp.models.response_models import SheetOutline, WorkbookOutline
+from excel_mcp.utils.cell_utils import get_column_letter
 
 logger = logging.getLogger(__name__)
 
@@ -357,3 +357,94 @@ def profile_worksheet(
         if columns_truncated:
             result["columns_truncated"] = True
         return result
+
+
+def _outline_single_sheet(ws: Any, name: str) -> tuple[SheetOutline, int]:
+    max_r = ws.max_row or 0
+    max_c = ws.max_column or 0
+    dim = (
+        getattr(ws, "dimensions", None)
+        or f"A1:{get_column_letter(max(max_c, 1))}{max(max_r, 1)}"
+    )
+
+    headers: list[str] = []
+    header_row_idx = 1
+    formula_count = 0
+    has_formulas = False
+    sheet_populated = 0
+    sheet_warnings: list[str] = []
+
+    if max_r > 0 and max_c > 0:
+        best_headers: list[str] = []
+        best_row = 1
+        for r_idx, row in enumerate(
+            ws.iter_rows(
+                min_row=1,
+                max_row=min(max_r, 5),
+                max_col=min(max_c, 50),
+                values_only=True,
+            ),
+            start=1,
+        ):
+            row_vals = [str(v).strip() for v in row if v is not None and str(v).strip()]
+            if len(row_vals) > len(best_headers):
+                best_headers = row_vals
+                best_row = r_idx
+            if len(best_headers) >= 2:
+                break
+
+        headers = best_headers
+        header_row_idx = best_row
+
+        for row_cells in ws.iter_rows(
+            min_row=1,
+            max_row=min(max_r, 500),
+            max_col=min(max_c, 50),
+            values_only=False,
+        ):
+            for cell in row_cells:
+                val = cell.value
+                if val is not None:
+                    sheet_populated += 1
+                    if isinstance(val, str) and val.startswith("="):
+                        has_formulas = True
+                        formula_count += 1
+
+        if max_r > 500 or max_c > 50:
+            sheet_warnings.append(
+                f"Inspection capped at 500 rows and 50 cols (sheet dimensions: {max_r}x{max_c})"
+            )
+
+    return (
+        SheetOutline(
+            name=name,
+            max_row=max_r,
+            max_column=max_c,
+            dimension=dim,
+            headers=headers,
+            header_row=header_row_idx,
+            has_formulas=has_formulas,
+            formula_count=formula_count,
+            warnings=sheet_warnings,
+        ),
+        sheet_populated,
+    )
+
+
+def inspect_workbook_outline(filename: str) -> WorkbookOutline:
+    """Inspect structural outline of workbook without loading full cell grids into context."""
+    sheet_outlines: list[SheetOutline] = []
+    total_cells = 0
+
+    with workbook_session(filename, mode="read", data_only=False) as wb:
+        for name in wb.sheetnames:
+            outline, sheet_populated = _outline_single_sheet(wb[name], name)
+            total_cells += sheet_populated
+            sheet_outlines.append(outline)
+
+    return WorkbookOutline(
+        filename=filename,
+        sheet_count=len(sheet_outlines),
+        sheets=sheet_outlines,
+        total_cells_populated=total_cells,
+    )

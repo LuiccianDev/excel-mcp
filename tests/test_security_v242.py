@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from unittest.mock import patch
 import zipfile
@@ -447,41 +446,35 @@ def test_list_directory_excludes_symlinks_and_compound_rejects_conflicting_filen
             listed = list_excel_files_in_directory()
         assert [item["filename"] for item in listed] == ["real.xlsx"]
 
-    mismatch = asyncio.run(
-        excel_data(
-            "read",
-            str(real_file),
-            {
-                "filename": str(tmp_path / "other.xlsx"),
-                "sheet_name": "Sheet1",
-                "start_cell": "A1",
-            },
-        )
+    mismatch = excel_data(
+        "read",
+        str(real_file),
+        {
+            "filename": str(tmp_path / "other.xlsx"),
+            "sheet_name": "Sheet1",
+            "start_cell": "A1",
+        },
     )
     assert mismatch["status"] == "error"
     assert "Conflicting 'filename'" in mismatch["message"]
 
-    params_mismatch = asyncio.run(
-        excel_data(
-            "sort_range",
-            None,
-            {
-                "filename": str(real_file),
-                "file_path": str(tmp_path / "other.xlsx"),
-                "range_string": "A1:A1",
-                "key_column": 1,
-            },
-        )
+    params_mismatch = excel_data(
+        "sort_range",
+        None,
+        {
+            "filename": str(real_file),
+            "file_path": str(tmp_path / "other.xlsx"),
+            "range_string": "A1:A1",
+            "key_column": 1,
+        },
     )
     assert params_mismatch["status"] == "error"
     assert "Conflicting 'filename' and 'file_path'" in params_mismatch["message"]
 
-    matched = asyncio.run(
-        excel_data(
-            "read",
-            str(real_file),
-            {"filename": str(real_file), "sheet_name": "Sheet1", "start_cell": "A1"},
-        )
+    matched = excel_data(
+        "read",
+        str(real_file),
+        {"filename": str(real_file), "sheet_name": "Sheet1", "start_cell": "A1"},
     )
     assert matched["status"] == "success"
 
