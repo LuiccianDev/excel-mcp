@@ -53,16 +53,13 @@ def _default_documents_directory() -> str:
     return "./documents"
 
 
-def validate_directory_path(value: str, *, reject_placeholders: bool = False) -> str:
+def validate_directory_path(value: str) -> str:
     """Validate and normalize a configured directory path without mutating disk."""
     if not isinstance(value, str):
         raise ValueError("Directory must be a string")
 
     if not value.strip():
         raise ValueError("Directory cannot be empty")
-
-    if reject_placeholders and _UNEXPANDED_PLACEHOLDER_RE.search(value):
-        raise ValueError(f"Unexpanded directory placeholder is not allowed: {value}")
 
     path = Path(value).resolve()
 

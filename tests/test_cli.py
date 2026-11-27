@@ -1,11 +1,17 @@
-"""CLI and server construction tests."""
+"""CLI entrypoint and server construction tests."""
 
 from __future__ import annotations
 
+import os
 import sys
+
+import pytest
 
 import excel_mcp
 import excel_mcp.server as server_module
+from excel_mcp import __main__ as cli
+from excel_mcp.config import config_manager
+from excel_mcp.tools.register_tools import normalize_tool_mode
 
 
 class _FakeServer:
@@ -29,10 +35,8 @@ class _Recorder:
 
 
 def test_main_keeps_stdout_clean(monkeypatch, capsys):
-    from excel_mcp import __main__ as cli
-
     monkeypatch.setattr(sys, "argv", ["excel-mcp"])
-    monkeypatch.setattr(cli, "run_server", lambda mode=None: _FakeServer())
+    monkeypatch.setattr(cli, "run_server", lambda: _FakeServer())
     cli.main()
     captured = capsys.readouterr()
     assert captured.out == ""
@@ -53,122 +57,46 @@ def test_instructions_omit_legacy_aliases(monkeypatch):
     assert "EXCEL_MCP_LEGACY_ALIASES" not in instructions
 
 
-def test_main_supports_root_tool_mode_flag(monkeypatch):
-    from excel_mcp import __main__ as cli
-
-    captured_modes: list[str | None] = []
-
-    def _fake_run_server(mode: str | None = None):
-        captured_modes.append(mode)
-        return _FakeServer()
-
-    monkeypatch.setattr(sys, "argv", ["excel-mcp", "--tool-mode", "full"])
-    monkeypatch.setattr(cli, "run_server", _fake_run_server)
-    cli.main()
-    assert captured_modes == ["full"]
-
-
-def test_main_rejects_invalid_root_tool_mode(monkeypatch):
-    import pytest
-    from excel_mcp import __main__ as cli
-
-    monkeypatch.setattr(sys, "argv", ["excel-mcp", "--tool-mode", "bogus"])
+@pytest.mark.parametrize(
+    "extra_args",
+    [
+        ["server"],
+        ["list"],
+        ["--tool-mode", "full"],
+        ["--path", "x"],
+        ["--help"],
+    ],
+)
+def test_main_rejects_any_cli_argument(monkeypatch, capsys, extra_args):
+    monkeypatch.setattr(sys, "argv", ["excel-mcp", *extra_args])
+    monkeypatch.setattr(cli, "run_server", lambda: _FakeServer())
     with pytest.raises(SystemExit) as exc:
         cli.main()
-    assert exc.value.code != 0
+    assert exc.value.code == 2
+    assert "takes no arguments" in capsys.readouterr().err
 
 
-def test_main_list_honors_root_path_and_rejects_tool_mode(
-    monkeypatch, tmp_path, capsys
-):
-    import os
-    import pytest
-    from excel_mcp import __main__ as cli
-    from excel_mcp.config import config_manager
+def test_main_uses_excel_mcp_tools_env(monkeypatch, capsys):
+    monkeypatch.setenv("EXCEL_MCP_TOOLS", "full")
+    monkeypatch.setattr(sys, "argv", ["excel-mcp"])
+    monkeypatch.setattr(cli, "run_server", lambda: _FakeServer())
+    cli.main()
+    assert normalize_tool_mode(None) == "full"
+    assert capsys.readouterr().out == ""
 
+
+def test_main_rejects_dirs_env_pointing_to_file(monkeypatch, tmp_path):
     original_config = config_manager._config
     original_allowed = os.environ.get("EXCEL_MCP_DIRS")
     try:
-        sample = tmp_path / "report.xlsx"
-        sample.write_bytes(b"")
-        monkeypatch.setattr(sys, "argv", ["excel-mcp", "--path", str(tmp_path), "list"])
-        cli.main()
-        captured = capsys.readouterr()
-        assert "report.xlsx" in captured.out
-
-        monkeypatch.setattr(
-            sys,
-            "argv",
-            ["excel-mcp", "--tool-mode", "full", "list"],
-        )
+        not_a_dir = tmp_path / "file.txt"
+        not_a_dir.write_text("x", encoding="utf-8")
+        monkeypatch.setenv("EXCEL_MCP_DIRS", str(not_a_dir))
+        monkeypatch.setattr(sys, "argv", ["excel-mcp"])
+        monkeypatch.setattr(cli, "run_server", lambda: _FakeServer())
         with pytest.raises(SystemExit) as exc:
             cli.main()
         assert exc.value.code != 0
-    finally:
-        config_manager._config = original_config
-        if original_allowed is None:
-            os.environ.pop("EXCEL_MCP_DIRS", None)
-        else:
-            os.environ["EXCEL_MCP_DIRS"] = original_allowed
-
-
-def test_main_list_respects_excel_mcp_dirs_and_filters_xlsx_only(
-    monkeypatch, tmp_path, capsys
-):
-    import os
-    from pathlib import Path
-    from excel_mcp import __main__ as cli
-    from excel_mcp.config import config_manager
-
-    original_config = config_manager._config
-    original_allowed = os.environ.get("EXCEL_MCP_DIRS")
-    sheets_dir = tmp_path / "sheets"
-    sheets_dir.mkdir()
-    empty_cwd = tmp_path / "no_documents_cwd"
-    empty_cwd.mkdir()
-    (sheets_dir / "budget.xlsx").write_bytes(b"")
-    (sheets_dir / "legacy.xls").write_bytes(b"")
-
-    try:
-        monkeypatch.chdir(empty_cwd)
-        monkeypatch.setattr(
-            Path, "home", staticmethod(lambda: tmp_path / "missing_home")
-        )
-        monkeypatch.setenv("EXCEL_MCP_DIRS", str(sheets_dir))
-        monkeypatch.setattr(sys, "argv", ["excel-mcp", "list"])
-        cli.main()
-        captured = capsys.readouterr()
-        assert "budget.xlsx" in captured.out
-        assert "legacy.xls" not in captured.out
-    finally:
-        config_manager._config = original_config
-        if original_allowed is None:
-            os.environ.pop("EXCEL_MCP_DIRS", None)
-        else:
-            os.environ["EXCEL_MCP_DIRS"] = original_allowed
-
-
-def test_main_list_exits_nonzero_for_missing_dir_and_placeholder(monkeypatch, tmp_path):
-    import os
-    import pytest
-    from excel_mcp import __main__ as cli
-    from excel_mcp.config import config_manager
-
-    original_config = config_manager._config
-    original_allowed = os.environ.get("EXCEL_MCP_DIRS")
-    try:
-        missing = tmp_path / "does_not_exist"
-        monkeypatch.setattr(sys, "argv", ["excel-mcp", "list", "--path", str(missing)])
-        with pytest.raises(SystemExit) as exc:
-            cli.main()
-        assert exc.value.code != 0
-
-        monkeypatch.setattr(
-            sys, "argv", ["excel-mcp", "list", "--path", "${workspaceFolder}"]
-        )
-        with pytest.raises(SystemExit) as exc2:
-            cli.main()
-        assert exc2.value.code != 0
     finally:
         config_manager._config = original_config
         if original_allowed is None:

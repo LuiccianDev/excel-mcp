@@ -57,7 +57,6 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
         for token in (
             "compound",
             "EXCEL_MCP_TOOLS=full",
-            "server --tool-mode full",
             "excel_workbook",
             "excel_data",
             "excel_format",
@@ -74,7 +73,7 @@ class TestSkillsAndDocsSynchronization(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("`EXCEL_MCP_TOOLS`", readme)
-        self.assertIn("server --tool-mode full", skill_md)
+        self.assertIn("EXCEL_MCP_TOOLS=full", skill_md)
         self.assertIn("params", readme)
         self.assertIn("params", skill_md)
 

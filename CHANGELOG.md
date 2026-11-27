@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **CLI Subcommands & Flags (`server`, `list`, `--path`, `--tool-mode`, direct `typer` dependency)**: Simplified `excel_mcp.__main__` into a zero-argument `stdio` server entrypoint configured strictly via environment variables (`EXCEL_MCP_DIRS`, `EXCEL_MCP_TOOLS`, `LOG_LEVEL`, `EXCEL_MCP_METRICS_LOG`).
+
 ---
 
 ## [2.4.1] - 2026-11-21

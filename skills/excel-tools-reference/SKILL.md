@@ -55,7 +55,7 @@ Starting in `v2.2.0`, `excel-mcp` defaults to `compound` mode (8 tools) to minim
   - `excel_formula`: `validate`, `apply`
   - `excel_analytics`: `create_chart`, `create_pivot_table`
 
-To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=full` or launch with `server --tool-mode full`.
+To expose all 33 granular canonical tools below directly, set `EXCEL_MCP_TOOLS=full`.
 
 ### Complete Canonical Tool Inventory (`full` Mode, 33 Tools)
 

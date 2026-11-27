@@ -104,7 +104,7 @@ High-performance Model Context Protocol (MCP) server for programmatic Excel (.xl
 ## Tool Naming
 
 All tools use the `excel_` prefix for clarity (e.g., `excel_build_workbook`, `excel_workbook`).
-Set `EXCEL_MCP_TOOLS=full` (or launch `server --tool-mode full`) for all 33 granular tools.
+Set `EXCEL_MCP_TOOLS=full` for all 33 granular tools.
 """
 
 
