@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Removed
-- **Redundant CLI Subcommands (`server`, `list`)**: Simplified `excel_mcp.__main__` to a single root stdio command accepting optional `--path` and `--tool-mode` flags, removing the redundant `server` and `list` subcommands in favor of direct `uvx luiccian-excel-mcp` execution with `EXCEL_MCP_DIRS` and `EXCEL_MCP_TOOLS`.
+- **CLI Subcommands & Flags (`server`, `list`, `--path`, `--tool-mode`, direct `typer` dependency)**: Simplified `excel_mcp.__main__` into a zero-argument `stdio` server entrypoint configured strictly via environment variables (`EXCEL_MCP_DIRS`, `EXCEL_MCP_TOOLS`, `LOG_LEVEL`, `EXCEL_MCP_METRICS_LOG`).
 
 ---
 

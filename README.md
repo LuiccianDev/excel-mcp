@@ -37,22 +37,7 @@ Requires [`uv`](https://docs.astral.sh/uv/). Runs [`luiccian-excel-mcp`](https:/
 }
 ```
 
-> **Note:** On Windows, use forward slashes or escaped backslashes (for example `"C:/Users/YourName/Documents/Spreadsheets"`). You can allow multiple roots separated by commas. Set `"EXCEL_MCP_TOOLS": "full"` in `env` or pass `--tool-mode full` when a client requires all 33 granular tools.
-
-### 2. CLI Options
-
-Environment variables (`EXCEL_MCP_DIRS`, `EXCEL_MCP_TOOLS`) are preferred for MCP clients; these flags exist only for clients or wrappers that only pass CLI `args`:
-
-```bash
-# Start MCP server on stdio (default compound mode, 8 tools)
-uvx luiccian-excel-mcp
-
-# Start MCP server exposing all 33 canonical tools
-uvx luiccian-excel-mcp --tool-mode full
-
-# Override allowed base directory for clients without env support
-uvx luiccian-excel-mcp --path /path/to/your/spreadsheets
-```
+> **Note:** On Windows, use forward slashes or escaped backslashes (for example `"C:/Users/YourName/Documents/Spreadsheets"`). You can allow multiple roots separated by commas. Set `"EXCEL_MCP_TOOLS": "full"` in `env` when a client requires all 33 granular tools.
 
 ---
 
@@ -63,7 +48,7 @@ uvx luiccian-excel-mcp --path /path/to/your/spreadsheets
 | Mode | Tools Exposed | Behavior |
 | :--- | :--- | :--- |
 | `compound` *(Default)* | 8 tools | Exposes 3 single-pass tools (`excel_build_workbook`, `excel_get_workbook_outline`, `excel_batch_write_data`) plus 5 action-dispatched domain routers (`excel_workbook`, `excel_data`, `excel_format`, `excel_formula`, `excel_analytics`) taking `(action, filename=None, params=None)`. |
-| `full` | 33 tools | Opt-in via `EXCEL_MCP_TOOLS=full` or `--tool-mode full`; exposes all 33 canonical `excel_*` tool schemas directly. |
+| `full` | 33 tools | Opt-in via `EXCEL_MCP_TOOLS=full`; exposes all 33 canonical `excel_*` tool schemas directly. |
 
 ### Environment Variables
 

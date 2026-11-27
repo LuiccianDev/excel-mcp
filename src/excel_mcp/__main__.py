@@ -1,22 +1,15 @@
 """
 Entry point for running excel_mcp as a module.
 
-This module provides the command-line interface for the Excel MCP server,
-supporting both MCP server mode and standalone CLI operations. It handles
-environment variable configuration, command-line argument parsing, and provides
-clear error messages for configuration issues.
-
-The module supports execution as a single MCP server command:
-- Default MCP Server: `uvx luiccian-excel-mcp`, `python -m excel_mcp`, or `uv run excel-mcp`
-- Optional CLI flags for clients without `env` support: `--path`, `--tool-mode`
+Starts the Excel MCP server over stdio when invoked via `uvx luiccian-excel-mcp`,
+`python -m excel_mcp`, or `uv run excel-mcp`. Runtime settings are read from
+environment variables (`EXCEL_MCP_DIRS`, `EXCEL_MCP_TOOLS`, `LOG_LEVEL`,
+`EXCEL_MCP_METRICS_LOG`).
 """
 
 import logging
 import os
 import sys
-from typing import Annotated
-
-import typer
 
 from excel_mcp.config import (
     ConfigurationError,
@@ -24,27 +17,16 @@ from excel_mcp.config import (
     validate_directory_path,
 )
 from excel_mcp.server import configure_logging, run_server, run_stdio
-from excel_mcp.tools.register_tools import normalize_tool_mode
 from excel_mcp.utils.paths import resolve_allowed_directories
 
 logger = logging.getLogger(__name__)
 
 
-app = typer.Typer(
-    name="excel_mcp",
-    help="Excel MCP Server - Excel manipulation through Model Context Protocol",
-)
-
-
-def validate_and_apply_configuration(path: str | None = None) -> None:
-    """Validate and apply configuration from CLI flags and environment variables."""
+def validate_and_apply_configuration() -> None:
+    """Validate and apply configuration from environment variables."""
     try:
         overrides: dict[str, str] = {}
-        if path is not None:
-            overrides["directory"] = validate_directory_path(
-                path, reject_placeholders=True
-            )
-        elif os.environ.get("EXCEL_MCP_DIRS", "").strip():
+        if os.environ.get("EXCEL_MCP_DIRS", "").strip():
             allowed = resolve_allowed_directories()
             if allowed:
                 for candidate in allowed:
@@ -52,111 +34,52 @@ def validate_and_apply_configuration(path: str | None = None) -> None:
                 overrides["directory"] = allowed[0]
 
         config_manager.reload_configuration(**overrides)
-        if path is not None:
-            os.environ["EXCEL_MCP_DIRS"] = config_manager.config.file_config.directory
-
         logger.info("Configuration validated and applied successfully")
 
     except ConfigurationError as e:
-        typer.echo(f"Configuration error: {e}", err=True)
+        print(f"Configuration error: {e}", file=sys.stderr)
         logger.error(f"Configuration validation failed: {e}")
-        raise typer.Exit(1) from e
+        sys.exit(1)
     except Exception as e:
-        typer.echo(f"Unexpected configuration error: {e}", err=True)
+        print(f"Unexpected configuration error: {e}", file=sys.stderr)
         logger.error(f"Unexpected configuration error: {e}")
-        raise typer.Exit(1) from e
+        sys.exit(1)
 
 
-def _start_server(path: str | None = None, tool_mode: str | None = None) -> None:
-    """Validate configuration and start the MCP server on stdio."""
+def main() -> None:
+    """Start the Excel MCP server on stdio using environment configuration."""
+    configure_logging()
+    logger.info("MCP Excel Office server starting...")
+
+    if sys.argv[1:]:
+        print(
+            "excel-mcp takes no arguments; configure it with EXCEL_MCP_DIRS and "
+            "EXCEL_MCP_TOOLS environment variables.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
     try:
-        logger.info("Initializing MCP Excel Office Server...")
-
-        validate_and_apply_configuration(path)
-        normalized_mode: str | None = None
-        if tool_mode is not None:
-            try:
-                normalized_mode = normalize_tool_mode(tool_mode)
-            except ValueError as exc:
-                typer.echo(str(exc), err=True)
-                raise typer.Exit(1) from exc
-
+        validate_and_apply_configuration()
         config = config_manager.config
-        logger.info("Starting MCP Excel Office Server...")
         logger.info("Server Name: MCP Excel Office Server")
         logger.info(f"File operations directory: {config.file_config.directory}")
         logger.info("Server ready. Listening on stdio transport...")
 
-        server = run_server(mode=normalized_mode)
+        server = run_server()
         run_stdio(server)
 
     except KeyboardInterrupt:
-        typer.echo("\nServer stopped by user.", err=True)
+        print("\nServer stopped by user.", file=sys.stderr)
         logger.info("Server stopped by user interrupt")
         sys.exit(0)
-    except typer.Exit:
-        raise
     except ConfigurationError as config_error:
-        typer.echo(f"Configuration error: {config_error}", err=True)
+        print(f"Configuration error: {config_error}", file=sys.stderr)
         logger.error(f"MCP server configuration failed: {config_error}")
-        raise typer.Exit(1) from config_error
+        sys.exit(1)
     except Exception as e:
-        typer.echo(f"Unexpected error starting server: {e}", err=True)
-        logger.error(f"Unexpected server startup error: {e}")
-        raise typer.Exit(1) from e
-
-
-PathOption = Annotated[
-    str | None,
-    typer.Option(
-        "--path",
-        help="Base directory for file operations (overrides EXCEL_MCP_DIRS env var)",
-    ),
-]
-ToolModeOption = Annotated[
-    str | None,
-    typer.Option(
-        "--tool-mode",
-        help="Tool registration mode: 'compound' (default, 8 compact tools) or 'full' (33 tools)",
-    ),
-]
-
-
-@app.command()
-def run(
-    path: PathOption = None,
-    tool_mode: ToolModeOption = None,
-) -> None:
-    """Validate configuration and start the MCP server on stdio."""
-    _start_server(path=path, tool_mode=tool_mode)
-
-
-def main() -> None:
-    """
-    Main entry point for the excel_mcp module.
-
-    This function serves as the primary entry point when the module is executed
-    with `python -m excel_mcp` or through the `excel-mcp` CLI script.
-
-    It starts the MCP server on stdio, accepting optional `--path` and
-    `--tool-mode` flags when environment variables cannot be passed directly.
-    """
-    try:
-        configure_logging()
-        logger.info("MCP Excel Office CLI starting...")
-        logger.info(f"Processing command: {' '.join(sys.argv[1:])}")
-        app()
-
-    except SystemExit as exc:
-        if exc.code not in (None, 0):
-            raise
-    except KeyboardInterrupt:
-        typer.echo("\nOperation cancelled by user.", err=True)
-        logger.info("Operation cancelled by user interrupt")
-        sys.exit(0)
-    except Exception as e:
-        typer.echo(f"Unexpected error in MCP Excel CLI: {e}", err=True)
-        logger.error(f"Unexpected CLI error: {e}", exc_info=True)
+        print(f"Unexpected error starting server: {e}", file=sys.stderr)
+        logger.error(f"Unexpected server startup error: {e}", exc_info=True)
         sys.exit(1)
 
 
