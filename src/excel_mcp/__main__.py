@@ -6,10 +6,9 @@ supporting both MCP server mode and standalone CLI operations. It handles
 environment variable configuration, command-line argument parsing, and provides
 clear error messages for configuration issues.
 
-The module supports multiple execution modes:
-- MCP Server: `python -m excel_mcp server` or `uv run excel-mcp`
-- File listing: `python -m excel_mcp list`
-- Default behavior: Start MCP server when no command is specified
+The module supports execution as a single MCP server command:
+- Default MCP Server: `uvx luiccian-excel-mcp`, `python -m excel_mcp`, or `uv run excel-mcp`
+- Optional CLI flags for clients without `env` support: `--path`, `--tool-mode`
 """
 
 import logging
@@ -26,7 +25,6 @@ from excel_mcp.config import (
 )
 from excel_mcp.server import configure_logging, run_server, run_stdio
 from excel_mcp.tools.register_tools import normalize_tool_mode
-from excel_mcp.utils.file_utils import list_excel_files_in_directory
 from excel_mcp.utils.paths import resolve_allowed_directories
 
 logger = logging.getLogger(__name__)
@@ -124,82 +122,13 @@ ToolModeOption = Annotated[
 ]
 
 
-@app.callback(invoke_without_command=True)
-def root_entrypoint(
-    ctx: typer.Context,
+@app.command()
+def run(
     path: PathOption = None,
     tool_mode: ToolModeOption = None,
 ) -> None:
-    """Start the MCP server by default or forward root options to subcommands."""
-    if ctx.invoked_subcommand is None:
-        _start_server(path=path, tool_mode=tool_mode)
-    else:
-        ctx.ensure_object(dict).update({"path": path, "tool_mode": tool_mode})
-
-
-@app.command("server")
-def run_mcp_server(
-    ctx: typer.Context,
-    path: PathOption = None,
-    tool_mode: ToolModeOption = None,
-) -> None:
-    """
-    Start the MCP Excel Office server.
-
-    The server provides Excel manipulation capabilities through the Model Context Protocol.
-    Configuration can be provided via command-line arguments or environment variables.
-    Command-line arguments take precedence over environment variables.
-    """
-    root_opts = ctx.obj if isinstance(ctx.obj, dict) else {}
-    effective_path = path if path is not None else root_opts.get("path")
-    effective_mode = tool_mode if tool_mode is not None else root_opts.get("tool_mode")
-    _start_server(path=effective_path, tool_mode=effective_mode)
-
-
-@app.command("list")
-def list_excel_files(
-    ctx: typer.Context,
-    path: Annotated[
-        str | None,
-        typer.Option(
-            "--path",
-            help="Directory to scan for Excel files (overrides EXCEL_MCP_DIRS env var)",
-        ),
-    ] = None,
-) -> None:
-    """List all .xlsx files in the allowed directories."""
-    try:
-        root_opts = ctx.obj if isinstance(ctx.obj, dict) else {}
-        if root_opts.get("tool_mode") is not None:
-            typer.echo(
-                "--tool-mode is only supported for the server command.", err=True
-            )
-            raise typer.Exit(1)
-        effective_path = path if path is not None else root_opts.get("path")
-        validate_and_apply_configuration(path=effective_path)
-
-        target_directories = resolve_allowed_directories()
-        try:
-            excel_files = list_excel_files_in_directory()
-        except (FileNotFoundError, OSError) as e:
-            typer.echo(f"Error scanning directory: {e}", err=True)
-            raise typer.Exit(1) from e
-
-        display_dirs = ", ".join(target_directories)
-        if not excel_files:
-            typer.echo(f"No Excel files found in: {display_dirs}")
-        else:
-            typer.echo(f"Found {len(excel_files)} Excel file(s) in: {display_dirs}")
-            for file_info in excel_files:
-                raw_size = file_info.get("size_bytes", 0)
-                size_mb = float(raw_size) / (1024 * 1024)
-                typer.echo(f"  - {file_info['filename']} ({size_mb:.2f} MB)")
-
-    except typer.Exit:
-        raise
-    except Exception as e:
-        typer.echo(f"Error listing Excel files: {e}", err=True)
-        sys.exit(1)
+    """Validate configuration and start the MCP server on stdio."""
+    _start_server(path=path, tool_mode=tool_mode)
 
 
 def main() -> None:
@@ -209,13 +138,8 @@ def main() -> None:
     This function serves as the primary entry point when the module is executed
     with `python -m excel_mcp` or through the `excel-mcp` CLI script.
 
-    It supports multiple execution patterns:
-    - `python -m excel_mcp` (defaults to server mode)
-    - `python -m excel_mcp server` (explicit server mode)
-    - `python -m excel_mcp list` (list Excel files)
-    - `uv run excel-mcp` (entry point script)
-
-    The function provides proper error handling and logging for all execution modes.
+    It starts the MCP server on stdio, accepting optional `--path` and
+    `--tool-mode` flags when environment variables cannot be passed directly.
     """
     try:
         configure_logging()

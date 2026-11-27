@@ -78,9 +78,7 @@ def test_main_rejects_invalid_root_tool_mode(monkeypatch):
     assert exc.value.code != 0
 
 
-def test_main_list_honors_root_path_and_rejects_tool_mode(
-    monkeypatch, tmp_path, capsys
-):
+def test_main_rejects_placeholder_path(monkeypatch):
     import os
     import pytest
     from excel_mcp import __main__ as cli
@@ -89,18 +87,8 @@ def test_main_list_honors_root_path_and_rejects_tool_mode(
     original_config = config_manager._config
     original_allowed = os.environ.get("EXCEL_MCP_DIRS")
     try:
-        sample = tmp_path / "report.xlsx"
-        sample.write_bytes(b"")
-        monkeypatch.setattr(sys, "argv", ["excel-mcp", "--path", str(tmp_path), "list"])
-        cli.main()
-        captured = capsys.readouterr()
-        assert "report.xlsx" in captured.out
-
-        monkeypatch.setattr(
-            sys,
-            "argv",
-            ["excel-mcp", "--tool-mode", "full", "list"],
-        )
+        monkeypatch.setattr(sys, "argv", ["excel-mcp", "--path", "${workspaceFolder}"])
+        monkeypatch.setattr(cli, "run_server", lambda mode=None: _FakeServer())
         with pytest.raises(SystemExit) as exc:
             cli.main()
         assert exc.value.code != 0
@@ -112,43 +100,7 @@ def test_main_list_honors_root_path_and_rejects_tool_mode(
             os.environ["EXCEL_MCP_DIRS"] = original_allowed
 
 
-def test_main_list_respects_excel_mcp_dirs_and_filters_xlsx_only(
-    monkeypatch, tmp_path, capsys
-):
-    import os
-    from pathlib import Path
-    from excel_mcp import __main__ as cli
-    from excel_mcp.config import config_manager
-
-    original_config = config_manager._config
-    original_allowed = os.environ.get("EXCEL_MCP_DIRS")
-    sheets_dir = tmp_path / "sheets"
-    sheets_dir.mkdir()
-    empty_cwd = tmp_path / "no_documents_cwd"
-    empty_cwd.mkdir()
-    (sheets_dir / "budget.xlsx").write_bytes(b"")
-    (sheets_dir / "legacy.xls").write_bytes(b"")
-
-    try:
-        monkeypatch.chdir(empty_cwd)
-        monkeypatch.setattr(
-            Path, "home", staticmethod(lambda: tmp_path / "missing_home")
-        )
-        monkeypatch.setenv("EXCEL_MCP_DIRS", str(sheets_dir))
-        monkeypatch.setattr(sys, "argv", ["excel-mcp", "list"])
-        cli.main()
-        captured = capsys.readouterr()
-        assert "budget.xlsx" in captured.out
-        assert "legacy.xls" not in captured.out
-    finally:
-        config_manager._config = original_config
-        if original_allowed is None:
-            os.environ.pop("EXCEL_MCP_DIRS", None)
-        else:
-            os.environ["EXCEL_MCP_DIRS"] = original_allowed
-
-
-def test_main_list_exits_nonzero_for_missing_dir_and_placeholder(monkeypatch, tmp_path):
+def test_main_rejects_path_that_is_a_file(monkeypatch, tmp_path):
     import os
     import pytest
     from excel_mcp import __main__ as cli
@@ -157,21 +109,27 @@ def test_main_list_exits_nonzero_for_missing_dir_and_placeholder(monkeypatch, tm
     original_config = config_manager._config
     original_allowed = os.environ.get("EXCEL_MCP_DIRS")
     try:
-        missing = tmp_path / "does_not_exist"
-        monkeypatch.setattr(sys, "argv", ["excel-mcp", "list", "--path", str(missing)])
+        not_a_dir = tmp_path / "file.txt"
+        not_a_dir.write_text("x", encoding="utf-8")
+        monkeypatch.setattr(sys, "argv", ["excel-mcp", "--path", str(not_a_dir)])
+        monkeypatch.setattr(cli, "run_server", lambda mode=None: _FakeServer())
         with pytest.raises(SystemExit) as exc:
             cli.main()
         assert exc.value.code != 0
-
-        monkeypatch.setattr(
-            sys, "argv", ["excel-mcp", "list", "--path", "${workspaceFolder}"]
-        )
-        with pytest.raises(SystemExit) as exc2:
-            cli.main()
-        assert exc2.value.code != 0
     finally:
         config_manager._config = original_config
         if original_allowed is None:
             os.environ.pop("EXCEL_MCP_DIRS", None)
         else:
             os.environ["EXCEL_MCP_DIRS"] = original_allowed
+
+
+def test_main_rejects_removed_server_subcommand(monkeypatch):
+    import pytest
+    from excel_mcp import __main__ as cli
+
+    monkeypatch.setattr(sys, "argv", ["excel-mcp", "server"])
+    monkeypatch.setattr(cli, "run_server", lambda mode=None: _FakeServer())
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code != 0

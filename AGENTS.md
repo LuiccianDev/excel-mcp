@@ -42,7 +42,7 @@ When assisting users or configuring clients (Claude Desktop, Cursor, Cline, Copi
 
 - **Default `compound` Surface (8 Tools) vs `full` Mode (33 Tools):**
   - By default (`EXCEL_MCP_TOOLS=compound`), the server exposes **8 tools**: 3 single-pass tools (`excel_build_workbook`, `excel_get_workbook_outline`, `excel_batch_write_data`) plus 5 action-dispatched domain tools (`excel_workbook`, `excel_data`, `excel_format`, `excel_formula`, `excel_analytics`).
-  - Set `EXCEL_MCP_TOOLS=full` or pass `server --tool-mode full` only when a client explicitly requires all 33 individual `excel_*` tool schemas.
+  - Set `EXCEL_MCP_TOOLS=full` or pass `--tool-mode full` only when a client explicitly requires all 33 individual `excel_*` tool schemas.
   - Compound dispatchers transparently normalize `range_string` and `cell_range` aliases (rejecting ambiguous calls that pass both).
 - **Prohibition of Chatty Micro-Iterations:** AI assistants using `excel-mcp` must avoid making consecutive micro-calls (e.g., calling `create_workbook`, then 50 separate calls to `write_data_to_excel`, followed by 20 calls to `format_range_excel`). This legacy anti-pattern consumes tens of thousands of tokens and multiple conversational round-trips.
 - **Mandatory Single-Pass Usage:** Always prefer:
